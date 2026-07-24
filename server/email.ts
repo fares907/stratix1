@@ -1,6 +1,25 @@
+import { resolve4 } from "node:dns/promises";
 import type { Booking } from "../drizzle/schema";
 import nodemailer from "nodemailer";
 import { ENV } from "./_core/env";
+
+const GMAIL_SMTP_HOST = "smtp.gmail.com";
+
+// Some hosts (e.g. Render's free tier) report IPv6 as available on their local
+// network interfaces, which is enough for nodemailer to prefer an AAAA record
+// for smtp.gmail.com — but outbound IPv6 routing is actually broken there, so
+// the connection fails with ENETUNREACH. Resolving the A record ourselves and
+// connecting to that literal IPv4 address sidesteps nodemailer's family
+// detection entirely. `servername` keeps TLS certificate validation working
+// against the real hostname despite connecting via IP.
+async function resolveGmailSmtpHost(): Promise<string> {
+  try {
+    const [address] = await resolve4(GMAIL_SMTP_HOST);
+    return address || GMAIL_SMTP_HOST;
+  } catch {
+    return GMAIL_SMTP_HOST;
+  }
+}
 
 export type BookingEmailResult =
   | { status: "sent"; messageId: string }
@@ -77,24 +96,16 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
     return { status: "not_configured", error: "Gmail SMTP configuration is incomplete" };
   }
 
-  // Some hosts (e.g. Render's free tier) advertise IPv6 but can't actually
-  // route it, so a bare AAAA connection to smtp.gmail.com fails with
-  // ENETUNREACH. Force IPv4 to avoid depending on the host's IPv6 egress.
-  // `family` isn't in nodemailer's TS definitions (it's forwarded as-is to
-  // Node's net/tls connect), so this is built as a plain variable rather
-  // than an inline literal to sidestep the excess-property check.
-  const transportOptions = {
-    host: "smtp.gmail.com",
+  const transporter = nodemailer.createTransport({
+    host: await resolveGmailSmtpHost(),
     port: 465,
     secure: true,
+    tls: { servername: GMAIL_SMTP_HOST },
     auth: { user, pass },
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
-    family: 4,
-  };
-
-  const transporter = nodemailer.createTransport(transportOptions);
+  });
 
   try {
     const content = buildBookingEmailContent(booking);
