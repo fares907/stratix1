@@ -28,7 +28,7 @@ const makeBooking = (clientEmail: string | null): Booking => ({
   name: "عميل <جديد>",
   phone: "01125839109",
   clientEmail,
-  projectType: "landing",
+  projectType: "personal",
   budget: "1500-3000",
   details: "أحتاج صفحة واضحة <script>alert('x')</script>",
   status: "new",

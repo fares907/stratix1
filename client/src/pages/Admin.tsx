@@ -52,8 +52,7 @@ const statusFilters: Array<{ value: "all" | BookingStatus; label: string }> = [
 
 const projectTypeLabels: Record<BookingRow["projectType"], string> = {
   company: "موقع شركة",
-  portfolio: "ملف أعمال",
-  landing: "صفحة هبوط",
+  personal: "موقع شخصي",
   other: "فكرة أخرى",
 };
 
@@ -274,6 +273,7 @@ function BookingsPanel() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>رقم الطلب</TableHead>
                 <TableHead>التاريخ</TableHead>
                 <TableHead>الاسم</TableHead>
                 <TableHead>الهاتف</TableHead>
@@ -288,6 +288,7 @@ function BookingsPanel() {
             <TableBody>
               {bookings.map(booking => (
                 <TableRow key={booking.publicId}>
+                  <TableCell className="font-mono text-xs" dir="ltr">{booking.publicId}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(booking.createdAt)}
                   </TableCell>
@@ -342,7 +343,7 @@ function BookingsPanel() {
               ))}
               {bookings.length === 0 && !listQuery.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                     لا توجد حجوزات في هذا التصنيف.
                   </TableCell>
                 </TableRow>

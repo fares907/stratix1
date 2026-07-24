@@ -105,7 +105,7 @@ export default function Home() {
         name: String(data.get("name") ?? ""),
         phone: String(data.get("phone") ?? ""),
         clientEmail: String(data.get("clientEmail") ?? ""),
-        projectType: String(data.get("projectType") ?? "") as "company" | "portfolio" | "landing" | "other",
+        projectType: String(data.get("projectType") ?? "") as "company" | "personal" | "other",
         budget: String(data.get("budget") ?? "") as "700-1500" | "1500-3000" | "3000+",
         details: String(data.get("details") ?? ""),
         website: String(data.get("website") ?? ""),
@@ -448,8 +448,7 @@ export default function Home() {
                   <select name="projectType" defaultValue="" required>
                     <option value="" disabled>اختر النوع</option>
                     <option value="company">موقع شركة</option>
-                    <option value="portfolio">ملف أعمال</option>
-                    <option value="landing">صفحة هبوط</option>
+                    <option value="personal">موقع شخصي</option>
                     <option value="other">فكرة أخرى</option>
                   </select>
                 </label>

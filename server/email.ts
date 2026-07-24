@@ -8,8 +8,7 @@ export type BookingEmailResult =
 
 const projectTypeLabels: Record<Booking["projectType"], string> = {
   company: "موقع شركة",
-  portfolio: "ملف أعمال",
-  landing: "صفحة هبوط",
+  personal: "موقع شخصي",
   other: "فكرة أخرى",
 };
 

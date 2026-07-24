@@ -1,0 +1,1 @@
+ALTER TABLE `bookings` MODIFY COLUMN `projectType` enum('company','personal','other') NOT NULL;

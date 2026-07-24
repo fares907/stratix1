@@ -35,7 +35,7 @@ export const bookings = mysqlTable(
     name: varchar("name", { length: 120 }).notNull(),
     phone: varchar("phone", { length: 24 }).notNull(),
     clientEmail: varchar("clientEmail", { length: 320 }),
-    projectType: mysqlEnum("projectType", ["company", "portfolio", "landing", "other"]).notNull(),
+    projectType: mysqlEnum("projectType", ["company", "personal", "other"]).notNull(),
     budget: mysqlEnum("budget", ["700-1500", "1500-3000", "3000+"]).notNull(),
     details: text("details").notNull(),
     status: mysqlEnum("status", ["new", "contacted", "closed"]).default("new").notNull(),

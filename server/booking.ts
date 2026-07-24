@@ -31,7 +31,7 @@ export const bookingInputSchema = z.object({
     .union([z.literal(""), z.string().trim().email("أدخل بريداً إلكترونياً صحيحاً").max(320)])
     .optional()
     .transform(value => value || undefined),
-  projectType: z.enum(["company", "portfolio", "landing", "other"]),
+  projectType: z.enum(["company", "personal", "other"]),
   budget: z.enum(["700-1500", "1500-3000", "3000+"]),
   details: z
     .union([z.literal(""), z.string().trim().min(15, "لو هتكتب ملاحظات، خليها 15 حرف على الأقل").max(2000, "الملاحظات أطول من اللازم")])
