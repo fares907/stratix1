@@ -77,7 +77,13 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
     return { status: "not_configured", error: "Gmail SMTP configuration is incomplete" };
   }
 
-  const transporter = nodemailer.createTransport({
+  // Some hosts (e.g. Render's free tier) advertise IPv6 but can't actually
+  // route it, so a bare AAAA connection to smtp.gmail.com fails with
+  // ENETUNREACH. Force IPv4 to avoid depending on the host's IPv6 egress.
+  // `family` isn't in nodemailer's TS definitions (it's forwarded as-is to
+  // Node's net/tls connect), so this is built as a plain variable rather
+  // than an inline literal to sidestep the excess-property check.
+  const transportOptions = {
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
@@ -85,7 +91,10 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
-  });
+    family: 4,
+  };
+
+  const transporter = nodemailer.createTransport(transportOptions);
 
   try {
     const content = buildBookingEmailContent(booking);
