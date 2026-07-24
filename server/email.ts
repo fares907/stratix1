@@ -96,10 +96,15 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
     return { status: "not_configured", error: "Gmail SMTP configuration is incomplete" };
   }
 
+  // Port 465 (implicit TLS) times out on some hosts (e.g. Render's free tier)
+  // whose outbound firewall blocks it as an anti-spam measure. Port 587 with
+  // STARTTLS is the standard mail submission port and is far more commonly
+  // left open.
   const transporter = nodemailer.createTransport({
     host: await resolveGmailSmtpHost(),
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
+    requireTLS: true,
     tls: { servername: GMAIL_SMTP_HOST },
     auth: { user, pass },
     connectionTimeout: 10_000,
