@@ -1,7 +1,8 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUpLeft, MessageSquareText, Send, X } from "lucide-react";
-import { useRef, useState } from "react";
-import { chatbotQuickQuestions, getChatbotAnswer } from "@/lib/chatbot";
+import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getChatbotAnswer, getChatbotQuickQuestions } from "@/lib/chatbot";
 
 type Message = {
   id: number;
@@ -9,23 +10,56 @@ type Message = {
   text: string;
 };
 
-const initialMessage: Message = {
-  id: 1,
-  author: "bot",
-  text: "أهلاً بك في STRATIX. اسألني عن الخدمة، السعر، المدة، الحجز، أو التواصل.",
+const greeting = {
+  ar: "أهلاً بك في STRATIX. اسألني عن الخدمة، السعر، المدة، الحجز، أو التواصل.",
+  en: "Welcome to STRATIX. Ask me about the service, pricing, timeline, booking, or how to reach us.",
+};
+
+const chatCopy = {
+  ar: {
+    panelAria: "مساعد STRATIX",
+    signalLabel: "STRATIX SIGNAL",
+    signalNote: "إجابات محددة — بدون ذكاء اصطناعي",
+    close: "إغلاق المحادثة",
+    quickQuestionsAria: "أسئلة سريعة",
+    questionLabel: "اكتب سؤالك",
+    placeholder: "مثال: الأسعار كام؟",
+    send: "إرسال السؤال",
+    bookingLink: "ابدأ حجز مشروعك",
+    launcher: "اسألنا",
+  },
+  en: {
+    panelAria: "STRATIX Assistant",
+    signalLabel: "STRATIX SIGNAL",
+    signalNote: "Fixed answers — no AI",
+    close: "Close chat",
+    quickQuestionsAria: "Quick questions",
+    questionLabel: "Type your question",
+    placeholder: "e.g. What are your prices?",
+    send: "Send question",
+    bookingLink: "Start your project",
+    launcher: "Ask us",
+  },
 };
 
 export default function StratixChat() {
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([initialMessage]);
+  const [messages, setMessages] = useState<Message[]>([{ id: 1, author: "bot", text: greeting[language] }]);
   const sequence = useRef(1);
   const reduceMotion = useReducedMotion();
+  const copy = chatCopy[language];
+
+  useEffect(() => {
+    sequence.current = 1;
+    setMessages([{ id: 1, author: "bot", text: greeting[language] }]);
+  }, [language]);
 
   const ask = (question: string) => {
     const trimmed = question.trim();
     if (!trimmed) return;
 
-    const answer = getChatbotAnswer(trimmed);
+    const answer = getChatbotAnswer(trimmed, language);
     sequence.current += 2;
     setMessages(current => [
       ...current,
@@ -43,14 +77,14 @@ export default function StratixChat() {
   };
 
   return (
-    <div className="stratix-chat" dir="rtl">
+    <div className="stratix-chat" dir={language === "ar" ? "rtl" : "ltr"}>
       <AnimatePresence>
         {open && (
           <motion.section
             id="stratix-chat-panel"
             className="chat-panel"
             role="region"
-            aria-label="مساعد STRATIX"
+            aria-label={copy.panelAria}
             initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 22, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
@@ -59,9 +93,9 @@ export default function StratixChat() {
             <header className="chat-header">
               <div>
                 <span className="chat-status-dot" aria-hidden="true" />
-                <p><b>STRATIX SIGNAL</b><small>إجابات محددة — بدون ذكاء اصطناعي</small></p>
+                <p><b>{copy.signalLabel}</b><small>{copy.signalNote}</small></p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="إغلاق المحادثة">
+              <button type="button" onClick={() => setOpen(false)} aria-label={copy.close}>
                 <X aria-hidden="true" />
               </button>
             </header>
@@ -80,8 +114,8 @@ export default function StratixChat() {
               ))}
             </div>
 
-            <div className="chat-quick-questions" aria-label="أسئلة سريعة">
-              {chatbotQuickQuestions.map(question => (
+            <div className="chat-quick-questions" aria-label={copy.quickQuestionsAria}>
+              {getChatbotQuickQuestions(language).map(question => (
                 <button type="button" key={question.id} onClick={() => ask(question.label)}>
                   {question.label}
                 </button>
@@ -89,13 +123,13 @@ export default function StratixChat() {
             </div>
 
             <form className="chat-input-row" onSubmit={handleSubmit}>
-              <label className="sr-only" htmlFor="chat-question">اكتب سؤالك</label>
-              <input id="chat-question" name="question" placeholder="مثال: الأسعار كام؟" autoComplete="off" maxLength={160} />
-              <button type="submit" aria-label="إرسال السؤال"><Send aria-hidden="true" /></button>
+              <label className="sr-only" htmlFor="chat-question">{copy.questionLabel}</label>
+              <input id="chat-question" name="question" placeholder={copy.placeholder} autoComplete="off" maxLength={160} />
+              <button type="submit" aria-label={copy.send}><Send aria-hidden="true" /></button>
             </form>
 
             <a className="chat-booking-link" href="#booking" onClick={() => setOpen(false)}>
-              ابدأ حجز مشروعك <ArrowUpLeft aria-hidden="true" />
+              {copy.bookingLink} <ArrowUpLeft aria-hidden="true" />
             </a>
           </motion.section>
         )}
@@ -108,7 +142,7 @@ export default function StratixChat() {
         aria-controls="stratix-chat-panel"
         onClick={() => setOpen(value => !value)}
       >
-        <span>اسألنا</span>
+        <span>{copy.launcher}</span>
         <MessageSquareText aria-hidden="true" />
       </button>
     </div>

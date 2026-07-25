@@ -8,13 +8,26 @@ describe("STRATIX fixed-answer chatbot", () => {
     ["بتعملوا مواقع شركات؟", "services", "مواقع الشركات"],
     ["رقم التواصل", "contact", "01125839109"],
     ["مين المؤسسين؟", "founders", "فارس سامي"],
-  ])("matches %s to the expected answer", (question, id, phrase) => {
-    const answer = getChatbotAnswer(question);
+  ])("matches %s (ar) to the expected answer", (question, id, phrase) => {
+    const answer = getChatbotAnswer(question, "ar");
     expect(answer.id).toBe(id);
     expect(answer.text).toContain(phrase);
   });
 
+  it.each([
+    ["how much does it cost?", "price", "700"],
+    ["how long does it take", "duration", "one week"],
+    ["do you build company websites?", "services", "company"],
+    ["contact number", "contact", "01125839109"],
+    ["who are the founders?", "founders", "Fares Samy"],
+  ])("matches %s (en) to the expected answer", (question, id, phrase) => {
+    const answer = getChatbotAnswer(question, "en");
+    expect(answer.id).toBe(id);
+    expect(answer.text.toLowerCase()).toContain(phrase.toLowerCase());
+  });
+
   it("returns a guided fallback for unsupported questions", () => {
-    expect(getChatbotAnswer("ما حالة الطقس اليوم؟").id).toBe("fallback");
+    expect(getChatbotAnswer("ما حالة الطقس اليوم؟", "ar").id).toBe("fallback");
+    expect(getChatbotAnswer("what's the weather today?", "en").id).toBe("fallback");
   });
 });
