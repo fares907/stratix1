@@ -195,7 +195,9 @@ function BookingsPanel() {
 
   const statsQuery = trpc.adminBookings.stats.useQuery();
   const listQuery = trpc.adminBookings.list.useQuery({
-    status: statusFilter === "all" ? undefined : statusFilter,
+    // A search should find the booking regardless of the status filter —
+    // otherwise a stale filter silently hides matches and search looks broken.
+    status: search || statusFilter === "all" ? undefined : statusFilter,
     search: search || undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
@@ -251,12 +253,13 @@ function BookingsPanel() {
             </div>
             <Select
               value={statusFilter}
+              disabled={Boolean(search)}
               onValueChange={value => {
                 setStatusFilter(value as "all" | BookingStatus);
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-44" title={search ? "البحث بيشمل كل الحالات" : undefined}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
