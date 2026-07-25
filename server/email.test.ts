@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Booking } from "../drizzle/schema";
 
-const sendMail = vi.hoisted(() => vi.fn());
-const close = vi.hoisted(() => vi.fn());
-
-vi.mock("nodemailer", () => ({
-  default: {
-    createTransport: () => ({ sendMail, close }),
-  },
-}));
+const fetchMock = vi.hoisted(() => vi.fn());
+vi.stubGlobal("fetch", fetchMock);
 
 vi.mock("./_core/env", () => ({
   ENV: {
-    gmailSmtpUser: "stratix255@gmail.com",
-    gmailAppPassword: "test-app-password",
+    resendApiKey: "test-resend-key",
+    resendFromAddress: "STRATIX <booking@stratix.website>",
     bookingEmailTo: "stratix255@gmail.com",
   },
 }));
@@ -42,7 +36,11 @@ const makeBooking = (clientEmail: string | null): Booking => ({
 describe("booking email content", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sendMail.mockResolvedValue({ messageId: "smtp-message-id" });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "resend-message-id" }),
+    });
   });
 
   it("includes the booking data and escapes customer HTML", () => {
@@ -56,19 +54,36 @@ describe("booking email content", () => {
     expect(content.html).not.toContain("<script>alert");
   });
 
-  it("sets Reply-To when the customer provides an email", async () => {
+  it("sets reply_to when the customer provides an email", async () => {
     await expect(sendBookingEmail(makeBooking("client@example.com"))).resolves.toMatchObject({
       status: "sent",
+      messageId: "resend-message-id",
     });
 
-    expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({ replyTo: "client@example.com" }),
-    );
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(requestInit.body);
+    expect(body.reply_to).toBe("client@example.com");
+    expect(requestInit.headers.Authorization).toBe("Bearer test-resend-key");
   });
 
-  it("keeps Reply-To empty when no customer email is provided", async () => {
+  it("keeps reply_to empty when no customer email is provided", async () => {
     await sendBookingEmail(makeBooking(null));
 
-    expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ replyTo: undefined }));
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(requestInit.body);
+    expect(body.reply_to).toBeUndefined();
+  });
+
+  it("reports a failed status when Resend responds with an error", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: async () => ({ message: "Invalid from address" }),
+    });
+
+    await expect(sendBookingEmail(makeBooking(null))).resolves.toMatchObject({
+      status: "failed",
+      error: "Invalid from address",
+    });
   });
 });

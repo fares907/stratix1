@@ -1,25 +1,8 @@
-import { resolve4 } from "node:dns/promises";
 import type { Booking } from "../drizzle/schema";
-import nodemailer from "nodemailer";
 import { ENV } from "./_core/env";
 
-const GMAIL_SMTP_HOST = "smtp.gmail.com";
-
-// Some hosts (e.g. Render's free tier) report IPv6 as available on their local
-// network interfaces, which is enough for nodemailer to prefer an AAAA record
-// for smtp.gmail.com — but outbound IPv6 routing is actually broken there, so
-// the connection fails with ENETUNREACH. Resolving the A record ourselves and
-// connecting to that literal IPv4 address sidesteps nodemailer's family
-// detection entirely. `servername` keeps TLS certificate validation working
-// against the real hostname despite connecting via IP.
-async function resolveGmailSmtpHost(): Promise<string> {
-  try {
-    const [address] = await resolve4(GMAIL_SMTP_HOST);
-    return address || GMAIL_SMTP_HOST;
-  } catch {
-    return GMAIL_SMTP_HOST;
-  }
-}
+const RESEND_API_URL = "https://api.resend.com/emails";
+const DEFAULT_FROM_ADDRESS = "STRATIX <onboarding@resend.dev>";
 
 export type BookingEmailResult =
   | { status: "sent"; messageId: string }
@@ -87,46 +70,54 @@ export function buildBookingEmailContent(booking: Booking) {
   return { subject, text, html };
 }
 
+// Sends via Resend's HTTPS API instead of raw SMTP. Gmail's SMTP servers
+// reject or silently time out connections originating from cloud/datacenter
+// IPs (a known anti-abuse behavior, confirmed across two different hosts on
+// this project) — an HTTPS API call is just a normal web request, so it
+// isn't subject to that SMTP-specific blocking.
 export async function sendBookingEmail(booking: Booking): Promise<BookingEmailResult> {
-  const user = ENV.gmailSmtpUser.trim();
-  const pass = ENV.gmailAppPassword.replace(/\s+/g, "");
-  const to = ENV.bookingEmailTo.trim() || user;
+  const apiKey = ENV.resendApiKey.trim();
+  const to = ENV.bookingEmailTo.trim();
+  const from = ENV.resendFromAddress.trim() || DEFAULT_FROM_ADDRESS;
 
-  if (!user || !pass || !to) {
-    return { status: "not_configured", error: "Gmail SMTP configuration is incomplete" };
+  if (!apiKey || !to) {
+    return { status: "not_configured", error: "Resend configuration is incomplete" };
   }
-
-  // Port 465 (implicit TLS) times out on some hosts (e.g. Render's free tier)
-  // whose outbound firewall blocks it as an anti-spam measure. Port 587 with
-  // STARTTLS is the standard mail submission port and is far more commonly
-  // left open.
-  const transporter = nodemailer.createTransport({
-    host: await resolveGmailSmtpHost(),
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    tls: { servername: GMAIL_SMTP_HOST },
-    auth: { user, pass },
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
-  });
 
   try {
     const content = buildBookingEmailContent(booking);
-    const info = await transporter.sendMail({
-      from: `STRATIX <${user}>`,
-      to,
-      replyTo: booking.clientEmail || undefined,
-      ...content,
-      headers: { "X-STRATIX-Booking-ID": booking.publicId },
+    const response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        reply_to: booking.clientEmail || undefined,
+        subject: content.subject,
+        text: content.text,
+        html: content.html,
+        headers: { "X-STRATIX-Booking-ID": booking.publicId },
+      }),
     });
-    return { status: "sent", messageId: info.messageId };
+
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const message =
+        (body && typeof body === "object" && "message" in body && String(body.message)) ||
+        `Resend API error (${response.status})`;
+      console.error(`[Booking email] Delivery failed for ${booking.publicId}:`, message);
+      return { status: "failed", error: message };
+    }
+
+    const messageId = body && typeof body === "object" && "id" in body ? String(body.id) : "unknown";
+    return { status: "sent", messageId };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown SMTP error";
+    const message = error instanceof Error ? error.message : "Unknown Resend API error";
     console.error(`[Booking email] Delivery failed for ${booking.publicId}:`, message);
     return { status: "failed", error: message };
-  } finally {
-    transporter.close();
   }
 }
