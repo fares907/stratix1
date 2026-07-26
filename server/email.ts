@@ -8,6 +8,8 @@ export type BookingEmailResult =
   | { status: "sent"; messageId: string }
   | { status: "failed" | "not_configured"; error: string };
 
+export type CustomerLanguage = "ar" | "en";
+
 const projectTypeLabels: Record<Booking["projectType"], string> = {
   company: "موقع شركة",
   personal: "موقع شخصي",
@@ -70,22 +72,62 @@ export function buildBookingEmailContent(booking: Booking) {
   return { subject, text, html };
 }
 
-// Sends via Resend's HTTPS API instead of raw SMTP. Gmail's SMTP servers
-// reject or silently time out connections originating from cloud/datacenter
-// IPs (a known anti-abuse behavior, confirmed across two different hosts on
-// this project) — an HTTPS API call is just a normal web request, so it
-// isn't subject to that SMTP-specific blocking.
-export async function sendBookingEmail(booking: Booking): Promise<BookingEmailResult> {
+const customerConfirmationCopy = {
+  ar: {
+    dir: "rtl" as const,
+    eyebrow: "STRATIX / تأكيد الاستلام",
+    subject: (publicId: string) => `تم استلام طلبك — ${publicId}`,
+    heading: (name: string) => `أهلاً ${name}،`,
+    body: (publicId: string) =>
+      `وصلنا طلبك بنجاح ورقمه ${publicId}. هنراجع التفاصيل ونتواصل معك قريباً لتأكيد السعر والخطوات التالية.`,
+    footer: "لو عندك أي سؤال، تقدر تتواصل معنا على 01125839109 أو 01036678093 (متاحون على واتساب كمان).",
+    thanks: "شكراً لثقتك في STRATIX.",
+  },
+  en: {
+    dir: "ltr" as const,
+    eyebrow: "STRATIX / Request Received",
+    subject: (publicId: string) => `We received your request — ${publicId}`,
+    heading: (name: string) => `Hi ${name},`,
+    body: (publicId: string) =>
+      `We've received your request (order #${publicId}). We'll review the details and reach out soon to confirm the price and next steps.`,
+    footer: "If you have any questions, reach us at 01125839109 or 01036678093 (also available on WhatsApp).",
+    thanks: "Thanks for choosing STRATIX.",
+  },
+};
+
+export function buildCustomerConfirmationContent(booking: Booking, language: CustomerLanguage) {
+  const copy = customerConfirmationCopy[language];
+  const subject = copy.subject(booking.publicId);
+  const text = [copy.heading(booking.name), "", copy.body(booking.publicId), "", copy.footer, copy.thanks].join("\n");
+
+  const html = `
+    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">${copy.eyebrow}</p>
+      <h1 style="margin:0 0 20px;font-size:24px">${escapeHtml(copy.heading(booking.name))}</h1>
+      <p style="line-height:1.9;margin:0 0 18px">${escapeHtml(copy.body(booking.publicId))}</p>
+      <p style="line-height:1.9;margin:0 0 18px;color:#aaa099">${escapeHtml(copy.footer)}</p>
+      <p style="line-height:1.9;margin:0">${escapeHtml(copy.thanks)}</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+async function sendViaResend(params: {
+  to: string;
+  replyTo?: string;
+  subject: string;
+  text: string;
+  html: string;
+  publicId: string;
+}): Promise<BookingEmailResult> {
   const apiKey = ENV.resendApiKey.trim();
-  const to = ENV.bookingEmailTo.trim();
   const from = ENV.resendFromAddress.trim() || DEFAULT_FROM_ADDRESS;
 
-  if (!apiKey || !to) {
+  if (!apiKey || !params.to) {
     return { status: "not_configured", error: "Resend configuration is incomplete" };
   }
 
   try {
-    const content = buildBookingEmailContent(booking);
     const response = await fetch(RESEND_API_URL, {
       method: "POST",
       headers: {
@@ -94,12 +136,12 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
       },
       body: JSON.stringify({
         from,
-        to,
-        reply_to: booking.clientEmail || undefined,
-        subject: content.subject,
-        text: content.text,
-        html: content.html,
-        headers: { "X-STRATIX-Booking-ID": booking.publicId },
+        to: params.to,
+        reply_to: params.replyTo || undefined,
+        subject: params.subject,
+        text: params.text,
+        html: params.html,
+        headers: { "X-STRATIX-Booking-ID": params.publicId },
       }),
     });
 
@@ -109,7 +151,7 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
       const message =
         (body && typeof body === "object" && "message" in body && String(body.message)) ||
         `Resend API error (${response.status})`;
-      console.error(`[Booking email] Delivery failed for ${booking.publicId}:`, message);
+      console.error(`[Email] Delivery failed for ${params.publicId}:`, message);
       return { status: "failed", error: message };
     }
 
@@ -117,7 +159,42 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
     return { status: "sent", messageId };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Resend API error";
-    console.error(`[Booking email] Delivery failed for ${booking.publicId}:`, message);
+    console.error(`[Email] Delivery failed for ${params.publicId}:`, message);
     return { status: "failed", error: message };
   }
+}
+
+// Sends via Resend's HTTPS API instead of raw SMTP. Gmail's SMTP servers
+// reject or silently time out connections originating from cloud/datacenter
+// IPs (a known anti-abuse behavior, confirmed across two different hosts on
+// this project) — an HTTPS API call is just a normal web request, so it
+// isn't subject to that SMTP-specific blocking.
+export async function sendBookingEmail(booking: Booking): Promise<BookingEmailResult> {
+  const to = ENV.bookingEmailTo.trim();
+  const content = buildBookingEmailContent(booking);
+  return sendViaResend({
+    to,
+    replyTo: booking.clientEmail || undefined,
+    publicId: booking.publicId,
+    ...content,
+  });
+}
+
+// Best-effort confirmation to the customer, only sent when they provided an
+// email. Failures here never affect booking.submit's own success response —
+// the owner notification above is the one that must succeed.
+export async function sendCustomerConfirmationEmail(
+  booking: Booking,
+  language: CustomerLanguage,
+): Promise<BookingEmailResult> {
+  if (!booking.clientEmail) {
+    return { status: "not_configured", error: "Customer did not provide an email" };
+  }
+
+  const content = buildCustomerConfirmationContent(booking, language);
+  return sendViaResend({
+    to: booking.clientEmail,
+    publicId: booking.publicId,
+    ...content,
+  });
 }

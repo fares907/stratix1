@@ -71,7 +71,7 @@ function BrandMark() {
 
 export default function Home() {
   const reduceMotion = useReducedMotion();
-  const { t, toggleLanguage } = useLanguage();
+  const { t, toggleLanguage, language } = useLanguage();
   const { scrollYProgress } = useScroll();
   const heroWordY = useTransform(scrollYProgress, [0, 0.28], [0, -120]);
   const orbitY = useTransform(scrollYProgress, [0, 0.32], [0, 160]);
@@ -93,6 +93,7 @@ export default function Home() {
         budget: String(data.get("budget") ?? "") as "700-1500" | "1500-3000" | "3000+",
         details: String(data.get("details") ?? ""),
         website: String(data.get("website") ?? ""),
+        language,
       });
 
       form.reset();

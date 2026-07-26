@@ -9,7 +9,7 @@ import {
   getRecentBookingSignals,
   updateBookingEmailDelivery,
 } from "./db";
-import { sendBookingEmail } from "./email";
+import { sendBookingEmail, sendCustomerConfirmationEmail } from "./email";
 
 const egyptianPhone = /^(?:\+20|0)1[0125]\d{8}$/;
 
@@ -38,6 +38,7 @@ export const bookingInputSchema = z.object({
     .optional()
     .transform(value => value || undefined),
   website: z.string().max(0).optional().default(""),
+  language: z.enum(["ar", "en"]).default("ar"),
 });
 
 export type BookingInput = z.infer<typeof bookingInputSchema>;
@@ -129,6 +130,12 @@ export async function submitBooking(input: BookingInput, req: TrpcContext["req"]
       title: `حجز STRATIX جديد — ${booking.publicId}`,
       content: `${booking.name}\n${booking.phone}\n${booking.details}`,
     }).catch(error => console.warn("[Booking] Owner notification fallback failed:", error));
+  }
+
+  if (booking.clientEmail) {
+    await sendCustomerConfirmationEmail(booking, input.language).catch(error =>
+      console.warn("[Booking] Customer confirmation email failed:", error),
+    );
   }
 
   return {
