@@ -150,7 +150,18 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+// The Manus runtime script is a large bundle (~350KB, its own copy of React)
+// meant for live-preview inside Manus's own hosted builder iframe. It isn't
+// scoped to dev by the plugin itself, so it was shipping into production
+// builds on real hosting (Railway/Render) where nothing consumes it — and it
+// left #root empty there. `apply: "serve"` restricts it to `vite dev` only.
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  { ...vitePluginManusRuntime(), apply: "serve" as const },
+  vitePluginManusDebugCollector(),
+];
 
 export default defineConfig({
   plugins,
@@ -167,18 +178,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          if (id.includes("framer-motion")) return "motion";
-          if (id.includes("@trpc") || id.includes("@tanstack") || id.includes("superjson")) return "data";
-          if (id.includes("lucide-react") || id.includes("sonner") || id.includes("@radix-ui")) return "ui";
-          if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("/scheduler/") || id.includes("/wouter/")) return "framework";
-          return "vendor";
-        },
-      },
-    },
+    // No custom manualChunks: a hand-written vendor/framework split here was
+    // producing a chunk evaluation-order hazard (some non-React-named vendor
+    // code ended up executing before the "framework" chunk that defines
+    // React, so `React.createContext` read as undefined and the app never
+    // mounted in production — #root stayed empty with no console error).
+    // Rollup's automatic splitting respects the real dependency graph.
   },
   server: {
     host: true,
