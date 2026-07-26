@@ -12,9 +12,12 @@ describe("security headers", () => {
     createSecurityHeaders(true)({} as never, response as never, next);
 
     expect(headers.get("Content-Security-Policy")).toContain("object-src 'none'");
+    expect(headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
     expect(headers.get("Content-Security-Policy")).toContain("upgrade-insecure-requests");
     expect(headers.get("Strict-Transport-Security")).toContain("max-age=31536000");
+    expect(headers.get("Strict-Transport-Security")).toContain("preload");
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(headers.get("X-Frame-Options")).toBe("DENY");
     expect(headers.get("Permissions-Policy")).toContain("camera=()");
     expect(next).toHaveBeenCalledOnce();
   });
