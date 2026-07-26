@@ -24,7 +24,8 @@ export function createSecurityHeaders(isProduction = process.env.NODE_ENV === "p
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
     `connect-src 'self'${externalSource}`,
-    "frame-src 'self' https://*.manus.im",
+    "frame-src 'none'",
+    "frame-ancestors 'none'",
     ...(isProduction ? ["upgrade-insecure-requests"] : []),
   ];
 
@@ -33,11 +34,14 @@ export function createSecurityHeaders(isProduction = process.env.NODE_ENV === "p
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-DNS-Prefetch-Control", "off");
+    // frame-ancestors (CSP) is what modern browsers honor for clickjacking
+    // protection; X-Frame-Options stays as defense-in-depth for older ones.
+    res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
     res.setHeader("Origin-Agent-Cluster", "?1");
     if (isProduction) {
-      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
     }
     next();
   };
