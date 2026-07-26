@@ -1,13 +1,17 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { X } from "lucide-react";
-import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const whatsappContacts = [
-  { id: "fares", label: "فارس سامي", phone: "201125839109" },
-  { id: "youssef", label: "يوسف تامر", phone: "201036678093" },
-];
+const WHATSAPP_NUMBER = "201125839109";
 
-const prefilledMessage = encodeURIComponent("أهلاً STRATIX، عايز أعرف تفاصيل عن خدمة تصميم المواقع.");
+const copy = {
+  ar: {
+    label: "تواصل عبر واتساب",
+    message: "أهلاً STRATIX، عايز أعرف تفاصيل عن خدمة تصميم المواقع.",
+  },
+  en: {
+    label: "Chat on WhatsApp",
+    message: "Hello STRATIX, I'd like to know more about your website design service.",
+  },
+};
 
 function WhatsAppIcon() {
   return (
@@ -18,55 +22,20 @@ function WhatsAppIcon() {
 }
 
 export default function WhatsAppButton() {
-  const [open, setOpen] = useState(false);
-  const reduceMotion = useReducedMotion();
+  const { language } = useLanguage();
+  const { label, message } = copy[language];
 
   return (
-    <div className="whatsapp-widget" dir="rtl">
-      <AnimatePresence>
-        {open && (
-          <motion.section
-            className="whatsapp-panel"
-            role="region"
-            aria-label="تواصل عبر واتساب"
-            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.97 }}
-            transition={{ duration: reduceMotion ? 0 : 0.22, ease: [0.23, 1, 0.32, 1] }}
-          >
-            <header className="whatsapp-panel-header">
-              <span>راسلنا على واتساب</span>
-              <button type="button" onClick={() => setOpen(false)} aria-label="إغلاق">
-                <X aria-hidden="true" />
-              </button>
-            </header>
-            <div className="whatsapp-contact-list">
-              {whatsappContacts.map(contact => (
-                <a
-                  key={contact.id}
-                  href={`https://wa.me/${contact.phone}?text=${prefilledMessage}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  dir="ltr"
-                >
-                  <WhatsAppIcon />
-                  <span dir="rtl">{contact.label}</span>
-                </a>
-              ))}
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
-
-      <button
+    <div className="whatsapp-widget">
+      <a
         className="whatsapp-launcher"
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(value => !value)}
-        aria-label="تواصل عبر واتساب"
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={label}
       >
         <WhatsAppIcon />
-      </button>
+      </a>
     </div>
   );
 }

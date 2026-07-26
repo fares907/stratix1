@@ -408,7 +408,7 @@ export default function Home() {
                 </label>
                 <label>
                   <span>{t.booking.phoneLabel}</span>
-                  <input name="phone" type="tel" placeholder="01xxxxxxxxx" autoComplete="tel" inputMode="tel" dir="ltr" maxLength={16} required />
+                  <input name="phone" type="tel" placeholder={t.booking.phonePlaceholder} autoComplete="tel" inputMode="tel" dir="ltr" maxLength={32} required />
                 </label>
                 <label className="form-span-2">
                   <span>{t.booking.emailLabel} <small>{t.booking.optional}</small></span>

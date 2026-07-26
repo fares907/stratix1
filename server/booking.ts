@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { z } from "zod";
 import type { TrpcContext } from "./_core/context";
 import { notifyOwner } from "./_core/notification";
@@ -11,7 +12,24 @@ import {
 } from "./db";
 import { sendBookingEmail, sendCustomerConfirmationEmail } from "./email";
 
-const egyptianPhone = /^(?:\+20|0)1[0125]\d{8}$/;
+// Real Egyptian mobile prefixes. libphonenumber's Egypt metadata is looser
+// than reality (it accepts 016/019 and landlines), so we keep the stricter
+// check we already had for our main market rather than regressing it while
+// adding international support.
+const egyptianMobile = /^\+20(10|11|12|15)\d{8}$/;
+
+// Accepts any country's number. A bare local number with no country code is
+// assumed Egyptian, so existing "01xxxxxxxxx" input keeps working unchanged,
+// while "+44…", "+971…" etc. validate against their own national numbering
+// rules. Stored normalized to E.164 so the rate limiter and admin search
+// compare a single canonical form.
+function normalizePhone(value: string): string | null {
+  const cleaned = value.replace(/[\s()\-.]/g, "");
+  const parsed = parsePhoneNumberFromString(cleaned, "EG");
+  if (!parsed || !parsed.isValid()) return null;
+  if (parsed.country === "EG" && !egyptianMobile.test(parsed.number)) return null;
+  return parsed.number;
+}
 
 export const bookingInputSchema = z.object({
   requestKey: z.string().uuid(),
@@ -25,8 +43,15 @@ export const bookingInputSchema = z.object({
   phone: z
     .string()
     .trim()
-    .transform(value => value.replace(/[\s()-]/g, ""))
-    .refine(value => egyptianPhone.test(value), "أدخل رقم هاتف مصرياً صحيحاً"),
+    .max(32, "رقم الهاتف أطول من اللازم")
+    .transform((value, ctx) => {
+      const normalized = normalizePhone(value);
+      if (!normalized) {
+        ctx.addIssue({ code: "custom", message: "أدخل رقم هاتف صحيحاً مع كود الدولة" });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
   clientEmail: z
     .union([z.literal(""), z.string().trim().email("أدخل بريداً إلكترونياً صحيحاً").max(320)])
     .optional()

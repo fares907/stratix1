@@ -57,11 +57,27 @@ const booking = {
 describe("booking input", () => {
   it("normalizes a valid Arabic name and Egyptian phone number", () => {
     expect(validInput.name).toBe("فارس سامي");
-    expect(validInput.phone).toBe("01125839109");
+    expect(validInput.phone).toBe("+201125839109");
+  });
+
+  it.each([
+    ["a bare Egyptian number", "01125839109", "+201125839109"],
+    ["an Egyptian number with country code", "+20 112 583 9109", "+201125839109"],
+    ["a UK number", "+44 7400 123456", "+447400123456"],
+    ["a Saudi number", "+966 50 123 4567", "+966501234567"],
+    ["a US number", "+1 (415) 555-0132", "+14155550132"],
+  ])("accepts %s and stores it in E.164", (_label, input, expected) => {
+    expect(bookingInputSchema.parse({ ...validInput, phone: input }).phone).toBe(expected);
   });
 
   it("rejects invalid phones and filled honeypot fields", () => {
     expect(() => bookingInputSchema.parse({ ...validInput, phone: "123" })).toThrow();
+    // libphonenumber's Egypt metadata accepts these, but they aren't real
+    // Egyptian mobile numbers — our stricter national check must still reject.
+    expect(() => bookingInputSchema.parse({ ...validInput, phone: "01625839109" })).toThrow();
+    expect(() => bookingInputSchema.parse({ ...validInput, phone: "0221234567" })).toThrow();
+    // Valid country code, but too few digits to be a real UK number.
+    expect(() => bookingInputSchema.parse({ ...validInput, phone: "+44 1" })).toThrow();
     expect(() => bookingInputSchema.parse({ ...validInput, website: "spam.example" })).toThrow();
   });
 
