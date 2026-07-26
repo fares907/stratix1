@@ -19,8 +19,8 @@ const intents: ChatbotIntent[] = [
     id: "services",
     label: { ar: "الشركة بتعمل ايه؟", en: "What does the company do?" },
     keywords: {
-      ar: ["خدم", "موقع", "مواقع", "ويب", "سايت", "شرك", "اعمال", "هبوط", "تصميم", "برمج", "تعمل", "تعملوا", "شغل", "شغلكم", "مين انتوا", "تخصص"],
-      en: ["service", "website", "web", "design", "develop", "company", "offer", "build", "personal", "what do you do"],
+      ar: ["خدم", "شرك", "اعمال", "تصميم", "برمج", "تعمل", "تعملوا", "شغل", "شغلكم", "مين انتوا", "تخصص"],
+      en: ["service", "design", "develop", "company", "offer", "personal", "what do you do"],
     },
     text: {
       ar: "STRATIX استوديو بيصمم ويبرمج مواقع الشركات والمواقع الشخصية. نحدد الشكل والوظائف المناسبة بعد فهم هدف مشروعك.",
@@ -85,6 +85,126 @@ const intents: ChatbotIntent[] = [
     text: {
       ar: "مؤسسا STRATIX هما فارس سامي عبد العزيز السيد، ويوسف تامر السيد أحمد.",
       en: "STRATIX's founders are Fares Samy Abdelaziz Elsayed and Youssef Tamer Elsayed Ahmed.",
+    },
+  },
+  {
+    id: "technology",
+    label: { ar: "بتستخدموا إيه في بناء المواقع؟", en: "What technology do you use?" },
+    keywords: {
+      ar: ["تقنيه", "تكنولوجيا", "برمجه", "برمجة", "ووردبريس", "كود", "لغة برمجة"],
+      en: ["technology", "tech stack", "wordpress", "code", "platform", "built with", "coded"],
+    },
+    text: {
+      ar: "بنبني المواقع بكود مخصص وحديث، مش قوالب جاهزة، عشان الموقع يبقى سريع وآمن ومصمم خصيصاً لهدفك بدل شكل مكرر زي أي حد تاني.",
+      en: "We build with modern, custom code — not ready-made templates — so the site is fast, secure, and designed specifically for your goal instead of a repeated look like everyone else's.",
+    },
+  },
+  {
+    id: "ecommerce",
+    label: { ar: "بتعملوا متاجر إلكترونية؟", en: "Do you build online stores?" },
+    keywords: {
+      ar: ["متجر", "متاجر", "تجاره", "تجارة", "بيع", "منتجات", "اونلاين", "كوميرس", "الكترونيه", "الكترونية"],
+      en: ["store", "stores", "shop", "ecommerce", "e-commerce", "sell", "products", "cart"],
+    },
+    text: {
+      ar: "أيوه، نقدر نبني متجراً إلكترونياً كاملاً حسب احتياجك (عرض منتجات، سلة شراء، ربط دفع)، وده بيتحدد كمشروع خاص بعد ما نتناقش في التفاصيل.",
+      en: "Yes, we can build a full online store based on your needs (product listings, cart, payment integration) — this is scoped as its own project once we discuss the details.",
+    },
+  },
+  {
+    id: "redesign",
+    label: { ar: "بتعدّلوا على موقع موجود؟", en: "Can you redesign an existing website?" },
+    keywords: {
+      ar: ["موقع موجود", "اعاده تصميم", "إعادة تصميم", "تطوير موقع", "عندي موقع"],
+      en: ["redesign", "existing website", "already have a site", "revamp"],
+    },
+    text: {
+      ar: "أيوه، نقدر نطوّر أو نعيد تصميم موقع عندك بالفعل، أو نبنيلك موقع من الصفر — اللي يناسب حالتك.",
+      en: "Yes, we can improve or redesign a website you already have, or build one from scratch — whatever fits your situation.",
+    },
+  },
+  {
+    id: "content",
+    label: { ar: "مين اللي بيكتب محتوى الموقع؟", en: "Who writes the website content?" },
+    keywords: {
+      ar: ["محتوى", "نصوص", "اكتب", "صور الموقع"],
+      en: ["content", "copywriting", "who writes", "text for the site"],
+    },
+    text: {
+      ar: "تقدر تديلنا المحتوى (النصوص والصور) جاهزاً، أو نساعدك نظبطه سوا وقت العمل على مشروعك — الاتنين ممكنين.",
+      en: "You can give us ready content (text and images), or we can help put it together with you while working on your project — both options work.",
+    },
+  },
+  {
+    id: "seo",
+    label: { ar: "الموقع هيظهر في جوجل؟", en: "Will the site show up on Google?" },
+    keywords: {
+      ar: ["جوجل", "سيو", "بحث", "ظهور", "نتائج البحث"],
+      en: ["google", "seo", "search", "ranking", "show up"],
+    },
+    text: {
+      ar: "بنبني الموقع بأساسيات SEO صحيحة (سرعة، عنوان ووصف واضح، بيانات منظمة) تساعد جوجل يفهمه ويفهرسه أسرع، لكن الظهور في نتائج البحث للكلمات العامة بياخد وقت ومجهود مستمر مش بيحصل فوراً.",
+      en: "We build the site with solid SEO fundamentals (speed, clear title and description, structured data) that help Google understand and index it faster, but ranking for general search terms takes time and ongoing effort — it doesn't happen instantly.",
+    },
+  },
+  {
+    id: "mobile",
+    label: { ar: "الموقع هيشتغل على الموبايل؟", en: "Will the site work on mobile?" },
+    keywords: {
+      ar: ["موبايل", "تليفون", "شاشات", "متجاوب"],
+      en: ["mobile", "phone", "responsive", "tablet"],
+    },
+    text: {
+      ar: "أكيد، كل موقع بنعمله بيتصمم عشان يشتغل ويبان كويس على الموبايل والتابلت والكمبيوتر من غير أي فرق في الجودة.",
+      en: "Absolutely — every website we build is designed to work and look great on mobile, tablet, and desktop with no drop in quality.",
+    },
+  },
+  {
+    id: "pages",
+    label: { ar: "كام صفحة بتكون في الموقع؟", en: "How many pages does the site include?" },
+    keywords: {
+      ar: ["كام صفحه", "عدد الصفحات", "صفحات"],
+      en: ["how many pages", "page count", "number of pages"],
+    },
+    text: {
+      ar: "عدد الصفحات بيختلف حسب احتياج مشروعك — ممكن يكون موقع صفحة واحدة، أو موقع متعدد الصفحات (خدمات، من نحن، تواصل، إلخ)، وده بيتحدد بعد ما نفهم فكرتك.",
+      en: "The number of pages depends on what your project needs — it could be a single-page site, or a multi-page one (services, about, contact, etc.), decided once we understand your idea.",
+    },
+  },
+  {
+    id: "payment",
+    label: { ar: "إزاي الدفع بيتم؟", en: "How does payment work?" },
+    keywords: {
+      ar: ["دفع", "ادفع", "عربون", "مقدم", "فلوس", "تحويل"],
+      en: ["payment", "pay", "deposit", "upfront", "money", "transfer"],
+    },
+    text: {
+      ar: "الدفع بيتحدد حسب حجم كل مشروع، وبنتفق عليه معاك بالتفصيل بعد ما نراجع طلبك — مفيش نظام دفع ثابت واحد لكل العملاء.",
+      en: "Payment is arranged based on each project's size, and we agree on the details with you after reviewing your request — there's no single fixed payment plan for everyone.",
+    },
+  },
+  {
+    id: "revisions",
+    label: { ar: "هل فيه تعديلات مجانية؟", en: "Are there free revisions?" },
+    keywords: {
+      ar: ["تعديل", "تعديلات", "تغيير", "عدل"],
+      en: ["revision", "revisions", "change", "edit", "edits"],
+    },
+    text: {
+      ar: "أيوه، بيكون معاك عدد محدد من التعديلات المجانية (حوالي 2-3) قبل ما نسلّم الموقع النهائي، عشان نتأكد إنك راضي عن الشكل والمحتوى.",
+      en: "Yes, you get a set number of free revisions (around 2-3) before we hand over the final website, to make sure you're happy with the design and content.",
+    },
+  },
+  {
+    id: "maintenance",
+    label: { ar: "بتقدموا صيانة بعد الإطلاق؟", en: "Do you offer support after launch?" },
+    keywords: {
+      ar: ["صيانه", "صيانة", "دعم", "بعد الاطلاق", "مشكله بعدين"],
+      en: ["maintenance", "support", "after launch", "ongoing"],
+    },
+    text: {
+      ar: "أيوه، متاح دعم وصيانة بعد إطلاق الموقع مقابل رسوم إضافية حسب نوع الدعم المطلوب — التفاصيل بتتحدد وقت ما تحتاجها.",
+      en: "Yes, post-launch support and maintenance is available for an additional fee depending on what you need — details are worked out when you need it.",
     },
   },
   {
