@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { FormEvent, ReactNode } from "react";
+import PhoneField from "@/components/PhoneField";
 import SplashScreen from "@/components/SplashScreen";
 import StratixChat from "@/components/StratixChat";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -408,7 +409,7 @@ export default function Home() {
                 </label>
                 <label>
                   <span>{t.booking.phoneLabel}</span>
-                  <input name="phone" type="tel" placeholder={t.booking.phonePlaceholder} autoComplete="tel" inputMode="tel" dir="ltr" maxLength={32} required />
+                  <PhoneField />
                 </label>
                 <label className="form-span-2">
                   <span>{t.booking.emailLabel} <small>{t.booking.optional}</small></span>
