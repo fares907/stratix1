@@ -5,6 +5,7 @@ import SplashScreen from "@/components/SplashScreen";
 import StratixChat from "@/components/StratixChat";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLitePerformance, useOnScreen } from "@/hooks/useLitePerformance";
 import { trpc } from "@/lib/trpc";
 import {
   AnimatePresence,
@@ -72,12 +73,25 @@ function BrandMark() {
 
 export default function Home() {
   const reduceMotion = useReducedMotion();
+  const lite = useLitePerformance();
   const { t, toggleLanguage, language } = useLanguage();
   const { scrollYProgress } = useScroll();
   const heroWordY = useTransform(scrollYProgress, [0, 0.28], [0, -120]);
   const orbitY = useTransform(scrollYProgress, [0, 0.32], [0, 160]);
   const bookingRequestKey = useRef(crypto.randomUUID());
   const bookingMutation = trpc.booking.submit.useMutation();
+
+  // The orbit rings and the marquee loop forever. Left unchecked they keep the
+  // compositor busy even when scrolled far away, which is what makes the page
+  // feel heavy on cheap phones. Run them only while actually on screen, and
+  // not at all on low-power devices.
+  const orbitRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const orbitOnScreen = useOnScreen(orbitRef);
+  const stripOnScreen = useOnScreen(stripRef);
+  const allowMotion = !reduceMotion && !lite;
+  const spinOrbit = allowMotion && orbitOnScreen;
+  const spinStrip = allowMotion && stripOnScreen;
 
   const handleBookingSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -157,18 +171,19 @@ export default function Home() {
             </div>
 
             <motion.div
+              ref={orbitRef}
               className="hero-orbit"
               style={{ y: reduceMotion ? 0 : orbitY }}
               aria-hidden="true"
             >
               <motion.div
                 className="orbit-ring orbit-ring-outer"
-                animate={reduceMotion ? undefined : { rotate: 360 }}
+                animate={spinOrbit ? { rotate: 360 } : undefined}
                 transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
               />
               <motion.div
                 className="orbit-ring orbit-ring-inner"
-                animate={reduceMotion ? undefined : { rotate: -360 }}
+                animate={spinOrbit ? { rotate: -360 } : undefined}
                 transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
               />
               <span className="orbit-core">S</span>
@@ -278,10 +293,10 @@ export default function Home() {
             </Reveal>
           </section>
 
-          <div className="kinetic-strip" aria-hidden="true" dir="ltr">
+          <div className="kinetic-strip" ref={stripRef} aria-hidden="true" dir="ltr">
             <motion.div
               className="kinetic-track"
-              animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+              animate={spinStrip ? { x: ["0%", "-50%"] } : undefined}
               transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
             >
               <span>SPEED</span><i>•</i><span>MOTION</span><i>•</i><span>TRUST</span><i>•</i><span>SCALE</span><i>•</i>
