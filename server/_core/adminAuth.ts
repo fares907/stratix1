@@ -32,7 +32,41 @@ const loginAttempts = new Map<string, { count: number; windowStart: number }>();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
 
+// Per-IP throttling above is bypassable by anyone who sends a different
+// X-Forwarded-For value on each request — confirmed locally: 12 wrong-password
+// attempts with a rotated header, zero triggered the per-IP limit. `req.ip`
+// trusts that header once `trust proxy` is set (needed so the real client IP
+// resolves correctly behind Railway's edge), and there's no way to tell a
+// legitimate proxy hop from an attacker-supplied one from inside the app.
+//
+// This global counter is the actual backstop: it doesn't key by anything the
+// client supplies, so no header can reset or split it across "identities".
+// Only two people ever log in here, so locking out ALL login attempts once
+// failures spike is safe for them and a hard stop for brute-forcing —
+// unlike the booking form, there's no legitimate traffic pattern that looks
+// like a burst of failed admin logins.
+const GLOBAL_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const GLOBAL_LOGIN_MAX_FAILURES = 20;
+let globalFailures = { count: 0, windowStart: 0 };
+
+function isGlobalLoginRateLimited() {
+  const now = Date.now();
+  if (now - globalFailures.windowStart > GLOBAL_LOGIN_WINDOW_MS) return false;
+  return globalFailures.count >= GLOBAL_LOGIN_MAX_FAILURES;
+}
+
+function recordGlobalLoginFailure() {
+  const now = Date.now();
+  if (now - globalFailures.windowStart > GLOBAL_LOGIN_WINDOW_MS) {
+    globalFailures = { count: 1, windowStart: now };
+    return;
+  }
+  globalFailures.count += 1;
+}
+
 export function isLoginRateLimited(ip: string) {
+  if (isGlobalLoginRateLimited()) return true;
+
   const now = Date.now();
   const entry = loginAttempts.get(ip);
   if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {
@@ -42,6 +76,8 @@ export function isLoginRateLimited(ip: string) {
 }
 
 export function recordLoginAttempt(ip: string) {
+  recordGlobalLoginFailure();
+
   const now = Date.now();
   const entry = loginAttempts.get(ip);
   if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {

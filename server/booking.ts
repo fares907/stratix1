@@ -74,6 +74,36 @@ export const BOOKING_LIMITS = {
   perPhone: 3,
 } as const;
 
+// Per-client/per-phone throttling above is bypassable the same way the admin
+// login limiter was: rotating a fake X-Forwarded-For header per request gives
+// each submission a fresh clientHash, and the phone can be rotated too.
+// Confirmed locally: 8 spoofed-IP submissions with 8 distinct phone numbers
+// all succeeded, versus 5 succeeding (6th correctly blocked) with an honest IP.
+//
+// This global counter is the real backstop — it doesn't key on anything the
+// client supplies, so no header or phone rotation can reset or split it. The
+// threshold is deliberately generous (50 per 10 minutes) so it can never
+// block genuine organic traffic at this business's current scale, while
+// still stopping a scripted flood outright.
+const GLOBAL_BOOKING_WINDOW_MS = 10 * 60 * 1000;
+const GLOBAL_BOOKING_MAX_SUBMISSIONS = 50;
+let globalBookingSubmissions = { count: 0, windowStart: 0 };
+
+function isGlobalBookingRateLimited() {
+  const now = Date.now();
+  if (now - globalBookingSubmissions.windowStart > GLOBAL_BOOKING_WINDOW_MS) return false;
+  return globalBookingSubmissions.count >= GLOBAL_BOOKING_MAX_SUBMISSIONS;
+}
+
+function recordGlobalBookingSubmission() {
+  const now = Date.now();
+  if (now - globalBookingSubmissions.windowStart > GLOBAL_BOOKING_WINDOW_MS) {
+    globalBookingSubmissions = { count: 1, windowStart: now };
+    return;
+  }
+  globalBookingSubmissions.count += 1;
+}
+
 function getClientHash(req: TrpcContext["req"]) {
   const address = req.ip || req.socket.remoteAddress || "unknown";
   const userAgent = req.get("user-agent") || "unknown";
@@ -94,6 +124,13 @@ export async function submitBooking(input: BookingInput, req: TrpcContext["req"]
       duplicate: true,
       emailSent: previous.emailStatus === "sent",
     } as const;
+  }
+
+  if (isGlobalBookingRateLimited()) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "تم استلام عدة طلبات مؤخراً. حاول مرة أخرى بعد قليل أو اتصل بنا مباشرة.",
+    });
   }
 
   const clientHash = getClientHash(req);
@@ -141,6 +178,8 @@ export async function submitBooking(input: BookingInput, req: TrpcContext["req"]
     console.error("[Booking] Database write failed:", error);
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "تعذر حفظ الطلب الآن. حاول مرة أخرى." });
   }
+
+  recordGlobalBookingSubmission();
 
   const email = await sendBookingEmail(booking);
   await updateBookingEmailDelivery({
