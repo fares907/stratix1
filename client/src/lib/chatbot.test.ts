@@ -13,6 +13,12 @@ describe("STRATIX fixed-answer chatbot", () => {
     ["بتقدموا صيانه بعد الاطلاق؟", "maintenance", "صيانة"],
     ["ازاي الدفع بيتم؟", "payment", "حجم كل مشروع"],
     ["الموقع هيشتغل على الموبايل؟", "mobile", "الموبايل"],
+    ["السلام عليكم", "greeting", "أهلاً"],
+    ["شكراً جزيلاً", "thanks", "العفو"],
+    ["ممكن اشوف اعمال سابقه؟", "portfolio", "أعمالنا"],
+    ["بتساعدوا في الدومين والاستضافه؟", "domain_hosting", "الدومين"],
+    ["بتشتغلوا مع عملاء برا مصر؟", "international", "أي دولة"],
+    ["بتعملوا تطبيقات موبايل؟", "app", "تطبيقات منفصلة"],
   ])("matches %s (ar) to the expected answer", (question, id, phrase) => {
     const answer = getChatbotAnswer(question, "ar");
     expect(answer.id).toBe(id);
@@ -30,6 +36,12 @@ describe("STRATIX fixed-answer chatbot", () => {
     ["do you offer support after launch?", "maintenance", "maintenance"],
     ["how does payment work?", "payment", "project's size"],
     ["will the site work on mobile?", "mobile", "mobile"],
+    ["hello there", "greeting", "Welcome"],
+    ["thank you so much", "thanks", "welcome"],
+    ["can I see your portfolio?", "portfolio", "work-examples"],
+    ["do you help with domain and hosting?", "domain_hosting", "domain and hosting"],
+    ["do you work with clients outside egypt?", "international", "any country"],
+    ["do you build mobile apps?", "app", "native"],
   ])("matches %s (en) to the expected answer", (question, id, phrase) => {
     const answer = getChatbotAnswer(question, "en");
     expect(answer.id).toBe(id);
