@@ -16,11 +16,35 @@ type ChatbotIntent = {
 
 const intents: ChatbotIntent[] = [
   {
+    id: "greeting",
+    label: { ar: "أهلاً", en: "Say hi" },
+    keywords: {
+      ar: ["السلام عليكم", "سلام", "اهلا", "أهلا", "مرحبا", "هاي", "صباح الخير", "مساء الخير"],
+      en: ["hello", "hi", "hey", "good morning", "good evening", "greetings"],
+    },
+    text: {
+      ar: "أهلاً بيك في STRATIX! أنا هنا أجاوبك على أي سؤال عن خدماتنا وأسعارنا وطريقة الحجز. اسأل براحتك.",
+      en: "Welcome to STRATIX! I'm here to answer anything about our services, pricing, or how to book. Ask away.",
+    },
+  },
+  {
+    id: "thanks",
+    label: { ar: "شكراً", en: "Thanks" },
+    keywords: {
+      ar: ["شكرا", "شكراً", "متشكر", "تمام كده", "تسلم", "ربنا يكرمك"],
+      en: ["thanks", "thank you", "appreciate it", "cool", "great thanks"],
+    },
+    text: {
+      ar: "العفو! لو عندك أي سؤال تاني أنا موجود، أو تقدر تكلمنا مباشرة على واتساب.",
+      en: "You're welcome! I'm here for any other question, or you can reach us directly on WhatsApp.",
+    },
+  },
+  {
     id: "services",
     label: { ar: "الشركة بتعمل ايه؟", en: "What does the company do?" },
     keywords: {
-      ar: ["خدم", "شرك", "اعمال", "تصميم", "برمج", "تعمل", "تعملوا", "شغل", "شغلكم", "مين انتوا", "تخصص"],
-      en: ["service", "design", "develop", "company", "offer", "personal", "what do you do"],
+      ar: ["خدم", "شرك", "اعمال", "تصميم", "برمج", "تعمل", "تعملوا", "شغل", "شغلكم", "مين انتوا", "تخصص", "بتقدموا ايه"],
+      en: ["service", "design", "develop", "company", "offer", "personal", "what do you do", "who are you"],
     },
     text: {
       ar: "STRATIX استوديو بيصمم ويبرمج مواقع الشركات والمواقع الشخصية. نحدد الشكل والوظائف المناسبة بعد فهم هدف مشروعك.",
@@ -43,7 +67,7 @@ const intents: ChatbotIntent[] = [
     id: "duration",
     label: { ar: "مدة التنفيذ قد إيه؟", en: "How long does it take?" },
     keywords: {
-      ar: ["مده", "وقت", "اسبوع", "تسليم", "يخلص", "تنفيذ"],
+      ar: ["مده", "وقت", "اسبوع", "تسليم", "يخلص", "تنفيذ", "امتى هيخلص"],
       en: ["duration", "time", "week", "deliver", "how long", "timeline"],
     },
     text: {
@@ -55,12 +79,24 @@ const intents: ChatbotIntent[] = [
     id: "booking",
     label: { ar: "إزاي أحجز؟", en: "How do I book?" },
     keywords: {
-      ar: ["حجز", "احجز", "ابدأ", "طلب", "اتفق", "مشروع"],
+      ar: ["حجز", "احجز", "ابدأ", "طلب", "اتفق", "مشروع", "عايز اطلب"],
       en: ["book", "booking", "start", "order", "request", "project"],
     },
     text: {
       ar: "انزل إلى قسم الحجز، اكتب بياناتك وفكرة الموقع، ثم اضغط «إرسال طلب الحجز». سيظهر لك رقم طلب محفوظ فوراً.",
       en: 'Scroll down to the booking section, enter your details and your website idea, then click "Send Booking Request". You\'ll get a saved order number right away.',
+    },
+  },
+  {
+    id: "materials_needed",
+    label: { ar: "محتاجين مني ايه عشان نبدأ؟", en: "What do you need from me to start?" },
+    keywords: {
+      ar: ["محتاجين مني", "ابعتلكم", "عشان نبدأ", "استعد", "جهز"],
+      en: ["what do you need from me", "get started", "prepare", "before we start"],
+    },
+    text: {
+      ar: "بس اسمك، فكرة عن الموقع، ونوعه (شركة ولا شخصي). لو عندك محتوى أو تصميم في بالك ابعتهولنا، ولو لأ إحنا نساعدك نظبطه أثناء العمل.",
+      en: "Just your name and an idea of what the site is for (company or personal). If you have content or a design in mind, send it over — if not, we'll help shape it while we work.",
     },
   },
   {
@@ -160,15 +196,99 @@ const intents: ChatbotIntent[] = [
     },
   },
   {
-    id: "pages",
-    label: { ar: "كام صفحة بتكون في الموقع؟", en: "How many pages does the site include?" },
+    id: "app",
+    label: { ar: "بتعملوا تطبيقات موبايل؟", en: "Do you build mobile apps?" },
     keywords: {
-      ar: ["كام صفحه", "عدد الصفحات", "صفحات"],
-      en: ["how many pages", "page count", "number of pages"],
+      ar: ["تطبيق", "تطبيقات", "اندرويد", "ايفون", "app موبايل"],
+      en: ["mobile app", "app", "android", "ios", "native app"],
     },
     text: {
-      ar: "عدد الصفحات بيختلف حسب احتياج مشروعك — ممكن يكون موقع صفحة واحدة، أو موقع متعدد الصفحات (خدمات، من نحن، تواصل، إلخ)، وده بيتحدد بعد ما نفهم فكرتك.",
-      en: "The number of pages depends on what your project needs — it could be a single-page site, or a multi-page one (services, about, contact, etc.), decided once we understand your idea.",
+      ar: "دلوقتي تخصصنا هو مواقع الويب اللي بتشتغل زي التطبيق تماماً على الموبايل، ومش بنعمل تطبيقات منفصلة على أندرويد أو آيفون حالياً.",
+      en: "Right now we focus on websites that work just like an app on mobile — we don't build separate native Android or iOS apps at this time.",
+    },
+  },
+  {
+    id: "bilingual",
+    label: { ar: "الموقع بيدعم لغتين؟", en: "Can the site support two languages?" },
+    keywords: {
+      ar: ["لغتين", "عربي وانجليزي", "لغات", "ترجمة الموقع"],
+      en: ["bilingual", "multilingual", "two languages", "arabic and english", "translation"],
+    },
+    text: {
+      ar: "أيوه، نقدر نبني الموقع بلغة واحدة أو بلغتين (عربي وإنجليزي) مع إمكانية التبديل بينهم، حسب احتياج مشروعك.",
+      en: "Yes, we can build the site in one language or bilingual (Arabic and English) with a toggle between them, depending on what your project needs.",
+    },
+  },
+  {
+    id: "domain_hosting",
+    label: { ar: "بتساعدوا في الدومين والاستضافة؟", en: "Do you help with domain and hosting?" },
+    keywords: {
+      ar: ["دومين", "استضافه", "استضافة", "هوستنج", "اسم الموقع"],
+      en: ["domain", "hosting", "server", "domain name"],
+    },
+    text: {
+      ar: "أيوه، نقدر نساعدك تختار وتربط الدومين والاستضافة المناسبين لمشروعك، والتفاصيل بتتحدد حسب احتياجك.",
+      en: "Yes, we can help you choose and connect the right domain and hosting for your project — the details are worked out based on what you need.",
+    },
+  },
+  {
+    id: "cms_edit",
+    label: { ar: "أقدر أعدل على المحتوى بنفسي بعدين؟", en: "Can I edit the content myself later?" },
+    keywords: {
+      ar: ["اعدل بنفسي", "لوحة تحكم", "غير المحتوى", "cms"],
+      en: ["edit myself", "admin panel", "cms", "update content myself"],
+    },
+    text: {
+      ar: "حسب طبيعة مشروعك، ممكن نضيفلك طريقة بسيطة تعدل بيها بنفسك، أو نتكفل إحنا بالتعديلات كخدمة صيانة — بنتفق على الأنسب ليك.",
+      en: "Depending on your project, we can add a simple way for you to edit things yourself, or handle updates for you as a maintenance service — we agree on what fits best.",
+    },
+  },
+  {
+    id: "international",
+    label: { ar: "بتشتغلوا مع عملاء برا مصر؟", en: "Do you work with clients outside Egypt?" },
+    keywords: {
+      ar: ["برا مصر", "دوله تانيه", "خارج مصر", "عميل اجنبي"],
+      en: ["outside egypt", "international client", "abroad", "another country"],
+    },
+    text: {
+      ar: "أيوه، بنشتغل مع عملاء من أي دولة — نموذج الحجز بيقبل أرقام هواتف دولية، والتواصل والتنفيذ بيتم عن بُعد بسهولة.",
+      en: "Yes, we work with clients from any country — the booking form accepts international phone numbers, and communication and delivery happen remotely with no issue.",
+    },
+  },
+  {
+    id: "marketing",
+    label: { ar: "بتقدموا تسويق أو سوشيال ميديا؟", en: "Do you offer marketing or social media?" },
+    keywords: {
+      ar: ["تسويق", "سوشيال ميديا", "اعلانات", "ماركتنج"],
+      en: ["marketing", "social media", "ads", "advertising"],
+    },
+    text: {
+      ar: "تخصصنا الأساسي هو تصميم وبرمجة المواقع. لو محتاج تسويق أو إدارة سوشيال ميديا، تواصل معنا ونتناقش في الإمكانية دي بشكل منفصل.",
+      en: "Our core focus is website design and development. If you need marketing or social media management, reach out and we can discuss that separately.",
+    },
+  },
+  {
+    id: "portfolio",
+    label: { ar: "ممكن أشوف أعمال سابقة؟", en: "Can I see previous work?" },
+    keywords: {
+      ar: ["اعمال سابقه", "شغل قبل كده", "امثله", "بورتفوليو"],
+      en: ["portfolio", "previous work", "examples", "past projects"],
+    },
+    text: {
+      ar: "لسه بنجهز صفحة أعمالنا على الموقع. تواصل معنا مباشرة وهنوريك أمثلة تناسب فكرة مشروعك.",
+      en: "We're still preparing our work-examples page on the site. Reach out to us directly and we'll show you examples relevant to your project.",
+    },
+  },
+  {
+    id: "contract",
+    label: { ar: "بيكون فيه اتفاق مكتوب؟", en: "Is there a written agreement?" },
+    keywords: {
+      ar: ["عقد", "اتفاقيه", "اتفاق مكتوب", "ورق"],
+      en: ["contract", "agreement", "written agreement"],
+    },
+    text: {
+      ar: "بنتفق معاك بوضوح على تفاصيل المشروع والسعر وطريقة الدفع قبل البدء، عشان الاتنين يكونوا على نفس الصفحة من الأول.",
+      en: "We agree clearly on the project scope, price, and payment method with you before starting, so we're both on the same page from the beginning.",
     },
   },
   {
@@ -196,6 +316,18 @@ const intents: ChatbotIntent[] = [
     },
   },
   {
+    id: "satisfaction",
+    label: { ar: "لو مش عاجبني الشكل؟", en: "What if I don't like the result?" },
+    keywords: {
+      ar: ["مش عاجبني", "مش راضي", "ضمان", "لو مش حبيت"],
+      en: ["don't like it", "not satisfied", "guarantee", "what if i don't like"],
+    },
+    text: {
+      ar: "عشان كده بنديك 2-3 تعديلات مجانية قبل التسليم النهائي، فبنتأكد إن الشكل والمحتوى عاجبك قبل ما نقفل المشروع.",
+      en: "That's why you get 2-3 free revisions before final delivery — we make sure you're happy with the design and content before the project closes.",
+    },
+  },
+  {
     id: "maintenance",
     label: { ar: "بتقدموا صيانة بعد الإطلاق؟", en: "Do you offer support after launch?" },
     keywords: {
@@ -205,6 +337,18 @@ const intents: ChatbotIntent[] = [
     text: {
       ar: "أيوه، متاح دعم وصيانة بعد إطلاق الموقع مقابل رسوم إضافية حسب نوع الدعم المطلوب — التفاصيل بتتحدد وقت ما تحتاجها.",
       en: "Yes, post-launch support and maintenance is available for an additional fee depending on what you need — details are worked out when you need it.",
+    },
+  },
+  {
+    id: "pages",
+    label: { ar: "كام صفحة بتكون في الموقع؟", en: "How many pages does the site include?" },
+    keywords: {
+      ar: ["كام صفحه", "عدد الصفحات", "صفحات"],
+      en: ["how many pages", "page count", "number of pages"],
+    },
+    text: {
+      ar: "عدد الصفحات بيختلف حسب احتياج مشروعك — ممكن يكون موقع صفحة واحدة، أو موقع متعدد الصفحات (خدمات، من نحن، تواصل، إلخ)، وده بيتحدد بعد ما نفهم فكرتك.",
+      en: "The number of pages depends on what your project needs — it could be a single-page site, or a multi-page one (services, about, contact, etc.), decided once we understand your idea.",
     },
   },
   {
@@ -221,18 +365,24 @@ const intents: ChatbotIntent[] = [
   },
 ];
 
+const quickQuestionIds = ["services", "price", "duration", "booking", "contact"];
+
 const emptyText: LocalizedText = {
   ar: "اكتب سؤالك أو اختر واحداً من الأسئلة السريعة بالأسفل.",
   en: "Type your question or choose one of the quick questions below.",
 };
 
 const fallbackText: LocalizedText = {
-  ar: "أقدر أساعدك في الخدمات، السعر، مدة التنفيذ، الحجز، الأمان، أو أرقام التواصل. اختر سؤالاً سريعاً لأعطيك الإجابة الدقيقة.",
-  en: "I can help with services, pricing, timeline, booking, security, or contact info. Choose a quick question for a precise answer.",
+  ar: "أقدر أجاوب بس على الأسئلة المتعلقة بخدمات STRATIX (التصميم، الأسعار، الحجز، الدعم، وغيرها). جرب تسأل بطريقة تانية، أو اختار من الأسئلة السريعة بالأسفل، أو تواصل معنا مباشرة.",
+  en: "I can only answer questions related to STRATIX's services (design, pricing, booking, support, and more). Try rephrasing, pick a quick question below, or reach out to us directly.",
 };
 
 export function getChatbotQuickQuestions(language: Language) {
-  return intents.slice(0, 5).map(({ id, label }) => ({ id, label: label[language] }));
+  const byId = new Map(intents.map(intent => [intent.id, intent]));
+  return quickQuestionIds
+    .map(id => byId.get(id))
+    .filter((intent): intent is ChatbotIntent => Boolean(intent))
+    .map(({ id, label }) => ({ id, label: label[language] }));
 }
 
 const ARABIC_DIACRITICS_PATTERN = new RegExp("[\\u064B-\\u065F\\u0670]", "g");
@@ -251,6 +401,21 @@ function normalizeText(value: string) {
     .trim();
 }
 
+// Precompute each intent's normalized keywords once instead of re-normalizing
+// on every call. Arabic keywords are short stems by design (e.g. "شرك" is
+// meant to match "شركة"/"شركات"/"الشركة") so matching stays substring-based —
+// switching to whole-word matching would break every keyword that relies on
+// matching inside a prefixed/suffixed inflection.
+const intentKeywords = new Map<string, Record<Language, string[]>>(
+  intents.map(intent => [
+    intent.id,
+    {
+      ar: intent.keywords.ar.map(normalizeText),
+      en: intent.keywords.en.map(normalizeText),
+    },
+  ]),
+);
+
 export function getChatbotAnswer(question: string, language: Language): ChatbotAnswer {
   const normalized = normalizeText(question);
   if (!normalized) {
@@ -258,13 +423,16 @@ export function getChatbotAnswer(question: string, language: Language): ChatbotA
   }
 
   const scored = intents
-    .map(intent => ({
-      intent,
-      score: intent.keywords[language].reduce(
-        (total, keyword) => total + (normalized.includes(normalizeText(keyword)) ? 1 : 0),
-        0,
-      ),
-    }))
+    .map(intent => {
+      const keywords = intentKeywords.get(intent.id)![language];
+      const score = keywords.reduce((total, keyword) => {
+        if (!keyword || !normalized.includes(keyword)) return total;
+        // Longer/more specific keywords count for more, so a precise phrase
+        // match outranks an intent that only picked up a generic word in common.
+        return total + keyword.length;
+      }, 0);
+      return { intent, score };
+    })
     .sort((left, right) => right.score - left.score);
 
   if (scored[0]?.score) return { id: scored[0].intent.id, text: scored[0].intent.text[language] };
