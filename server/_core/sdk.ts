@@ -153,8 +153,15 @@ class SDKServer {
     return new Map(Object.entries(parsed));
   }
 
+  // An unset JWT_SECRET produced a zero-length HMAC key, which signs and
+  // verifies without complaint — anyone could mint a session token for any
+  // openId. Failing here instead makes verifySession's catch treat the request
+  // as unauthenticated rather than trusting a forgeable token.
   private getSessionSecret() {
     const secret = ENV.cookieSecret;
+    if (!secret) {
+      throw new Error("JWT_SECRET is required to sign or verify session cookies");
+    }
     return new TextEncoder().encode(secret);
   }
 

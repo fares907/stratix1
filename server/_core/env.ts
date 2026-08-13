@@ -14,3 +14,35 @@ export const ENV = {
   adminPasswordYoussef: process.env.ADMIN_PASSWORD_YOUSSEF ?? "",
   adminSessionSecret: process.env.JWT_SECRET ?? "",
 };
+
+// HS256 keys shorter than this are brute-forceable offline against a single
+// captured cookie, and recovering the key means minting admin sessions at will.
+const MIN_SIGNING_SECRET_LENGTH = 32;
+
+// Every secret here used to fall back to a constant when unset, so a missing
+// environment variable produced a running server that signed admin sessions
+// with a value published in this repository. Booting is now refused instead:
+// an outage is recoverable, a silently forgeable admin session is not.
+export function assertProductionSecrets() {
+  if (!ENV.isProduction) return;
+
+  const problems: string[] = [];
+
+  if (!ENV.cookieSecret) {
+    problems.push("JWT_SECRET is not set — admin sessions cannot be signed safely");
+  } else if (ENV.cookieSecret.length < MIN_SIGNING_SECRET_LENGTH) {
+    problems.push(
+      `JWT_SECRET is ${ENV.cookieSecret.length} characters; at least ${MIN_SIGNING_SECRET_LENGTH} are required`,
+    );
+  }
+
+  if (!ENV.adminPasswordFares || !ENV.adminPasswordYoussef) {
+    problems.push("ADMIN_PASSWORD_FARES and ADMIN_PASSWORD_YOUSSEF must both be set");
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      ["Refusing to start: insecure production configuration.", ...problems.map(item => `  - ${item}`)].join("\n"),
+    );
+  }
+}

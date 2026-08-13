@@ -1,11 +1,15 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "./env";
 
 export const ADMIN_SESSION_COOKIE = "stratix_admin_session";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+// Sessions are bearer cookies with no server-side revocation list, so the TTL
+// is the only thing that limits a stolen cookie's usefulness. Thirty days made
+// one leaked laptop or shared browser an admin for a month; seven still spans a
+// normal working week without a re-login.
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export type AdminAccount = { id: "fares" | "youssef"; name: string };
 
@@ -14,16 +18,28 @@ const ADMIN_ACCOUNTS: Array<AdminAccount & { getPassword: () => string }> = [
   { id: "youssef", name: "يوسف تامر", getPassword: () => ENV.adminPasswordYoussef },
 ];
 
+// This used to fall back to a constant string when JWT_SECRET was unset, which
+// meant a missing environment variable silently signed admin sessions with a
+// value anyone could read in the public repository and replay as a valid admin
+// cookie. Production refuses to boot without the secret (assertProductionSecrets);
+// throwing here covers dev and tests, where callers fail closed: session
+// creation surfaces the error and verification treats it as "not signed in".
 function getSecretKey() {
-  const secret = ENV.adminSessionSecret || "stratix-admin-session-fallback-secret";
+  const secret = ENV.adminSessionSecret;
+  if (!secret) {
+    throw new Error("JWT_SECRET is required to sign or verify admin sessions");
+  }
   return new TextEncoder().encode(secret);
 }
 
+// Comparing the raw strings returned early whenever the lengths differed, which
+// leaks the configured password's length to anyone timing the login endpoint.
+// Digesting first makes both operands a fixed 32 bytes, so every wrong password
+// costs the same regardless of how close it was.
 function safeStringsEqual(a: string, b: string) {
-  const bufferA = Buffer.from(a);
-  const bufferB = Buffer.from(b);
-  if (bufferA.length !== bufferB.length) return false;
-  return timingSafeEqual(bufferA, bufferB);
+  const digestA = createHash("sha256").update(a, "utf8").digest();
+  const digestB = createHash("sha256").update(b, "utf8").digest();
+  return timingSafeEqual(digestA, digestB);
 }
 
 // Minimal in-memory throttle for the admin login endpoint. This resets on
@@ -31,6 +47,35 @@ function safeStringsEqual(a: string, b: string) {
 const loginAttempts = new Map<string, { count: number; windowStart: number }>();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
+
+// The key is derived from a client-controlled header, so an attacker rotating
+// X-Forwarded-For adds a new entry per request and nothing ever removed them —
+// the map grew until the process ran out of memory and Railway restarted it,
+// which also wiped the global failure counter that backstops brute forcing.
+// Expired entries are swept first; if a flood is fast enough to outrun that,
+// the oldest windows are dropped so memory stays bounded either way.
+const LOGIN_ATTEMPTS_MAX_ENTRIES = 10_000;
+
+function pruneLoginAttempts(now: number) {
+  if (loginAttempts.size < LOGIN_ATTEMPTS_MAX_ENTRIES) return;
+
+  const expired: string[] = [];
+  loginAttempts.forEach((entry, key) => {
+    if (now - entry.windowStart > LOGIN_WINDOW_MS) expired.push(key);
+  });
+  expired.forEach(key => loginAttempts.delete(key));
+
+  if (loginAttempts.size < LOGIN_ATTEMPTS_MAX_ENTRIES) return;
+
+  // Map preserves insertion order, so taking from the front drops the least
+  // recently created windows — the ones closest to expiring anyway.
+  const excess = loginAttempts.size - LOGIN_ATTEMPTS_MAX_ENTRIES + 1;
+  const oldest: string[] = [];
+  loginAttempts.forEach((_entry, key) => {
+    if (oldest.length < excess) oldest.push(key);
+  });
+  oldest.forEach(key => loginAttempts.delete(key));
+}
 
 // Per-IP throttling above is bypassable by anyone who sends a different
 // X-Forwarded-For value on each request — confirmed locally: 12 wrong-password
@@ -79,6 +124,7 @@ export function recordLoginAttempt(ip: string) {
   recordGlobalLoginFailure();
 
   const now = Date.now();
+  pruneLoginAttempts(now);
   const entry = loginAttempts.get(ip);
   if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {
     loginAttempts.set(ip, { count: 1, windowStart: now });
@@ -140,7 +186,12 @@ function adminCookieOptions(req: Request) {
   return {
     httpOnly: true as const,
     path: "/" as const,
-    sameSite: "lax" as const,
+    // "lax" still attaches the cookie to top-level cross-site GETs, so any page
+    // that links or redirects into the dashboard navigates as the logged-in
+    // admin. Nothing legitimately links into this panel from another origin —
+    // both admins reach it by typing the URL — so "strict" costs nothing here
+    // and removes that class of cross-site entry entirely.
+    sameSite: "strict" as const,
     secure: isSecureRequest(req),
   };
 }

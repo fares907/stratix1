@@ -104,10 +104,16 @@ function recordGlobalBookingSubmission() {
   globalBookingSubmissions.count += 1;
 }
 
+// The fallback used to be a constant published in this repository, which let
+// anyone recompute a visitor's clientHash from their IP and user agent and read
+// it straight out of the admin export. A per-process random value keeps local
+// dev working without ever making the hash guessable from public information.
+const FINGERPRINT_FALLBACK_SECRET = randomBytes(32).toString("hex");
+
 function getClientHash(req: TrpcContext["req"]) {
   const address = req.ip || req.socket.remoteAddress || "unknown";
   const userAgent = req.get("user-agent") || "unknown";
-  const secret = process.env.JWT_SECRET || "stratix-booking-fingerprint";
+  const secret = process.env.JWT_SECRET || FINGERPRINT_FALLBACK_SECRET;
   return createHash("sha256").update(`${address}|${userAgent}|${secret}`).digest("hex");
 }
 
