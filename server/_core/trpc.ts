@@ -46,10 +46,10 @@ export const adminProcedure = t.procedure.use(
 );
 
 // Separate, self-contained session for the STRATIX bookings dashboard
-// (fares/youssef password login), independent of the Manus OAuth user above.
+// (fares/youssef password login), independent of the OAuth user above.
 // Deliberately uses its own error message (not UNAUTHED_ERR_MSG) — the client
-// treats that exact string as a signal to redirect into the Manus OAuth flow,
-// which this dashboard does not use.
+// treats that exact string as a signal to redirect into the OAuth flow, which
+// this dashboard does not use.
 export const adminSessionProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
