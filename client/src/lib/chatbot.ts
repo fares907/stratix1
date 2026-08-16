@@ -25,7 +25,7 @@ const intents: ChatbotIntent[] = [
     // reply. Keywords lean toward explicit "talk to someone" phrasing so it
     // doesn't hijack ordinary questions.
     id: "human_contact",
-    label: { ar: "عايز أكلم حد من الفريق", en: "Talk to the team" },
+    label: { ar: "خدمة العملاء", en: "Customer service" },
     keywords: {
       ar: [
         "خدمه العملاء",
@@ -643,7 +643,10 @@ const intents: ChatbotIntent[] = [
   },
 ];
 
-const quickQuestionIds = ["services", "price", "duration", "booking", "contact"];
+// human_contact first so a visitor who wants a person sees it before anything
+// else — clicking it sends its label, which matches the handoff intent and
+// opens the "leave your number" flow.
+const quickQuestionIds = ["human_contact", "services", "price", "duration", "booking", "contact"];
 
 const emptyText: LocalizedText = {
   ar: "اكتب سؤالك أو اختر واحداً من الأسئلة السريعة بالأسفل.",
