@@ -79,14 +79,35 @@ jobs:
           stamp=$(date -u +%Y-%m-%d)
           plain="/tmp/stratix-$stamp.sql"
 
-          # --single-transaction takes a consistent snapshot without locking the
-          # tables, so a booking arriving mid-dump is never blocked.
+          # No --single-transaction: it makes mysqldump wrap each table in
+          # SAVEPOINT / ROLLBACK TO SAVEPOINT to drop metadata locks, and TiDB
+          # rejects that with "SAVEPOINT sp does not exist (1305)", which is
+          # what broke the first run. --skip-lock-tables avoids the other half
+          # of the problem, since LOCK TABLES is equally meaningless here.
+          #
+          # The cost is that the dump is not one atomic snapshot across tables:
+          # a booking landing between the bookings and ledgerEntries dumps could
+          # appear in one and not the other. Nothing in this schema spans tables
+          # in a single transaction — a booking is one row, ledger entries are
+          # independent — so there is no state a split-second gap can corrupt.
           mysqldump --defaults-file=/tmp/my.cnf \
-            --single-transaction \
             --set-gtid-purged=OFF \
             --no-tablespaces \
             --skip-lock-tables \
-            "$DB_NAME" > "$plain"
+            --skip-add-locks \
+            "$DB_NAME" > "$plain" 2> /tmp/dump.err || {
+              echo "::error::mysqldump failed:"
+              cat /tmp/dump.err
+              exit 1
+            }
+
+          # Warnings that did not abort the dump still matter — they are the
+          # difference between a backup that works and one that quietly omits a
+          # table.
+          if [ -s /tmp/dump.err ]; then
+            echo "mysqldump reported:"
+            cat /tmp/dump.err
+          fi
 
           rm -f /tmp/my.cnf
 
@@ -106,6 +127,18 @@ jobs:
             echo "::error::Dump is only $bytes bytes — the database looks empty or unreachable."
             exit 1
           fi
+
+          # Every table is dumped in its own statement now, so one failing mid
+          # run would leave the others looking perfectly valid. Naming them
+          # means a missing table fails the run instead of producing a backup
+          # that only looks complete.
+          for table in bookings ledgerEntries users; do
+            if ! grep -q "CREATE TABLE \`$table\`" "$plain"; then
+              echo "::error::Table '$table' is missing from the dump."
+              exit 1
+            fi
+          done
+          echo "all expected tables present"
 
           gzip -9 "$plain"
 
