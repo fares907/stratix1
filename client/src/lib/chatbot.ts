@@ -62,8 +62,8 @@ const intents: ChatbotIntent[] = [
       en: ["why choose you", "why choose", "why stratix", "what makes you different", "better than others"],
     },
     text: {
-      ar: "كود مخصص مش قوالب جاهزة، تسليم في حوالي أسبوع، سعر واضح بدون فصال، وتواصل مباشر مع فريق صغير بيتابع مشروعك بنفسه من الأول للآخر.",
-      en: "Custom code instead of templates, delivery in about a week, clear no-negotiation pricing, and direct contact with a small team that follows your project from start to finish.",
+      ar: "كود مخصص مش قوالب جاهزة، بنية قوية تكبر مع مشروعك، سعر واضح بدون فصال، وتواصل مباشر مع الفريق اللي بيتابع مشروعك بنفسه من الأول للآخر.",
+      en: "Custom code instead of templates, solid architecture that scales with your project, clear no-negotiation pricing, and direct contact with the team that follows your project from start to finish.",
     },
   },
   {
@@ -74,8 +74,8 @@ const intents: ChatbotIntent[] = [
       en: ["small business", "startup", "just starting out", "personal brand", "solo project"],
     },
     text: {
-      ar: "أكيد، بنشتغل مع أي حجم مشروع — من صفحة شخصية بسيطة لحد موقع شركة كامل. السعر والوقت بيتحددوا حسب حجم اللي محتاجه فعلاً.",
-      en: "Absolutely — we work with any project size, from a simple personal page to a full company website. Price and time are scoped to what you actually need.",
+      ar: "أكيد، بنشتغل مع أي حجم مشروع — من صفحة شخصية بسيطة لحد أنظمة ومواقع شركات كبيرة ومعقدة. السعر والوقت بيتحددوا حسب حجم اللي محتاجه فعلاً.",
+      en: "Absolutely — we work with any project size, from a simple personal page to large, complex company systems and sites. Price and time are scoped to what you actually need.",
     },
   },
   {
@@ -269,8 +269,8 @@ const intents: ChatbotIntent[] = [
       en: ["service", "design", "develop", "company", "offer", "personal", "what do you do", "who are you", "what is stratix"],
     },
     text: {
-      ar: "STRATIX استوديو بيصمم ويبرمج مواقع الشركات والمواقع الشخصية. نحدد الشكل والوظائف المناسبة بعد فهم هدف مشروعك.",
-      en: "STRATIX is a studio that designs and builds company and personal websites. We shape the design and features once we understand your project's goal.",
+      ar: "STRATIX شركة متخصصة في تصميم وبرمجة مواقع وأنظمة الشركات والمواقع الشخصية — من البسيط إلى المشاريع الكبيرة والمعقدة. نحدد الشكل والوظائف المناسبة بعد فهم هدف مشروعك.",
+      en: "STRATIX is a specialized company that designs and builds company websites, web systems, and personal sites — from the simple to large, complex projects. We shape the design and features once we understand your project's goal.",
     },
   },
   {

@@ -71,7 +71,7 @@ export const translations = {
       eyebrow: "GET TO KNOW US",
       title: "تعرف علينا",
       story:
-        "بدأت STRATIX من ملاحظة بسيطة: عشرات أصحاب المشروعات والأفكار عندهم خدمة أو منتج قوي، لكن يوقفهم موقع غير واضح أو غير موجود من الأساس. جمعنا شغفنا بالتكنولوجيا مع حسّنا في بناء تجربة تخدم هدف العميل فعلاً، وقررنا نبني استوديو صغير يحوّل الفكرة إلى موقع احترافي بسرعة وبثقة، بدل القوالب الجاهزة والحلول المكررة.",
+        "STRATIX شركة متخصصة في تصميم وبرمجة مواقع وأنظمة ويب — من الموقع التعريفي البسيط إلى المشاريع الكبيرة والمعقدة التي تحتاج بنية قوية وأداءً عالياً وأماناً محكماً. نكتب كل سطر كوداً مخصصاً لهدف المشروع، لا قوالب جاهزة ولا حلولاً مكررة، ونتعامل مع كل مشروع كمنتج يجب أن يعمل بثقة ويكبر مع أصحابه.",
       list: [
         { name: "فارس سامي عبد العزيز السيد", role: "مؤسس مشارك" },
         { name: "يوسف تامر السيد أحمد", role: "مؤسس مشارك" },
@@ -202,7 +202,7 @@ export const translations = {
       eyebrow: "GET TO KNOW US",
       title: "Get to Know Us",
       story:
-        "STRATIX started from a simple observation: dozens of business owners and idea-holders have a strong service or product, but get held back by a website that's unclear — or doesn't exist at all. We combined our passion for technology with a real sense for building an experience that actually serves the client's goal, and decided to build a small studio that turns an idea into a professional website, quickly and with confidence, instead of ready-made templates and repetitive solutions.",
+        "STRATIX is a specialized web design and engineering company — from a simple presence site to large, complex projects that demand solid architecture, high performance, and hardened security. We write every line as custom code built for the project's goal, never ready-made templates or repetitive solutions, and treat each project as a product that has to run with confidence and scale with its owners.",
       list: [
         { name: "Fares Samy Abdelaziz Elsayed", role: "Co-Founder" },
         { name: "Youssef Tamer Elsayed Ahmed", role: "Co-Founder" },

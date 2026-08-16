@@ -19,7 +19,7 @@ const chatCopy = {
   ar: {
     panelAria: "مساعد STRATIX",
     signalLabel: "STRATIX SIGNAL",
-    signalNote: "إجابات محددة — بدون ذكاء اصطناعي",
+    signalNote: "إجابات فورية ودقيقة",
     close: "إغلاق المحادثة",
     quickQuestionsAria: "أسئلة سريعة",
     questionLabel: "اكتب سؤالك",
@@ -31,7 +31,7 @@ const chatCopy = {
   en: {
     panelAria: "STRATIX Assistant",
     signalLabel: "STRATIX SIGNAL",
-    signalNote: "Fixed answers — no AI",
+    signalNote: "Instant, precise answers",
     close: "Close chat",
     quickQuestionsAria: "Quick questions",
     questionLabel: "Type your question",
