@@ -73,3 +73,33 @@ export const ledgerEntries = mysqlTable(
 
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 export type InsertLedgerEntry = typeof ledgerEntries.$inferInsert;
+
+// Company bills — what the business pays out to run: domain, hosting, tools.
+// Kept separate from ledgerEntries on purpose: that table tracks client money
+// in EGP, while operating costs are usually billed in USD, so mixing them into
+// one running total would produce a meaningless figure. Amount and currency are
+// stored together and never summed across currencies.
+export const invoices = mysqlTable(
+  "invoices",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    category: mysqlEnum("category", [
+      "domain",
+      "hosting",
+      "cloud",
+      "tools",
+      "marketing",
+      "other",
+    ]).notNull(),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    currency: mysqlEnum("currency", ["USD", "EGP"]).notNull(),
+    note: varchar("note", { length: 255 }).notNull(),
+    occurredAt: bigint("occurredAt", { mode: "number", unsigned: true }).notNull(),
+    createdBy: mysqlEnum("createdBy", ["fares", "youssef"]).notNull(),
+    createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
+  },
+  table => [index("invoices_occurred_at_idx").on(table.occurredAt)],
+);
+
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;

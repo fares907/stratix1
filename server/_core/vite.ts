@@ -58,6 +58,18 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Keep the admin dashboard out of every search index. A meta tag alone would
+  // not help here — the page is a client-rendered SPA, so a crawler that does
+  // not run JS sees only the shell — but this response header is read before any
+  // rendering. It does not add access control (the login does that); it just
+  // stops the panel and the founders' names from ever surfacing in results.
+  app.use((req, res, next) => {
+    if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    }
+    next();
+  });
+
   app.use(
     express.static(distPath, {
       setHeaders(res, filePath) {

@@ -15,6 +15,13 @@
       "when": 1784899418659,
       "tag": "0001_project_type_simplify",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786892237880,
+      "tag": "0002_amazing_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

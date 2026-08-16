@@ -5,8 +5,10 @@ import {
   Booking,
   bookings,
   InsertBooking,
+  InsertInvoice,
   InsertLedgerEntry,
   InsertUser,
+  invoices,
   ledgerEntries,
   users,
 } from "../drizzle/schema";
@@ -232,6 +234,13 @@ export async function updateBookingStatus(input: { publicId: string; status: Boo
     .where(eq(bookings.publicId, input.publicId));
 }
 
+export async function deleteBooking(publicId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.delete(bookings).where(eq(bookings.publicId, publicId));
+}
+
 export async function updateBookingEmailDelivery(input: {
   publicId: string;
   status: "sent" | "failed" | "not_configured";
@@ -324,5 +333,61 @@ export async function getLedgerStats() {
     thisYear: totalsFor(rows.filter(row => row.occurredAt >= yearStart)),
     last6Months: totalsFor(rows.filter(row => row.occurredAt >= sixMonthWindowStart)),
     monthlyTrend,
+  };
+}
+
+const INVOICE_LIST_MAX_LIMIT = 100;
+
+export async function listInvoices(input: { limit: number; offset: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const limit = Math.min(Math.max(input.limit, 1), INVOICE_LIST_MAX_LIMIT);
+
+  return db
+    .select()
+    .from(invoices)
+    .orderBy(desc(invoices.occurredAt))
+    .limit(limit)
+    .offset(Math.max(input.offset, 0));
+}
+
+export async function createInvoice(input: InsertInvoice) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.insert(invoices).values(input);
+}
+
+export async function deleteInvoice(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db.delete(invoices).where(eq(invoices.id, id));
+}
+
+// Totals are kept per-currency and never summed together: USD hosting costs and
+// EGP expenses are different units, and a single combined number would be wrong.
+export async function getInvoiceStats() {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const yearStart = startOfYear(new Date()).getTime();
+
+  const rows = await db
+    .select({ currency: invoices.currency, amount: invoices.amount, occurredAt: invoices.occurredAt })
+    .from(invoices);
+
+  const sumFor = (currency: "USD" | "EGP", since: number) =>
+    rows
+      .filter(row => row.currency === currency && row.occurredAt >= since)
+      .reduce((total, row) => total + Number(row.amount), 0);
+
+  return {
+    total: rows.length,
+    usdThisYear: sumFor("USD", yearStart),
+    egpThisYear: sumFor("EGP", yearStart),
+    usdAllTime: sumFor("USD", 0),
+    egpAllTime: sumFor("EGP", 0),
   };
 }
