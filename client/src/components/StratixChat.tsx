@@ -3,12 +3,20 @@ import { ArrowUpLeft, MessageSquareText, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getChatbotAnswer, getChatbotQuickQuestions } from "@/lib/chatbot";
+import { trpc } from "@/lib/trpc";
 
 type Message = {
   id: number;
   author: "bot" | "user";
   text: string;
 };
+
+type HandoffTopic = "new_site" | "existing_issue" | "other";
+// null       → not in handoff
+// "topic"    → choosing what they need
+// a topic    → entering their contact details
+// "sent"     → submitted, confirmation shown
+type HandoffStage = null | "topic" | HandoffTopic | "sent";
 
 const greeting = {
   ar: "أهلاً بك في STRATIX. اسألني عن الخدمة، السعر، المدة، الحجز، أو التواصل.",
@@ -27,6 +35,20 @@ const chatCopy = {
     send: "إرسال السؤال",
     bookingLink: "ابدأ حجز مشروعك",
     launcher: "اسألنا",
+    topicAria: "اختر نوع الطلب",
+    topics: {
+      new_site: "عايز أعمل موقع",
+      existing_issue: "مشكلة في موقع قائم",
+      other: "استفسار تاني",
+    },
+    phonePlaceholder: "رقم موبايلك (واتساب)",
+    emailPlaceholder: "بريدك الإلكتروني (اختياري)",
+    sendRequest: "إرسال الطلب",
+    sending: "جارٍ الإرسال…",
+    topicPrompt: "تمام! سيب رقمك وهنكلمك في أقرب وقت.",
+    sentOk: "تم استلام طلبك ✅ الفريق هيكلمك على الرقم ده في أقرب وقت.",
+    sentFail: "حصل خطأ بسيط. جرب تاني أو كلمنا مباشرة على واتساب 01125839109.",
+    badPhone: "من فضلك اكتب رقم موبايل صحيح.",
   },
   en: {
     panelAria: "STRATIX Assistant",
@@ -39,6 +61,20 @@ const chatCopy = {
     send: "Send question",
     bookingLink: "Start your project",
     launcher: "Ask us",
+    topicAria: "Choose a request type",
+    topics: {
+      new_site: "I want a website",
+      existing_issue: "Issue with an existing site",
+      other: "Another question",
+    },
+    phonePlaceholder: "Your mobile (WhatsApp)",
+    emailPlaceholder: "Your email (optional)",
+    sendRequest: "Send request",
+    sending: "Sending…",
+    topicPrompt: "Great — leave your number and we'll reach out shortly.",
+    sentOk: "Request received ✅ The team will contact you on this number shortly.",
+    sentFail: "Something went wrong. Try again, or message us on WhatsApp 01125839109.",
+    badPhone: "Please enter a valid mobile number.",
   },
 };
 
@@ -46,14 +82,27 @@ export default function StratixChat() {
   const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([{ id: 1, author: "bot", text: greeting[language] }]);
+  const [stage, setStage] = useState<HandoffStage>(null);
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const sequence = useRef(1);
   const reduceMotion = useReducedMotion();
   const copy = chatCopy[language];
 
+  const contactMutation = trpc.contact.request.useMutation();
+
   useEffect(() => {
     sequence.current = 1;
     setMessages([{ id: 1, author: "bot", text: greeting[language] }]);
+    setStage(null);
+    setPhone("");
+    setEmail("");
   }, [language]);
+
+  const pushBot = (text: string) => {
+    sequence.current += 1;
+    setMessages(current => [...current, { id: sequence.current, author: "bot", text }]);
+  };
 
   const ask = (question: string) => {
     const trimmed = question.trim();
@@ -66,6 +115,11 @@ export default function StratixChat() {
       { id: sequence.current - 1, author: "user", text: trimmed },
       { id: sequence.current, author: "bot", text: answer.text },
     ]);
+
+    // A "talk to a person" answer opens the handoff flow instead of ending.
+    if (answer.action === "handoff") {
+      setStage("topic");
+    }
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -75,6 +129,46 @@ export default function StratixChat() {
     ask(String(data.get("question") ?? ""));
     form.reset();
   };
+
+  const chooseTopic = (topic: HandoffTopic) => {
+    sequence.current += 1;
+    setMessages(current => [...current, { id: sequence.current, author: "user", text: copy.topics[topic] }]);
+    setStage(topic);
+    pushBot(copy.topicPrompt);
+  };
+
+  const submitContact = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (stage !== "new_site" && stage !== "existing_issue" && stage !== "other") return;
+    const topic = stage;
+
+    if (phone.trim().length < 6) {
+      pushBot(copy.badPhone);
+      return;
+    }
+
+    // Show the visitor their own submission, then confirm on success.
+    sequence.current += 1;
+    setMessages(current => [
+      ...current,
+      { id: sequence.current, author: "user", text: email.trim() ? `${phone.trim()} — ${email.trim()}` : phone.trim() },
+    ]);
+
+    contactMutation.mutate(
+      { topic, phone: phone.trim(), clientEmail: email.trim() || undefined, website: "" },
+      {
+        onSuccess: () => {
+          setStage("sent");
+          pushBot(copy.sentOk);
+        },
+        onError: () => {
+          pushBot(copy.sentFail);
+        },
+      },
+    );
+  };
+
+  const inContactForm = stage === "new_site" || stage === "existing_issue" || stage === "other";
 
   return (
     <div className="stratix-chat" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -114,13 +208,67 @@ export default function StratixChat() {
               ))}
             </div>
 
-            <div className="chat-quick-questions" aria-label={copy.quickQuestionsAria}>
-              {getChatbotQuickQuestions(language).map(question => (
-                <button type="button" key={question.id} onClick={() => ask(question.label)}>
-                  {question.label}
+            {/* Handoff: choose a topic */}
+            {stage === "topic" && (
+              <div className="chat-quick-questions" aria-label={copy.topicAria}>
+                {(Object.keys(copy.topics) as HandoffTopic[]).map(topic => (
+                  <button type="button" key={topic} onClick={() => chooseTopic(topic)}>
+                    {copy.topics[topic]}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Handoff: collect contact */}
+            {inContactForm && (
+              <form className="chat-contact-form" onSubmit={submitContact}>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  name="phone"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder={copy.phonePlaceholder}
+                  autoComplete="tel"
+                  maxLength={32}
+                  required
+                  dir="ltr"
+                />
+                <input
+                  type="email"
+                  name="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder={copy.emailPlaceholder}
+                  autoComplete="email"
+                  maxLength={320}
+                  dir="ltr"
+                />
+                {/* Honeypot: hidden from people, tempting to bots. */}
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+                />
+                <button type="submit" disabled={contactMutation.isPending}>
+                  {contactMutation.isPending ? copy.sending : copy.sendRequest}
                 </button>
-              ))}
-            </div>
+              </form>
+            )}
+
+            {/* Normal quick questions, hidden during the handoff flow */}
+            {stage === null && (
+              <div className="chat-quick-questions" aria-label={copy.quickQuestionsAria}>
+                {getChatbotQuickQuestions(language).map(question => (
+                  <button type="button" key={question.id} onClick={() => ask(question.label)}>
+                    {question.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <form className="chat-input-row" onSubmit={handleSubmit}>
               <label className="sr-only" htmlFor="chat-question">{copy.questionLabel}</label>

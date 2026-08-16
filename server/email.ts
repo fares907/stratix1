@@ -180,6 +180,63 @@ export async function sendBookingEmail(booking: Booking): Promise<BookingEmailRe
   });
 }
 
+const contactTopicLabels: Record<"new_site" | "existing_issue" | "other", string> = {
+  new_site: "عايز يعمل موقع جديد",
+  existing_issue: "عنده مشكلة في موقع قائم",
+  other: "استفسار / تواصل",
+};
+
+// A lead captured from the site chat's "talk to us" flow. Delivered to the same
+// owner inbox as bookings so both land in one place, and marked in the subject
+// so it's distinguishable at a glance from a full booking.
+export async function sendContactLeadEmail(lead: {
+  topic: "new_site" | "existing_issue" | "other";
+  phone: string;
+  clientEmail?: string;
+  note?: string;
+}): Promise<BookingEmailResult> {
+  const to = ENV.bookingEmailTo.trim();
+  const topic = contactTopicLabels[lead.topic];
+  const receivedAt = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+
+  const subject = `طلب تواصل من الشات — ${topic}`;
+  const text = [
+    "وصل طلب تواصل جديد من الشات على موقع STRATIX.",
+    "",
+    `نوع الطلب: ${topic}`,
+    `رقم العميل: ${lead.phone}`,
+    `البريد: ${lead.clientEmail || "غير مضاف"}`,
+    lead.note ? `ملاحظة: ${lead.note}` : "",
+    `وقت الاستلام: ${receivedAt}`,
+    "",
+    "كلّم العميل في أقرب وقت.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `
+    <div dir="rtl" style="max-width:680px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">STRATIX / CHAT LEAD</p>
+      <h1 style="margin:0 0 24px;font-size:26px">طلب تواصل جديد</h1>
+      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4eee4">
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">نوع الطلب</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(topic)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">رقم العميل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(lead.phone)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">البريد</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${lead.clientEmail ? escapeHtml(lead.clientEmail) : "غير مضاف"}</td></tr>
+        ${lead.note ? `<tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">ملاحظة</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(lead.note)}</td></tr>` : ""}
+      </table>
+      <p style="margin:24px 0 0;color:#aaa099;font-size:13px">وقت الاستلام: ${escapeHtml(receivedAt)}</p>
+    </div>`;
+
+  return sendViaResend({
+    to,
+    replyTo: lead.clientEmail || undefined,
+    publicId: `chat-${Date.now()}`,
+    subject,
+    text,
+    html,
+  });
+}
+
 // Best-effort confirmation to the customer, only sent when they provided an
 // email. Failures here never affect booking.submit's own success response —
 // the owner notification above is the one that must succeed.

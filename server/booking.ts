@@ -23,7 +23,7 @@ const egyptianMobile = /^\+20(10|11|12|15)\d{8}$/;
 // while "+44…", "+971…" etc. validate against their own national numbering
 // rules. Stored normalized to E.164 so the rate limiter and admin search
 // compare a single canonical form.
-function normalizePhone(value: string): string | null {
+export function normalizePhone(value: string): string | null {
   const cleaned = value.replace(/[\s()\-.]/g, "");
   const parsed = parsePhoneNumberFromString(cleaned, "EG");
   if (!parsed || !parsed.isValid()) return null;

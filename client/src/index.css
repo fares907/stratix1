@@ -1590,6 +1590,43 @@ select:not(:disabled) {
   width: 1rem;
 }
 
+/* Handoff contact form — shares the chat's visual language. */
+.chat-contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 1.1rem 0.85rem;
+}
+
+.chat-contact-form input[type="tel"],
+.chat-contact-form input[type="email"] {
+  height: 2.7rem;
+  border: 1px solid var(--line);
+  outline: 0;
+  background: oklch(0.11 0.015 45);
+  color: var(--paper);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.chat-contact-form input:focus {
+  border-color: var(--signal);
+}
+
+.chat-contact-form button {
+  height: 2.7rem;
+  border: 0;
+  background: var(--signal);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-contact-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .chat-booking-link {
   display: flex;
   align-items: center;

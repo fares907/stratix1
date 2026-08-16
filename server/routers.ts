@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import { adminAuthRouter } from "./adminSession";
 import { bookingInputSchema, submitBooking } from "./booking";
+import { contactInputSchema, submitContactRequest } from "./contact";
 import { getSessionCookieOptions } from "./_core/cookies";
 import {
   createInvoice,
@@ -37,6 +38,12 @@ export const appRouter = router({
     submit: publicProcedure
       .input(bookingInputSchema)
       .mutation(({ ctx, input }) => submitBooking(input, ctx.req)),
+  }),
+
+  contact: router({
+    request: publicProcedure
+      .input(contactInputSchema)
+      .mutation(({ ctx, input }) => submitContactRequest(input, ctx.req)),
   }),
 
   adminAuth: adminAuthRouter,

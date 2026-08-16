@@ -3,6 +3,9 @@ import type { Language } from "./translations";
 export type ChatbotAnswer = {
   id: string;
   text: string;
+  // When set, the widget switches from answering to a live-handoff flow that
+  // collects the visitor's contact and emails it to the owners.
+  action?: "handoff";
 };
 
 type LocalizedText = Record<Language, string>;
@@ -12,9 +15,62 @@ type ChatbotIntent = {
   label: LocalizedText;
   keywords: Record<Language, string[]>;
   text: LocalizedText;
+  action?: "handoff";
 };
 
 const intents: ChatbotIntent[] = [
+  {
+    // Highest-value path: a visitor who wants a real person, not an answer.
+    // Matched first-class and routed to the handoff flow rather than a canned
+    // reply. Keywords lean toward explicit "talk to someone" phrasing so it
+    // doesn't hijack ordinary questions.
+    id: "human_contact",
+    label: { ar: "عايز أكلم حد من الفريق", en: "Talk to the team" },
+    keywords: {
+      ar: [
+        "خدمه العملاء",
+        "خدمة العملاء",
+        "اكلم حد",
+        "اكلم موظف",
+        "اكلم حد حقيقي",
+        "اكلمكم",
+        "عايز اكلمكم",
+        "محتاج اكلم",
+        "اتكلم مع حد",
+        "اكلم فريق",
+        "حد يكلمني",
+        "حد يتصل بيا",
+        "كلموني",
+        "عايز اتواصل معاكم",
+        "دعم مباشر",
+        "مشكله في موقعي",
+        "مشكله في الموقع بتاعي",
+        "الموقع اللي عملتهولي",
+        "عندي مشكله عايز اكلمكم",
+      ],
+      en: [
+        "customer service",
+        "talk to a human",
+        "talk to someone",
+        "talk to the team",
+        "speak to a person",
+        "speak to an agent",
+        "real person",
+        "live agent",
+        "contact support",
+        "call me",
+        "reach a human",
+        "problem with my site",
+        "issue with my website",
+        "the site you built",
+      ],
+    },
+    action: "handoff",
+    text: {
+      ar: "تمام، ده محتاج حد من الفريق مباشرة. اختار نوع طلبك وسيب رقمك، وهنكلمك في أقرب وقت 👇",
+      en: "Got it — this needs someone from the team. Pick what you need and leave your number, and we'll reach out shortly 👇",
+    },
+  },
   {
     id: "greeting",
     label: { ar: "أهلاً", en: "Say hi" },
@@ -657,7 +713,10 @@ export function getChatbotAnswer(question: string, language: Language): ChatbotA
     })
     .sort((left, right) => right.score - left.score);
 
-  if (scored[0]?.score) return { id: scored[0].intent.id, text: scored[0].intent.text[language] };
+  if (scored[0]?.score) {
+    const { intent } = scored[0];
+    return { id: intent.id, text: intent.text[language], action: intent.action };
+  }
 
   return { id: "fallback", text: fallbackText[language] };
 }

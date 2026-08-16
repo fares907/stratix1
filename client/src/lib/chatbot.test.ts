@@ -88,4 +88,23 @@ describe("STRATIX fixed-answer chatbot", () => {
     expect(getChatbotAnswer("ما حالة الطقس اليوم؟", "ar").id).toBe("fallback");
     expect(getChatbotAnswer("what's the weather today?", "en").id).toBe("fallback");
   });
+
+  // The handoff intent must both match and carry the action flag, since the
+  // widget keys the "leave your number" flow off that flag, not the text.
+  it.each([
+    ["عايز اكلم حد من الفريق", "ar"],
+    ["محتاج خدمة العملاء", "ar"],
+    ["عندي مشكلة في موقعي", "ar"],
+    ["i want to talk to a human", "en"],
+    ["customer service please", "en"],
+    ["problem with my site", "en"],
+  ] as const)("routes '%s' to the handoff flow", (question, lang) => {
+    const answer = getChatbotAnswer(question, lang);
+    expect(answer.id).toBe("human_contact");
+    expect(answer.action).toBe("handoff");
+  });
+
+  it("does not trigger handoff for an ordinary pricing question", () => {
+    expect(getChatbotAnswer("الاسعار كام؟", "ar").action).toBeUndefined();
+  });
 });
