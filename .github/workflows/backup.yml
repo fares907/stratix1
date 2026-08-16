@@ -1,0 +1,185 @@
+name: Database backup
+
+# The managed backup keeps exactly one day: the 03:01 snapshot expires at 03:01
+# the next morning. That covers a server dying overnight, but not the failure
+# that actually loses data — noticing on Thursday that something was deleted on
+# Monday. By then the only copy is long gone.
+#
+# This keeps 90 days of daily snapshots. They contain real customer names,
+# phone numbers and email addresses, so the dump is encrypted before it ever
+# leaves the runner; the artifact is unreadable without BACKUP_PASSPHRASE.
+on:
+  schedule:
+    # 02:00 UTC — 04:00 Cairo, the quietest hour, and an hour before the
+    # provider takes its own snapshot so the two never contend.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump, encrypt, verify
+        id: dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DATABASE_URL:-}" ] || [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "::error::DATABASE_URL and BACKUP_PASSPHRASE must both be set as repository secrets."
+            exit 1
+          fi
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mysql-client
+
+          # Parse the connection URL into parts. Credentials stay in shell
+          # variables and are passed to mysqldump through a defaults file, never
+          # on the command line where `ps` would expose them to other processes.
+          proto_stripped="${DATABASE_URL#*://}"
+          creds="${proto_stripped%%@*}"
+          hostpart="${proto_stripped#*@}"
+          DB_USER="${creds%%:*}"
+          DB_PASS="${creds#*:}"
+          hostport="${hostpart%%/*}"
+          DB_HOST="${hostport%%:*}"
+          DB_PORT="${hostport#*:}"
+          [ "$DB_PORT" = "$DB_HOST" ] && DB_PORT=4000
+          DB_NAME="${hostpart#*/}"
+          DB_NAME="${DB_NAME%%\?*}"
+
+          # URL-decode the password. Piped rather than passed as an argument so
+          # it never appears in the process list. printf '%b' looks simpler but
+          # mangles a password containing a literal backslash, and turns a bare
+          # '%' that is not an escape sequence into garbage.
+          DB_PASS=$(printf '%s' "$DB_PASS" | perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/ge')
+
+          echo "host=$DB_HOST port=$DB_PORT db=$DB_NAME"
+
+          cat > /tmp/my.cnf <<CNF
+          [client]
+          user=$DB_USER
+          password=$DB_PASS
+          host=$DB_HOST
+          port=$DB_PORT
+          ssl-mode=VERIFY_IDENTITY
+          ssl-ca=/etc/ssl/certs/ca-certificates.crt
+          CNF
+          chmod 600 /tmp/my.cnf
+
+          stamp=$(date -u +%Y-%m-%d)
+          plain="/tmp/stratix-$stamp.sql"
+
+          # --single-transaction takes a consistent snapshot without locking the
+          # tables, so a booking arriving mid-dump is never blocked.
+          mysqldump --defaults-file=/tmp/my.cnf \
+            --single-transaction \
+            --set-gtid-purged=OFF \
+            --no-tablespaces \
+            --skip-lock-tables \
+            "$DB_NAME" > "$plain"
+
+          rm -f /tmp/my.cnf
+
+          # A dump that ends early still writes a file. Only a complete run gets
+          # the trailing marker, so this is what separates a real backup from a
+          # truncated one that would fail silently for months.
+          if ! tail -5 "$plain" | grep -q "Dump completed"; then
+            echo "::error::mysqldump did not finish — the dump is truncated."
+            exit 1
+          fi
+
+          rows=$(grep -c "^INSERT INTO" "$plain" || true)
+          bytes=$(stat -c%s "$plain")
+          echo "tables: $(grep -c '^CREATE TABLE' "$plain" || true), insert statements: $rows, size: $bytes bytes"
+
+          if [ "$bytes" -lt 1000 ]; then
+            echo "::error::Dump is only $bytes bytes — the database looks empty or unreachable."
+            exit 1
+          fi
+
+          gzip -9 "$plain"
+
+          # Encrypted here, on the runner, before anything is uploaded. The
+          # artifact holds customer contact details and must not be readable by
+          # anyone who can browse the repository's artifacts.
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -in "$plain.gz" \
+            -out "/tmp/stratix-$stamp.sql.gz.enc" \
+            -pass env:BACKUP_PASSPHRASE
+
+          # Prove the encrypted copy actually decrypts before the plaintext is
+          # destroyed. An unopenable backup is worse than none, because it is
+          # trusted until the day it is needed.
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "/tmp/stratix-$stamp.sql.gz.enc" \
+            -out /tmp/roundtrip.gz \
+            -pass env:BACKUP_PASSPHRASE
+          gzip -t /tmp/roundtrip.gz
+
+          if [ "$(stat -c%s /tmp/roundtrip.gz)" != "$(stat -c%s "$plain.gz")" ]; then
+            echo "::error::Decrypted backup does not match the original."
+            exit 1
+          fi
+
+          shred -u "$plain.gz" /tmp/roundtrip.gz 2>/dev/null || rm -f "$plain.gz" /tmp/roundtrip.gz
+
+          echo "stamp=$stamp" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c%s "/tmp/stratix-$stamp.sql.gz.enc")" >> "$GITHUB_OUTPUT"
+          echo "backup verified and encrypted"
+
+      - name: Store the encrypted snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.dump.outputs.stamp }}
+          path: /tmp/stratix-${{ steps.dump.outputs.stamp }}.sql.gz.enc
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Report a failed backup
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Database backup failed';
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'backup-failure',
+            });
+
+            const body = [
+              'The nightly database backup did not complete.',
+              '',
+              'Until this is fixed the only copy of the data is the provider snapshot, which expires 24 hours after it is taken.',
+              '',
+              `[Run log](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
+            ].join('\n');
+
+            if (open.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body,
+              });
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['backup-failure'],
+            });
