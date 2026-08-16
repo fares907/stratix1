@@ -1,0 +1,183 @@
+name: Uptime
+
+# The site was down for a full day in August 2026 and nobody noticed, because
+# nothing was watching it. The cause was registrar-level (ICANN contact
+# verification suspended the domain and repointed its nameservers), which a
+# plain "is the page up" check reports only as a generic failure — so this also
+# inspects DNS and the certificate, and says which of the three actually broke.
+on:
+  schedule:
+    # Every 10 minutes. GitHub queues scheduled runs and can delay them under
+    # load, so treat this as "within ~15 minutes", not a hard interval.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe the site
+        id: probe
+        env:
+          SITE: https://stratix.website
+          HOST: stratix.website
+          ORIGIN: dmmu14lt.up.railway.app
+          CERT_WARN_DAYS: "21"
+        run: |
+          set -uo pipefail
+          problems=()
+
+          # dig ships with the standard runner image, but installing it when
+          # absent is cheaper than silently skipping the DNS checks — those are
+          # the ones that name a registrar failure instead of reporting a
+          # generic "site is down".
+          if ! command -v dig >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils
+          fi
+
+          # ---- 1. Does the page load? ----------------------------------------
+          # Three attempts: a single timeout on a cold container is normal and
+          # must not page anyone.
+          status=""
+          for attempt in 1 2 3; do
+            status=$(curl -sS -o /tmp/body.html -w "%{http_code}" \
+                       --max-time 20 --retry 0 "$SITE" || echo "000")
+            [ "$status" = "200" ] && break
+            echo "attempt $attempt returned $status, retrying"
+            sleep 10
+          done
+
+          if [ "$status" != "200" ]; then
+            problems+=("HTTP check failed — the site returned \`$status\` instead of 200 after 3 attempts.")
+          else
+            # A 200 from a parking page is still an outage, so confirm the page
+            # is actually ours.
+            if ! grep -q "STRATIX" /tmp/body.html; then
+              problems+=("The site returned 200 but the page body is not STRATIX — a parking or error page is being served.")
+            fi
+          fi
+
+          # ---- 2. Is the domain still pointed at our host? --------------------
+          # This is the check that would have named the August failure. The
+          # registrar swapped the nameservers to verification placeholders and
+          # parked the domain; the names themselves state the reason.
+          ns=$(dig +short NS "$HOST" | sort | tr '\n' ' ' | sed 's/ $//')
+          if [ -z "$ns" ]; then
+            problems+=("No nameservers resolve for \`$HOST\` — the domain may be suspended or expired.")
+          elif echo "$ns" | grep -qiE "verify|failed-whois|suspend|expired|parking"; then
+            problems+=("Registrar has taken over DNS. Nameservers are now: \`$ns\` — this usually means contact verification or renewal is overdue. Check the registrar account.")
+          fi
+
+          site_ip=$(dig +short "$HOST" A | tail -n1)
+          origin_ip=$(dig +short "$ORIGIN" A | tail -n1)
+          if [ -n "$site_ip" ] && [ -n "$origin_ip" ] && [ "$site_ip" != "$origin_ip" ]; then
+            problems+=("DNS points \`$HOST\` at \`$site_ip\`, but the host is at \`$origin_ip\`. Traffic is not reaching the app.")
+          fi
+
+          # ---- 3. Is the certificate about to lapse? --------------------------
+          # Renewal needs the domain pointed at the host, so an expiring cert is
+          # often the first visible symptom of a DNS problem.
+          end=$(echo | openssl s_client -servername "$HOST" -connect "$HOST":443 2>/dev/null \
+                 | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+          if [ -n "$end" ]; then
+            left=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
+            echo "certificate expires in $left days ($end)"
+            if [ "$left" -lt "$CERT_WARN_DAYS" ]; then
+              problems+=("TLS certificate expires in **$left days** ($end). Renewal requires DNS to point at the host — verify that first.")
+            fi
+          fi
+
+          # ---- Result ---------------------------------------------------------
+          if [ ${#problems[@]} -eq 0 ]; then
+            echo "all checks passed"
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "report<<REPORT_EOF"
+              printf '%s\n\n' "${problems[@]}"
+              echo "REPORT_EOF"
+            } >> "$GITHUB_OUTPUT"
+            printf '%s\n' "${problems[@]}"
+          fi
+
+      - name: Open or update the outage issue
+        if: steps.probe.outputs.healthy != 'true'
+        uses: actions/github-script@v7
+        env:
+          REPORT: ${{ steps.probe.outputs.report }}
+        with:
+          script: |
+            const label = 'outage';
+            const title = 'Site is down: stratix.website';
+            const body = [
+              '**stratix.website is failing its health check.**',
+              '',
+              process.env.REPORT,
+              '---',
+              `Detected: ${new Date().toISOString()}`,
+              `[Run log](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
+              '',
+              'This issue closes itself once the checks pass again.',
+            ].join('\n');
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+
+            // One issue per outage. Re-opening a new issue every 10 minutes
+            // would bury the notification that matters in a wall of duplicates.
+            if (open.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: open[0].number,
+                body: `Still down as of ${new Date().toISOString()}.\n\n${process.env.REPORT}`,
+              });
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: [label],
+            });
+
+      - name: Close the outage issue once healthy
+        if: steps.probe.outputs.healthy == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'outage',
+            });
+
+            for (const issue of open) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Recovered — all checks passed at ${new Date().toISOString()}.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
