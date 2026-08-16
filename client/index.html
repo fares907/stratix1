@@ -2,10 +2,10 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
-    />
+    <!-- No maximum-scale: locking it blocks pinch-to-zoom, which anyone with
+         low vision needs to read the page at all. Safari ignores the lock
+         anyway, so it only ever degraded the browsers that honoured it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
       content="STRATIX — تصميم وبرمجة مواقع ويب قوية، سريعة، ومصممة لتترك انطباعاً حقيقياً. تبدأ الأسعار من 700 جنيه بدون فصال."
@@ -30,8 +30,20 @@
       property="og:description"
       content="تصميم وبرمجة مواقع ويب قوية وسريعة، تبدأ الأسعار من 700 جنيه بدون فصال."
     />
-    <meta property="og:image" content="https://stratix.website/favicon.svg" />
-    <meta name="twitter:card" content="summary" />
+    <!-- WhatsApp, Facebook and LinkedIn do not render SVG previews, so pointing
+         this at favicon.svg meant every shared link arrived with no image at
+         all. A 1200x630 PNG is the size all three crop from. -->
+    <meta property="og:image" content="https://stratix.website/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="STRATIX — تصميم وبرمجة مواقع ويب، تبدأ من 700 جنيه"
+    />
+    <meta property="og:locale" content="ar_EG" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://stratix.website/og-image.png" />
     <meta name="twitter:title" content="STRATIX — مواقع تتحرك بقوة فكرتك" />
     <meta
       name="twitter:description"
@@ -41,22 +53,101 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
+        "@type": "ProfessionalService",
         "name": "STRATIX",
         "url": "https://stratix.website/",
+        "image": "https://stratix.website/og-image.png",
         "description": "استوديو تصميم وبرمجة مواقع ويب في مصر.",
         "email": "stratix255@gmail.com",
         "telephone": ["+201125839109", "+201036678093"],
+        "priceRange": "من 700 جنيه مصري",
+        "currenciesAccepted": "EGP",
+        "areaServed": { "@type": "Country", "name": "Egypt" },
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "القاهرة",
+          "addressCountry": "EG"
+        },
         "founders": [
           { "@type": "Person", "name": "فارس سامي عبد العزيز السيد" },
           { "@type": "Person", "name": "يوسف تامر السيد أحمد" }
-        ]
+        ],
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "خدمات STRATIX",
+          "itemListElement": [
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "تصميم وبرمجة موقع ويب",
+                "description": "موقع كامل من الفكرة حتى الإطلاق، سريع ومتجاوب."
+              },
+              "priceCurrency": "EGP",
+              "price": "700",
+              "priceSpecification": {
+                "@type": "PriceSpecification",
+                "minPrice": "700",
+                "priceCurrency": "EGP"
+              }
+            }
+          ]
+        }
       }
     </script>
   </head>
 
   <body>
     <div id="root"></div>
+
+    <!-- The app renders entirely in JavaScript, so a client that does not run
+         it saw five words and an empty div. Google executes JS and indexes the
+         real page, but Bing and most SEO auditors do not — which is why audits
+         report this site as having no content. This block gives them the same
+         facts the page states, and never reaches a visitor whose JS works. -->
+    <noscript>
+      <h1>STRATIX — تصميم وبرمجة مواقع ويب</h1>
+      <p>
+        استوديو تصميم وبرمجة مواقع ويب في القاهرة. نصمم ونبرمج تجارب ويب سريعة
+        ومتحركة، مصنوعة لتمنح فكرتك حضوراً لا يمكن تجاهله.
+      </p>
+
+      <h2>الخدمة</h2>
+      <p>
+        نصنع موقعك من الفكرة حتى الإطلاق: تطوير احترافي بكود نظيف وتجربة
+        متجاوبة، أداء محسوب، حركة لها معنى، وأساس آمن يحمي بيانات التواصل.
+        الأسعار تبدأ من 700 جنيه مصري بسعر ثابت بدون مفاصلة، وتزيد حسب حجم
+        المشروع والوظائف المطلوبة.
+      </p>
+
+      <h2>المدة</h2>
+      <p>
+        المدة المتوقعة للمشروعات ضمن النطاق الأساسي أسبوع واحد، وقد تختلف
+        للمشروعات الأكبر بعد تحديد المتطلبات. المسار ثلاث مراحل: نفهم الفكرة،
+        ثم نبني التجربة، ثم نطلق بثقة بعد مراجعة الأداء والأمان.
+      </p>
+
+      <h2>المؤسسون</h2>
+      <p>فارس سامي عبد العزيز السيد — مؤسس مشارك.</p>
+      <p>يوسف تامر السيد أحمد — مؤسس مشارك.</p>
+
+      <h2>التواصل</h2>
+      <p>
+        هاتف: <a href="tel:+201125839109">011 2583 9109</a> —
+        <a href="tel:+201036678093">010 3667 8093</a>
+      </p>
+      <p>
+        البريد الإلكتروني:
+        <a href="mailto:stratix255@gmail.com">stratix255@gmail.com</a>
+      </p>
+      <p>
+        واتساب: <a href="https://wa.me/201125839109">201125839109+</a>
+      </p>
+      <p>
+        هذه الصفحة تحتاج إلى تفعيل JavaScript لعرض نموذج الحجز. يمكنك التواصل
+        معنا مباشرة عبر أي وسيلة أعلاه.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
     <script
       defer
