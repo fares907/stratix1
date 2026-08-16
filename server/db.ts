@@ -234,13 +234,6 @@ export async function updateBookingStatus(input: { publicId: string; status: Boo
     .where(eq(bookings.publicId, input.publicId));
 }
 
-export async function deleteBooking(publicId: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database is not available");
-
-  await db.delete(bookings).where(eq(bookings.publicId, publicId));
-}
-
 export async function updateBookingEmailDelivery(input: {
   publicId: string;
   status: "sent" | "failed" | "not_configured";

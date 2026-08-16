@@ -6,7 +6,6 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import {
   createInvoice,
   createLedgerEntry,
-  deleteBooking,
   deleteInvoice,
   deleteLedgerEntry,
   getBookingStats,
@@ -59,10 +58,6 @@ export const appRouter = router({
     updateStatus: adminSessionProcedure
       .input(z.object({ publicId: z.string(), status: z.enum(["new", "contacted", "closed"]) }))
       .mutation(({ input }) => updateBookingStatus(input)),
-
-    remove: adminSessionProcedure
-      .input(z.object({ publicId: z.string().min(1).max(32) }))
-      .mutation(({ input }) => deleteBooking(input.publicId)),
   }),
 
   adminLedger: router({
