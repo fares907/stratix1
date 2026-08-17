@@ -529,8 +529,8 @@ const intents: ChatbotIntent[] = [
       en: ["outside egypt", "international client", "abroad", "another country"],
     },
     text: {
-      ar: "أيوه، بنشتغل مع عملاء من أي دولة — نموذج الحجز بيقبل أرقام هواتف دولية، والتواصل والتنفيذ بيتم عن بُعد بسهولة.",
-      en: "Yes, we work with clients from any country — the booking form accepts international phone numbers, and communication and delivery happen remotely with no issue.",
+      ar: "أيوه، بنشتغل مع عملاء من أي دولة — مصر والسعودية والإمارات وعُمان وباقي الخليج والدول العربية، وكمان أمريكا وكندا وأوروبا. نموذج الحجز بيقبل أرقام هواتف دولية، والتواصل والتنفيذ بيتم عن بُعد بالعربي أو الإنجليزي.",
+      en: "Yes, we work with clients from any country — Egypt, Saudi Arabia, the UAE, Oman and the rest of the Gulf and Arab world, as well as the US, Canada and Europe. The booking form accepts international phone numbers, and everything happens remotely in Arabic or English.",
     },
   },
   {
