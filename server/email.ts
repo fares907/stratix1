@@ -16,10 +16,12 @@ const projectTypeLabels: Record<Booking["projectType"], string> = {
   other: "فكرة أخرى",
 };
 
+// Legacy price-band identifiers, relabelled as project sizes: the site no
+// longer publishes prices and the form now asks about scope instead.
 const budgetLabels: Record<Booking["budget"], string> = {
-  "700-1500": "700 — 1,500 جنيه",
-  "1500-3000": "1,500 — 3,000 جنيه",
-  "3000+": "أكثر من 3,000 جنيه",
+  "700-1500": "موقع بسيط — صفحة واحدة",
+  "1500-3000": "موقع متعدد الصفحات",
+  "3000+": "متجر أو نظام كبير",
 };
 
 const escapeHtml = (value: string) =>

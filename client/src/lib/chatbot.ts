@@ -166,8 +166,8 @@ const intents: ChatbotIntent[] = [
       en: ["smallest project", "minimum size", "very simple site", "single page only"],
     },
     text: {
-      ar: "بنعمل حتى المواقع البسيطة من صفحة واحدة، وده أساساً نقطة البداية عندنا من 700 جنيه.",
-      en: "We take on even simple single-page sites — that's actually our starting point at 700 EGP.",
+      ar: "بنعمل حتى المواقع البسيطة من صفحة واحدة، وده أساساً نقطة البداية عندنا. احكيلنا عن فكرتك وهنحدد السعر المناسب ليها.",
+      en: "We take on even simple single-page sites — that's our starting point. Tell us about your idea and we'll scope the right price for it.",
     },
   },
   {
@@ -333,12 +333,12 @@ const intents: ChatbotIntent[] = [
     id: "price",
     label: { ar: "الأسعار تبدأ من كام؟", en: "What are your prices?" },
     keywords: {
-      ar: ["سعر", "اسعار", "تكلف", "كام", "بكام", "ميزاني", "700", "فصال", "مفاصل", "تمن", "التسعيره", "هيكلفني كام"],
-      en: ["price", "cost", "pricing", "how much", "budget", "negotiat", "700", "quote", "rates"],
+      ar: ["سعر", "اسعار", "تكلف", "كام", "بكام", "ميزاني", "فصال", "مفاصل", "تمن", "التسعيره", "هيكلفني كام"],
+      en: ["price", "cost", "pricing", "how much", "budget", "negotiat", "quote", "rates"],
     },
     text: {
-      ar: "الأسعار تبدأ من 700 جنيه وما فوق بدون فصال، وتزيد حسب عدد الصفحات، الوظائف المطلوبة، ومستوى التصميم والحركة.",
-      en: "Prices start at 700 EGP and up, no negotiation — increasing based on the number of pages, required features, and the level of design and animation.",
+      ar: "التسعير مخصص لكل مشروع — بيتحدد حسب عدد الصفحات، الوظائف المطلوبة، ومستوى التصميم والحركة. احكيلنا عن فكرتك وهنرجعلك بعرض سعر واضح بدون مفاصلة.",
+      en: "Pricing is custom to each project — set by the number of pages, the features you need, and the level of design and motion. Tell us about your idea and we'll come back with a clear quote, no haggling.",
     },
   },
   {

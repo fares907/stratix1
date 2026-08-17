@@ -3,7 +3,7 @@ import { getChatbotAnswer } from "./chatbot";
 
 describe("STRATIX fixed-answer chatbot", () => {
   it.each([
-    ["الاسعار كام؟", "price", "700"],
+    ["الاسعار كام؟", "price", "مخصص لكل مشروع"],
     ["مدة التنفيذ قد ايه", "duration", "أسبوع"],
     ["بتعملوا مواقع شركات؟", "services", "شركة متخصصة"],
     ["رقم التواصل", "contact", "01125839109"],
@@ -24,7 +24,7 @@ describe("STRATIX fixed-answer chatbot", () => {
     ["بتشتغلوا مع مشروع صغير؟", "small_business", "أي حجم مشروع"],
     ["ممكن تسرّعوا التسليم انا مستعجل؟", "urgent_project", "وقت الحجز"],
     ["فيه استشاره مجانيه؟", "free_consultation", "نقاش مجاني"],
-    ["اصغر مشروع ممكن تعملوه ايه؟", "min_project", "700 جنيه"],
+    ["اصغر مشروع ممكن تعملوه ايه؟", "min_project", "صفحة واحدة"],
     ["عندكم تقسيط للسعر؟", "installments", "مراحل"],
     ["هل املك الموقع بعد التسليم؟", "source_code_ownership", "ملكك بالكامل"],
     ["اقدر انقل الموقع لمبرمج تاني بعدين؟", "switch_developer", "أي مبرمج"],
@@ -44,7 +44,7 @@ describe("STRATIX fixed-answer chatbot", () => {
   });
 
   it.each([
-    ["how much does it cost?", "price", "700"],
+    ["how much does it cost?", "price", "custom to each project"],
     ["how long does it take", "duration", "one week"],
     ["do you build company websites?", "services", "company"],
     ["contact number", "contact", "01125839109"],
@@ -65,7 +65,7 @@ describe("STRATIX fixed-answer chatbot", () => {
     ["do you work with small businesses?", "small_business", "any project size"],
     ["can you deliver faster, it's urgent?", "urgent_project", "shorten the timeline"],
     ["is there a free consultation?", "free_consultation", "free discussion"],
-    ["what's the smallest project you take?", "min_project", "700 EGP"],
+    ["what's the smallest project you take?", "min_project", "single-page"],
     ["can I pay in installments?", "installments", "stages"],
     ["do I fully own the website?", "source_code_ownership", "fully yours"],
     ["can I move to another developer later?", "switch_developer", "any other developer"],

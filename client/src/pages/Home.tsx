@@ -318,9 +318,7 @@ export default function Home() {
 
             <Reveal className="price-stage" delay={0.08} dir={t.dir}>
               <div className="price-orbit-label">{t.services.priceLabel}</div>
-              <div className="price-number" dir="ltr">
-                700<sup>+</sup>
-              </div>
+              <div className="price-headline">{t.services.priceHeadline}</div>
               <div className="price-currency">{t.services.priceCurrency}</div>
               <p>{t.services.priceNote}</p>
             </Reveal>
@@ -441,6 +439,11 @@ export default function Home() {
                 </label>
                 <label>
                   <span>{t.booking.budgetLabel}</span>
+                  {/* The values are legacy price bands from when a starting
+                      price was published. The question now asks about project
+                      size, smallest to largest in the same order, so the stored
+                      values still sort correctly and old bookings stay valid —
+                      only the labels changed. */}
                   <select name="budget" defaultValue="" required>
                     <option value="" disabled>{t.booking.budgetSelect}</option>
                     <option value="700-1500">{t.booking.budget1}</option>

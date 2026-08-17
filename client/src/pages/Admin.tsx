@@ -290,10 +290,15 @@ function formatMoney(value: number, currency: "USD" | "EGP", lang: Lang) {
   return lang === "ar" ? `${n} ج.م` : `EGP ${n}`;
 }
 
+// The stored values are legacy price bands from when the site published a
+// starting price. Pricing is now quoted per project, so the form asks about
+// project size instead and these values act purely as size identifiers —
+// smallest to largest, in the same order. Kept as-is so existing bookings stay
+// readable; only the labels changed.
 const budgetLabels: Record<BookingRow["budget"], { ar: string; en: string }> = {
-  "700-1500": { ar: "700 — 1,500 ج.م", en: "EGP 700 — 1,500" },
-  "1500-3000": { ar: "1,500 — 3,000 ج.م", en: "EGP 1,500 — 3,000" },
-  "3000+": { ar: "أكثر من 3,000 ج.م", en: "EGP 3,000+" },
+  "700-1500": { ar: "موقع بسيط — صفحة واحدة", en: "Simple site — one page" },
+  "1500-3000": { ar: "موقع متعدد الصفحات", en: "Multi-page site" },
+  "3000+": { ar: "متجر أو نظام كبير", en: "Store or large system" },
 };
 
 // Egyptian local number to wa.me international form: 01xxxxxxxxx -> 201xxxxxxxxx.

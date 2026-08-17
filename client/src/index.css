@@ -765,20 +765,18 @@ select:not(:disabled) {
   font-size: 0.78rem;
 }
 
-.price-number {
+/* Replaced the giant numeral that used to hold a starting price. Prices are no
+   longer published — quotes are per project — so this holds a short phrase
+   instead. It keeps the slot's visual weight but at a size Arabic and English
+   words actually fit, rather than the numeral-only scale used before. */
+.price-headline {
   font-family: "Unbounded", sans-serif;
-  font-size: clamp(5.8rem, 12vw, 11rem);
+  font-size: clamp(2.4rem, 5.5vw, 4.4rem);
   font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.1em;
-}
-
-.price-number sup {
-  position: relative;
-  top: -0.38em;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
   color: var(--signal);
-  font-size: 0.34em;
-  letter-spacing: 0;
+  overflow-wrap: break-word;
 }
 
 .price-currency {
