@@ -239,6 +239,55 @@ export async function sendContactLeadEmail(lead: {
   });
 }
 
+// Sent when a client states they have transferred. The wording is deliberately
+// "says they transferred", not "has paid" — the money still has to be confirmed
+// in the account before the booking is marked paid.
+export async function sendPaymentDeclaredEmail(payment: {
+  publicId: string;
+  name: string;
+  phone: string;
+  amountDue: string;
+  currency: string;
+  reference: string;
+}): Promise<BookingEmailResult> {
+  const to = ENV.bookingEmailTo.trim();
+  const receivedAt = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+  const amount = `${payment.amountDue} ${payment.currency}`;
+
+  const subject = `تأكيد تحويل — ${payment.publicId} — ${amount}`;
+  const text = [
+    "عميل أكد أنه حوّل مبلغ الطلب.",
+    "",
+    `رقم الطلب: ${payment.publicId}`,
+    `الاسم: ${payment.name}`,
+    `الهاتف: ${payment.phone}`,
+    `المبلغ المطلوب: ${amount}`,
+    `مرجع التحويل: ${payment.reference}`,
+    `وقت التأكيد: ${receivedAt}`,
+    "",
+    "راجع الحساب البنكي أو InstaPay، وبعد التأكد علّم الطلب كمدفوع من لوحة التحكم.",
+  ].join("\n");
+
+  const html = `
+    <div dir="rtl" style="max-width:680px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">STRATIX / PAYMENT DECLARED</p>
+      <h1 style="margin:0 0 24px;font-size:26px">عميل أكد التحويل</h1>
+      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4eee4">
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">رقم الطلب</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(payment.publicId)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الاسم</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(payment.name)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الهاتف</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(payment.phone)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">المبلغ</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(amount)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">مرجع التحويل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(payment.reference)}</td></tr>
+      </table>
+      <p style="margin:24px 0 0;line-height:1.9;color:#ffb27a">
+        ⚠️ ده تأكيد من العميل وليس إثباتاً. راجع وصول المبلغ فعلياً قبل أن تعلّم الطلب كمدفوع.
+      </p>
+      <p style="margin:12px 0 0;color:#aaa099;font-size:13px">وقت التأكيد: ${escapeHtml(receivedAt)}</p>
+    </div>`;
+
+  return sendViaResend({ to, publicId: payment.publicId, subject, text, html });
+}
+
 // Best-effort confirmation to the customer, only sent when they provided an
 // email. Failures here never affect booking.submit's own success response —
 // the owner notification above is the one that must succeed.

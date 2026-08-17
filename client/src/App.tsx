@@ -12,6 +12,9 @@ import Home from "./pages/Home";
 // (Recharts, etc.) — splitting it into its own chunk keeps the public
 // homepage's bundle smaller without touching build.rollupOptions manually.
 const Admin = lazy(() => import("@/pages/Admin"));
+// Only visitors who are settling an invoice load this, so it stays out of the
+// homepage bundle like the dashboard does.
+const Pay = lazy(() => import("@/pages/Pay"));
 
 function Router() {
   return (
@@ -20,6 +23,11 @@ function Router() {
       <Route path="/admin">
         <Suspense fallback={null}>
           <Admin />
+        </Suspense>
+      </Route>
+      <Route path="/pay">
+        <Suspense fallback={null}>
+          <Pay />
         </Suspense>
       </Route>
       <Route path="/404" component={NotFound} />

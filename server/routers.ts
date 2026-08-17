@@ -3,6 +3,12 @@ import { z } from "zod";
 import { adminAuthRouter } from "./adminSession";
 import { bookingInputSchema, submitBooking } from "./booking";
 import { contactInputSchema, submitContactRequest } from "./contact";
+import {
+  declarePayment,
+  lookupPayment,
+  paymentDeclareSchema,
+  paymentLookupSchema,
+} from "./payment";
 import { getSessionCookieOptions } from "./_core/cookies";
 import {
   createInvoice,
@@ -15,6 +21,8 @@ import {
   listBookings,
   listInvoices,
   listLedgerEntries,
+  setBookingAmount,
+  setBookingPaymentStatus,
   updateBookingStatus,
 } from "./db";
 import { systemRouter } from "./_core/systemRouter";
@@ -46,6 +54,16 @@ export const appRouter = router({
       .mutation(({ ctx, input }) => submitContactRequest(input, ctx.req)),
   }),
 
+  payment: router({
+    // A mutation rather than a query even though it reads: it is rate-limited
+    // and must never be cached or prefetched by the client.
+    lookup: publicProcedure.input(paymentLookupSchema).mutation(({ input }) => lookupPayment(input)),
+
+    declare: publicProcedure
+      .input(paymentDeclareSchema)
+      .mutation(({ input }) => declarePayment(input)),
+  }),
+
   adminAuth: adminAuthRouter,
 
   adminBookings: router({
@@ -65,6 +83,35 @@ export const appRouter = router({
     updateStatus: adminSessionProcedure
       .input(z.object({ publicId: z.string(), status: z.enum(["new", "contacted", "closed"]) }))
       .mutation(({ input }) => updateBookingStatus(input)),
+
+    // Quoting a project is what makes its payment page usable — until an amount
+    // is set the client is told the quote is not ready.
+    setAmount: adminSessionProcedure
+      .input(
+        z.object({
+          publicId: z.string().min(1).max(32),
+          amountDue: z.number().positive().max(10_000_000),
+          currency: z.enum(["EGP", "USD", "SAR", "AED"]),
+        }),
+      )
+      .mutation(({ input }) =>
+        setBookingAmount({
+          publicId: input.publicId,
+          amountDue: input.amountDue.toFixed(2),
+          currency: input.currency,
+        }),
+      ),
+
+    // Confirming money actually arrived. Only an owner can do this — a client
+    // saying they transferred moves the booking to awaiting_review, never paid.
+    setPaymentStatus: adminSessionProcedure
+      .input(
+        z.object({
+          publicId: z.string().min(1).max(32),
+          paymentStatus: z.enum(["unpaid", "awaiting_review", "paid"]),
+        }),
+      )
+      .mutation(({ input }) => setBookingPaymentStatus(input)),
   }),
 
   adminLedger: router({

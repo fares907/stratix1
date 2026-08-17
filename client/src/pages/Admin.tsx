@@ -90,6 +90,21 @@ const T = {
     colEmailStatus: "حالة البريد",
     colStatus: "الحالة",
     colContact: "تواصل",
+    colAmount: "المبلغ",
+    colPayment: "الدفع",
+    payUnpaid: "غير مدفوع",
+    payAwaiting: "بانتظار المراجعة",
+    payPaid: "مدفوع",
+    setAmount: "تحديد المبلغ",
+    amountPlaceholder: "المبلغ",
+    save: "حفظ",
+    markPaid: "تأكيد الدفع",
+    markUnpaid: "إلغاء التأكيد",
+    confirmMarkPaid: "تأكيد إن المبلغ وصل فعلاً؟ راجع الحساب الأول.",
+    setAmountFail: "تعذر حفظ المبلغ",
+    setPaymentFail: "تعذر تحديث حالة الدفع",
+    amountSaved: "تم حفظ المبلغ",
+    ref: "مرجع التحويل",
     noBookings: "لا توجد حجوزات في هذا التصنيف.",
     prev: "السابق",
     next: "التالي",
@@ -180,6 +195,21 @@ const T = {
     colEmailStatus: "Email",
     colStatus: "Status",
     colContact: "Contact",
+    colAmount: "Amount",
+    colPayment: "Payment",
+    payUnpaid: "Unpaid",
+    payAwaiting: "Awaiting review",
+    payPaid: "Paid",
+    setAmount: "Set amount",
+    amountPlaceholder: "Amount",
+    save: "Save",
+    markPaid: "Confirm payment",
+    markUnpaid: "Undo confirmation",
+    confirmMarkPaid: "Confirm the money actually arrived? Check the account first.",
+    setAmountFail: "Could not save the amount",
+    setPaymentFail: "Could not update payment status",
+    amountSaved: "Amount saved",
+    ref: "Transfer reference",
     noBookings: "No bookings in this filter.",
     prev: "Previous",
     next: "Next",
@@ -484,6 +514,137 @@ function exportBookingsPdf(rows: BookingRow[], t: Dict, lang: Lang) {
   win.document.close();
 }
 
+// Quoting a project is what turns its payment page on: until an amount is set,
+// the client is told the quote isn't ready. Editing happens inline because it's
+// a two-field change made while reading the row.
+function AmountCell({ booking, t, onSaved }: { booking: BookingRow; t: Dict; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState(booking.amountDue ?? "");
+  const [currency, setCurrency] = useState<BookingRow["currency"]>(booking.currency);
+
+  const mutation = trpc.adminBookings.setAmount.useMutation({
+    onSuccess: () => {
+      setEditing(false);
+      toast.success(t.amountSaved);
+      onSaved();
+    },
+    onError: error => toast.error(t.setAmountFail, { description: error.message }),
+  });
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="text-sm hover:text-primary underline-offset-4 hover:underline whitespace-nowrap"
+        onClick={() => setEditing(true)}
+      >
+        {booking.amountDue ? (
+          <span dir="ltr">
+            {booking.amountDue} {booking.currency}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">{t.setAmount}</span>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="flex items-center gap-1"
+      onSubmit={event => {
+        event.preventDefault();
+        const value = Number(amount);
+        if (!value || value <= 0) {
+          toast.error(t.badAmount);
+          return;
+        }
+        mutation.mutate({ publicId: booking.publicId, amountDue: value, currency });
+      }}
+    >
+      <Input
+        type="number"
+        min="0.01"
+        step="0.01"
+        value={amount}
+        onChange={e => setAmount(e.target.value)}
+        placeholder={t.amountPlaceholder}
+        className="w-24 h-8"
+        autoFocus
+        required
+      />
+      <Select value={currency} onValueChange={v => setCurrency(v as BookingRow["currency"])}>
+        <SelectTrigger size="sm" className="w-20">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(["EGP", "USD", "SAR", "AED"] as const).map(c => (
+            <SelectItem key={c} value={c}>
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button type="submit" size="sm" disabled={mutation.isPending}>
+        {t.save}
+      </Button>
+    </form>
+  );
+}
+
+function PaymentCell({ booking, t, onChanged }: { booking: BookingRow; t: Dict; onChanged: () => void }) {
+  const mutation = trpc.adminBookings.setPaymentStatus.useMutation({
+    onSuccess: onChanged,
+    onError: error => toast.error(t.setPaymentFail, { description: error.message }),
+  });
+
+  const label: Record<BookingRow["paymentStatus"], string> = {
+    unpaid: t.payUnpaid,
+    awaiting_review: t.payAwaiting,
+    paid: t.payPaid,
+  };
+  const variant: Record<BookingRow["paymentStatus"], "outline" | "default" | "secondary"> = {
+    unpaid: "outline",
+    awaiting_review: "default",
+    paid: "secondary",
+  };
+
+  return (
+    <div className="flex flex-col gap-1 items-start">
+      <Badge variant={variant[booking.paymentStatus]}>{label[booking.paymentStatus]}</Badge>
+      {booking.paymentReference && (
+        <span className="text-[11px] text-muted-foreground font-mono" dir="ltr" title={t.ref}>
+          {booking.paymentReference}
+        </span>
+      )}
+      {booking.amountDue && booking.paymentStatus !== "paid" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-[11px] text-emerald-500"
+          onClick={() => {
+            if (window.confirm(t.confirmMarkPaid)) {
+              mutation.mutate({ publicId: booking.publicId, paymentStatus: "paid" });
+            }
+          }}
+        >
+          <CheckCircle2 className="size-3" /> {t.markPaid}
+        </Button>
+      )}
+      {booking.paymentStatus === "paid" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-[11px] text-muted-foreground"
+          onClick={() => mutation.mutate({ publicId: booking.publicId, paymentStatus: "unpaid" })}
+        >
+          {t.markUnpaid}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState<"all" | BookingStatus>("all");
@@ -538,11 +699,13 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
     offset: page * PAGE_SIZE,
   });
 
+  const invalidate = () => {
+    utils.adminBookings.list.invalidate();
+    utils.adminBookings.stats.invalidate();
+  };
+
   const updateStatusMutation = trpc.adminBookings.updateStatus.useMutation({
-    onSuccess: () => {
-      utils.adminBookings.list.invalidate();
-      utils.adminBookings.stats.invalidate();
-    },
+    onSuccess: invalidate,
     onError: error => toast.error(t.updateStatusFail, { description: error.message }),
   });
 
@@ -630,6 +793,8 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                   <TableHead>{t.colType}</TableHead>
                   <TableHead>{t.colBudget}</TableHead>
                   <TableHead>{t.colDetails}</TableHead>
+                  <TableHead>{t.colAmount}</TableHead>
+                  <TableHead>{t.colPayment}</TableHead>
                   <TableHead>{t.colEmailStatus}</TableHead>
                   <TableHead>{t.colStatus}</TableHead>
                   <TableHead className="text-center">{t.colContact}</TableHead>
@@ -663,6 +828,12 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                     <TableCell className="whitespace-nowrap">{budgetLabels[booking.budget][lang]}</TableCell>
                     <TableCell className="max-w-64 whitespace-normal text-sm text-muted-foreground">
                       {booking.details || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <AmountCell booking={booking} t={t} onSaved={invalidate} />
+                    </TableCell>
+                    <TableCell>
+                      <PaymentCell booking={booking} t={t} onChanged={invalidate} />
                     </TableCell>
                     <TableCell>
                       <Badge variant={emailStatusLabels[booking.emailStatus].variant}>
@@ -707,7 +878,7 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                 ))}
                 {bookings.length === 0 && !listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
                       {t.noBookings}
                     </TableCell>
                   </TableRow>

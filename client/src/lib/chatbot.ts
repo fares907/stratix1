@@ -577,8 +577,8 @@ const intents: ChatbotIntent[] = [
       en: ["payment", "pay", "deposit", "upfront", "money", "transfer", "vodafone cash", "instapay", "bank transfer"],
     },
     text: {
-      ar: "الدفع بيتحدد حسب حجم كل مشروع، وبنتفق عليه معاك بالتفصيل بعد ما نراجع طلبك — مفيش نظام دفع ثابت واحد لكل العملاء.",
-      en: "Payment is arranged based on each project's size, and we agree on the details with you after reviewing your request — there's no single fixed payment plan for everyone.",
+      ar: "بعد ما نتفق على تفاصيل المشروع بنحدد المبلغ، وبتقدر تدفع من صفحة الدفع على الموقع (stratix.website/pay) برقم طلبك ورقم هاتفك — التحويل بيبقى InstaPay أو تحويل بنكي، وبنأكدلك أول ما يوصل.",
+      en: "Once we agree on the project details we set the amount, and you can pay from the payment page on the site (stratix.website/pay) using your order number and phone — by InstaPay or bank transfer. We confirm as soon as it arrives.",
     },
   },
   {

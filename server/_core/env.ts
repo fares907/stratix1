@@ -13,6 +13,15 @@ export const ENV = {
   adminPasswordFares: process.env.ADMIN_PASSWORD_FARES ?? "",
   adminPasswordYoussef: process.env.ADMIN_PASSWORD_YOUSSEF ?? "",
   adminSessionSecret: process.env.JWT_SECRET ?? "",
+
+  // Where a client sends the transfer. Configuration, not secrets — they are
+  // shown to a paying client by design — but kept in the environment so the
+  // real account details never enter the repository and can be corrected
+  // without a deploy. An empty value simply hides that payment option.
+  paymentInstapay: process.env.PAYMENT_INSTAPAY ?? "",
+  paymentIban: process.env.PAYMENT_IBAN ?? "",
+  paymentBankName: process.env.PAYMENT_BANK_NAME ?? "",
+  paymentAccountName: process.env.PAYMENT_ACCOUNT_NAME ?? "",
 };
 
 // HS256 keys shorter than this are brute-forceable offline against a single

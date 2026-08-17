@@ -234,6 +234,73 @@ export async function updateBookingStatus(input: { publicId: string; status: Boo
     .where(eq(bookings.publicId, input.publicId));
 }
 
+// Looks a booking up the way the public payment page does: the caller must know
+// both the order id and the phone number on it. Matching on one alone would let
+// anyone step through order ids and read customer names and amounts.
+export async function getBookingForPayment(input: { publicId: string; phone: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const result = await db
+    .select()
+    .from(bookings)
+    .where(and(eq(bookings.publicId, input.publicId), eq(bookings.phone, input.phone)))
+    .limit(1);
+
+  return result[0];
+}
+
+// The client says they transferred. This records the claim and nothing more —
+// an owner still has to confirm the money arrived before it counts as paid.
+export async function declareBookingPayment(input: { publicId: string; reference: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const now = Date.now();
+  await db
+    .update(bookings)
+    .set({
+      paymentStatus: "awaiting_review",
+      paymentReference: input.reference,
+      paymentDeclaredAt: now,
+      updatedAt: now,
+    })
+    .where(eq(bookings.publicId, input.publicId));
+}
+
+export async function setBookingAmount(input: {
+  publicId: string;
+  amountDue: string;
+  currency: Booking["currency"];
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(bookings)
+    .set({ amountDue: input.amountDue, currency: input.currency, updatedAt: Date.now() })
+    .where(eq(bookings.publicId, input.publicId));
+}
+
+export async function setBookingPaymentStatus(input: {
+  publicId: string;
+  paymentStatus: Booking["paymentStatus"];
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const now = Date.now();
+  await db
+    .update(bookings)
+    .set({
+      paymentStatus: input.paymentStatus,
+      // Stamped when marked paid, cleared if an owner reverses that.
+      paidAt: input.paymentStatus === "paid" ? now : null,
+      updatedAt: now,
+    })
+    .where(eq(bookings.publicId, input.publicId));
+}
+
 export async function updateBookingEmailDelivery(input: {
   publicId: string;
   status: "sent" | "failed" | "not_configured";

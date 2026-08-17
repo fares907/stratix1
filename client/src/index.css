@@ -1588,6 +1588,210 @@ select:not(:disabled) {
   width: 1rem;
 }
 
+/* ── Payment page ─────────────────────────────────────────────────────────
+   Standalone page reached from an order, not part of the marketing scroll, so
+   it uses a plain centred card rather than the homepage's editorial grid. */
+.pay-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: start center;
+  padding: clamp(1.5rem, 5vw, 4rem) 1rem;
+}
+
+.pay-card {
+  width: 100%;
+  max-width: 34rem;
+  background: var(--ink-soft);
+  border: 1px solid var(--line);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.pay-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+  color: var(--paper-muted);
+  font-size: 0.85rem;
+}
+
+.pay-back svg { width: 1rem; height: 1rem; }
+.pay-back:hover { color: var(--signal); }
+
+.pay-card h1 {
+  font-family: "Unbounded", sans-serif;
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  margin: 0 0 0.75rem;
+}
+
+.pay-intro {
+  margin: 0 0 1.5rem;
+  color: var(--paper-muted);
+  line-height: 1.8;
+  font-size: 0.92rem;
+}
+
+.pay-form { display: flex; flex-direction: column; gap: 1rem; }
+
+.pay-form label { display: flex; flex-direction: column; gap: 0.4rem; }
+.pay-form label span { font-size: 0.85rem; color: var(--paper-muted); }
+
+.pay-form input {
+  height: 3rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--line);
+  background: oklch(0.11 0.015 45);
+  color: var(--paper);
+  outline: 0;
+  font-size: 0.95rem;
+}
+
+.pay-form input:focus { border-color: var(--signal); }
+
+.pay-form button[type="submit"] {
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  background: var(--signal);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.pay-form button[type="submit"]:disabled { opacity: 0.65; cursor: default; }
+.pay-form button svg { width: 1.05rem; height: 1.05rem; }
+
+@keyframes pay-spin { to { transform: rotate(360deg); } }
+.pay-spin { animation: pay-spin 0.9s linear infinite; }
+
+.pay-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0.85rem 1rem;
+  background: oklch(0.62 0.22 28 / 12%);
+  border-inline-start: 3px solid var(--destructive);
+  color: var(--paper);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.pay-error svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; margin-top: 0.15rem; }
+
+.pay-hello { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 600; }
+
+.pay-order,
+.pay-amount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  margin-bottom: 0.75rem;
+}
+
+.pay-order span,
+.pay-amount span { color: var(--paper-muted); font-size: 0.85rem; }
+.pay-order strong { font-family: "Consolas", monospace; font-size: 0.95rem; }
+
+.pay-amount {
+  background: oklch(0.7 0.22 42 / 10%);
+  border-color: var(--signal);
+  margin-bottom: 2rem;
+}
+
+.pay-amount strong {
+  font-family: "Unbounded", sans-serif;
+  font-size: clamp(1.2rem, 3.5vw, 1.6rem);
+  color: var(--signal);
+}
+
+.pay-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 2rem 0 0.85rem;
+}
+
+.pay-method { border: 1px solid var(--line); margin-bottom: 0.85rem; }
+
+.pay-method-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.pay-method-head svg { width: 1.05rem; height: 1.05rem; color: var(--signal); }
+
+.pay-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  flex-wrap: wrap;
+}
+
+.pay-row + .pay-row { border-top: 1px solid var(--line); }
+.pay-row-label { color: var(--paper-muted); font-size: 0.8rem; min-width: 6rem; }
+
+.pay-row-value {
+  flex: 1;
+  min-width: 0;
+  font-family: "Consolas", monospace;
+  font-size: 0.88rem;
+  /* IBANs are long and must not push the card wider than the viewport. */
+  overflow-wrap: anywhere;
+}
+
+.pay-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--paper);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.pay-row button:hover { border-color: var(--signal); color: var(--signal); }
+.pay-row button svg { width: 0.9rem; height: 0.9rem; }
+
+.pay-state { padding: 1.25rem; border: 1px solid var(--line); margin: 1rem 0; }
+.pay-state h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+.pay-state p { margin: 0; color: var(--paper-muted); line-height: 1.8; font-size: 0.9rem; }
+.pay-state-ok { border-color: oklch(0.7 0.16 150); background: oklch(0.7 0.16 150 / 8%); }
+.pay-state .pay-back { margin: 1rem 0 0; }
+
+.pay-note {
+  margin: 1rem 0 0;
+  color: var(--paper-muted);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.pay-reset {
+  margin-top: 1.5rem;
+  background: transparent;
+  border: 0;
+  color: var(--paper-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pay-reset:hover { color: var(--signal); }
+
 /* Handoff contact form — shares the chat's visual language. */
 .chat-contact-form {
   display: flex;

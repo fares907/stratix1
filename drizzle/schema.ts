@@ -44,6 +44,26 @@ export const bookings = mysqlTable(
       .notNull(),
     emailMessageId: varchar("emailMessageId", { length: 128 }),
     emailError: varchar("emailError", { length: 500 }),
+
+    // Payment is settled outside the app — the client transfers by InstaPay or
+    // bank transfer and an owner confirms it against the account. These columns
+    // record that process, they do not perform it. No card data is involved and
+    // none is ever stored.
+    //
+    // amountDue is null until an owner quotes the project, which is why the
+    // payment page tells a client their quote is not ready rather than showing
+    // a zero. Currency is per-booking because clients are not all in Egypt.
+    amountDue: decimal("amountDue", { precision: 10, scale: 2 }),
+    currency: mysqlEnum("currency", ["EGP", "USD", "SAR", "AED"]).default("EGP").notNull(),
+    paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "awaiting_review", "paid"])
+      .default("unpaid")
+      .notNull(),
+    // What the client typed after transferring (a transfer id or reference).
+    // Treated as a claim to check, never as proof of payment.
+    paymentReference: varchar("paymentReference", { length: 120 }),
+    paymentDeclaredAt: bigint("paymentDeclaredAt", { mode: "number", unsigned: true }),
+    paidAt: bigint("paidAt", { mode: "number", unsigned: true }),
+
     createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
     updatedAt: bigint("updatedAt", { mode: "number", unsigned: true }).notNull(),
   },
