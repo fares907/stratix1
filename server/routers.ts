@@ -6,6 +6,7 @@ import { contactInputSchema, submitContactRequest } from "./contact";
 import {
   declarePayment,
   lookupPayment,
+  markPaymentStatus,
   paymentDeclareSchema,
   paymentLookupSchema,
 } from "./payment";
@@ -22,7 +23,6 @@ import {
   listInvoices,
   listLedgerEntries,
   setBookingAmount,
-  setBookingPaymentStatus,
   updateBookingStatus,
 } from "./db";
 import { systemRouter } from "./_core/systemRouter";
@@ -104,6 +104,7 @@ export const appRouter = router({
 
     // Confirming money actually arrived. Only an owner can do this — a client
     // saying they transferred moves the booking to awaiting_review, never paid.
+    // Confirming also emails the client their receipt.
     setPaymentStatus: adminSessionProcedure
       .input(
         z.object({
@@ -111,7 +112,7 @@ export const appRouter = router({
           paymentStatus: z.enum(["unpaid", "awaiting_review", "paid"]),
         }),
       )
-      .mutation(({ input }) => setBookingPaymentStatus(input)),
+      .mutation(({ input }) => markPaymentStatus(input)),
   }),
 
   adminLedger: router({

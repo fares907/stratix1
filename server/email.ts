@@ -97,6 +97,115 @@ const customerConfirmationCopy = {
   },
 };
 
+// The receipt a client gets once an owner confirms their transfer arrived. This
+// is the one email in the flow that closes a loop the client is actively
+// waiting on — they have sent money and want to know it landed — so it states
+// the amount and order plainly and reads as a receipt they can keep.
+const paymentReceiptCopy = {
+  ar: {
+    dir: "rtl" as const,
+    eyebrow: "STRATIX / إيصال دفع",
+    subject: (publicId: string) => `تم تأكيد دفعتك — ${publicId}`,
+    title: "تم استلام دفعتك بنجاح",
+    heading: (name: string) => `أهلاً ${name}،`,
+    body: "وصلنا المبلغ وأكدناه. شكراً لك — بنبدأ الخطوة الجاية في مشروعك وهنتواصل معك.",
+    orderLabel: "رقم الطلب",
+    amountLabel: "المبلغ المدفوع",
+    dateLabel: "تاريخ التأكيد",
+    keepNote: "احتفظ بالإيميل ده كإيصال للدفع.",
+    footer: "لو عندك أي سؤال، تواصل معنا على 01125839109 أو 01036678093 (متاحون على واتساب).",
+    thanks: "شكراً لثقتك في STRATIX.",
+  },
+  en: {
+    dir: "ltr" as const,
+    eyebrow: "STRATIX / PAYMENT RECEIPT",
+    subject: (publicId: string) => `Payment confirmed — ${publicId}`,
+    title: "Your payment has been received",
+    heading: (name: string) => `Hi ${name},`,
+    body: "We've received and confirmed your transfer. Thank you — we're moving on to the next step of your project and will be in touch.",
+    orderLabel: "Order number",
+    amountLabel: "Amount paid",
+    dateLabel: "Confirmed on",
+    keepNote: "Keep this email as your payment receipt.",
+    footer: "Any questions? Reach us at 01125839109 or 01036678093 (also on WhatsApp).",
+    thanks: "Thanks for choosing STRATIX.",
+  },
+};
+
+export function buildPaymentReceiptContent(
+  booking: Pick<Booking, "publicId" | "name" | "amountDue" | "currency">,
+  language: CustomerLanguage,
+) {
+  const copy = paymentReceiptCopy[language];
+  const amount = `${booking.amountDue ?? ""} ${booking.currency}`.trim();
+  const confirmedAt = new Date().toLocaleString(language === "ar" ? "ar-EG" : "en-GB", {
+    timeZone: "Africa/Cairo",
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+
+  const subject = copy.subject(booking.publicId);
+  const text = [
+    copy.heading(booking.name),
+    "",
+    copy.body,
+    "",
+    `${copy.orderLabel}: ${booking.publicId}`,
+    `${copy.amountLabel}: ${amount}`,
+    `${copy.dateLabel}: ${confirmedAt}`,
+    "",
+    copy.keepNote,
+    copy.footer,
+    copy.thanks,
+  ].join("\n");
+
+  const row = (label: string, value: string, accent = false) => `
+    <tr>
+      <td style="padding:12px 0;border-bottom:1px solid #2a2521;color:#aaa099;font-size:14px">${escapeHtml(label)}</td>
+      <td dir="ltr" style="padding:12px 0;border-bottom:1px solid #2a2521;text-align:${copy.dir === "rtl" ? "left" : "right"};font-size:${accent ? "20px" : "15px"};font-weight:${accent ? "700" : "500"};color:${accent ? "#ff6b1a" : "#f4eee4"}">${escapeHtml(value)}</td>
+    </tr>`;
+
+  const html = `
+    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#11100f;color:#f4eee4;padding:36px 32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 22px;color:#ff6b1a;font-size:12px;letter-spacing:2px">${escapeHtml(copy.eyebrow)}</p>
+
+      <!-- A single large tick reads as "done" before any text is parsed, which is
+           the whole point of this message. Built from a table cell so it renders
+           in clients that drop background-image and border-radius. -->
+      <table role="presentation" style="margin:0 0 20px"><tr>
+        <td style="width:56px;height:56px;background:#1c7f4a;border-radius:28px;text-align:center;vertical-align:middle;font-size:30px;color:#ffffff;line-height:56px">&#10003;</td>
+      </tr></table>
+
+      <h1 style="margin:0 0 8px;font-size:24px;line-height:1.4">${escapeHtml(copy.title)}</h1>
+      <p style="margin:0 0 6px;font-size:15px">${escapeHtml(copy.heading(booking.name))}</p>
+      <p style="margin:0 0 26px;line-height:1.9;color:#c9c1b6">${escapeHtml(copy.body)}</p>
+
+      <table role="presentation" style="width:100%;border-collapse:collapse;border-top:1px solid #2a2521">
+        ${row(copy.orderLabel, booking.publicId)}
+        ${row(copy.amountLabel, amount, true)}
+        ${row(copy.dateLabel, confirmedAt)}
+      </table>
+
+      <p style="margin:24px 0 0;padding:12px 14px;background:#1a1815;color:#c9c1b6;font-size:13px;line-height:1.8">${escapeHtml(copy.keepNote)}</p>
+      <p style="margin:20px 0 0;line-height:1.9;color:#aaa099;font-size:13px">${escapeHtml(copy.footer)}</p>
+      <p style="margin:14px 0 0;line-height:1.9;font-size:14px">${escapeHtml(copy.thanks)}</p>
+    </div>`;
+
+  return { subject, text, html };
+}
+
+export async function sendPaymentReceiptEmail(
+  booking: Pick<Booking, "publicId" | "name" | "clientEmail" | "amountDue" | "currency">,
+  language: CustomerLanguage,
+): Promise<BookingEmailResult> {
+  if (!booking.clientEmail) {
+    return { status: "not_configured", error: "Customer did not provide an email" };
+  }
+
+  const content = buildPaymentReceiptContent(booking, language);
+  return sendViaResend({ to: booking.clientEmail, publicId: booking.publicId, ...content });
+}
+
 export function buildCustomerConfirmationContent(booking: Booking, language: CustomerLanguage) {
   const copy = customerConfirmationCopy[language];
   const subject = copy.subject(booking.publicId);

@@ -282,6 +282,14 @@ export async function setBookingAmount(input: {
     .where(eq(bookings.publicId, input.publicId));
 }
 
+export async function getBookingByPublicId(publicId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const result = await db.select().from(bookings).where(eq(bookings.publicId, publicId)).limit(1);
+  return result[0];
+}
+
 export async function setBookingPaymentStatus(input: {
   publicId: string;
   paymentStatus: Booking["paymentStatus"];

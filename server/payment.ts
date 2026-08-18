@@ -1,9 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { normalizePhone } from "./booking";
-import { declareBookingPayment, getBookingForPayment } from "./db";
+import {
+  declareBookingPayment,
+  getBookingByPublicId,
+  getBookingForPayment,
+  setBookingPaymentStatus,
+} from "./db";
 import { ENV } from "./_core/env";
-import { sendPaymentDeclaredEmail } from "./email";
+import { sendPaymentDeclaredEmail, sendPaymentReceiptEmail } from "./email";
 import { notifyOwner } from "./_core/notification";
 
 // Payment is settled outside this application. The client transfers by InstaPay
@@ -146,4 +151,44 @@ export async function declarePayment(input: PaymentDeclareInput) {
   }
 
   return { accepted: true, alreadyPaid: false } as const;
+}
+
+// An owner confirming the money arrived is the moment the client is waiting on,
+// so it is also the moment they get a receipt. Only the transition into "paid"
+// sends one — reversing a confirmation, or re-confirming an already-paid
+// booking, must not email the client again.
+export async function markPaymentStatus(input: {
+  publicId: string;
+  paymentStatus: "unpaid" | "awaiting_review" | "paid";
+}) {
+  const before = await getBookingByPublicId(input.publicId);
+  if (!before) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "لم نجد هذا الطلب." });
+  }
+
+  await setBookingPaymentStatus(input);
+
+  const becamePaid = input.paymentStatus === "paid" && before.paymentStatus !== "paid";
+  if (!becamePaid) {
+    return { updated: true, receiptSent: false } as const;
+  }
+
+  // The client's email is optional at booking time, so there is often nobody to
+  // send to. A failure here must never fail the owner's action — the money is
+  // confirmed either way.
+  const receipt = await sendPaymentReceiptEmail(
+    {
+      publicId: before.publicId,
+      name: before.name,
+      clientEmail: before.clientEmail,
+      amountDue: before.amountDue,
+      currency: before.currency,
+    },
+    "ar",
+  ).catch(error => {
+    console.warn("[Payment] Receipt email failed:", error);
+    return { status: "failed" as const, error: String(error) };
+  });
+
+  return { updated: true, receiptSent: receipt.status === "sent" } as const;
 }

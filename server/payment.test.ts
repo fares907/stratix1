@@ -130,6 +130,124 @@ describe("payment lookup behaviour", () => {
   });
 });
 
+describe("confirming a payment sends the client a receipt", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  const unpaid = {
+    publicId: "STRX-RECEIPT",
+    name: "منى",
+    clientEmail: "mona@example.com",
+    phone: "+201001112222",
+    amountDue: "2500.00",
+    currency: "EGP" as const,
+    paymentStatus: "awaiting_review" as const,
+  };
+
+  async function setup(booking: Record<string, unknown>) {
+    vi.resetModules();
+    const db = await import("./db");
+    vi.spyOn(db, "getBookingByPublicId").mockResolvedValue(booking as never);
+    vi.spyOn(db, "setBookingPaymentStatus").mockResolvedValue(undefined);
+    const email = await import("./email");
+    const receipt = vi
+      .spyOn(email, "sendPaymentReceiptEmail")
+      .mockResolvedValue({ status: "sent", messageId: "r1" });
+    const { markPaymentStatus } = await import("./payment");
+    return { markPaymentStatus, receipt };
+  }
+
+  it("emails the receipt when a booking becomes paid", async () => {
+    const { markPaymentStatus, receipt } = await setup(unpaid);
+
+    const result = await markPaymentStatus({ publicId: unpaid.publicId, paymentStatus: "paid" });
+
+    expect(receipt).toHaveBeenCalledOnce();
+    expect(result.receiptSent).toBe(true);
+  });
+
+  // Re-confirming a booking that is already paid must not send a second
+  // receipt — the client would think they were charged twice.
+  it("does not resend when the booking was already paid", async () => {
+    const { markPaymentStatus, receipt } = await setup({ ...unpaid, paymentStatus: "paid" });
+
+    const result = await markPaymentStatus({ publicId: unpaid.publicId, paymentStatus: "paid" });
+
+    expect(receipt).not.toHaveBeenCalled();
+    expect(result.receiptSent).toBe(false);
+  });
+
+  it("sends nothing when an owner reverses a confirmation", async () => {
+    const { markPaymentStatus, receipt } = await setup({ ...unpaid, paymentStatus: "paid" });
+
+    await markPaymentStatus({ publicId: unpaid.publicId, paymentStatus: "unpaid" });
+
+    expect(receipt).not.toHaveBeenCalled();
+  });
+
+  // The client's email is optional at booking time. A missing address, or a
+  // mail provider outage, must never fail the owner's confirmation — the money
+  // is confirmed either way.
+  it("still confirms the payment when the receipt cannot be sent", async () => {
+    vi.resetModules();
+    const db = await import("./db");
+    vi.spyOn(db, "getBookingByPublicId").mockResolvedValue({
+      ...unpaid,
+      clientEmail: null,
+    } as never);
+    const setStatus = vi.spyOn(db, "setBookingPaymentStatus").mockResolvedValue(undefined);
+    const email = await import("./email");
+    vi.spyOn(email, "sendPaymentReceiptEmail").mockRejectedValue(new Error("provider down"));
+
+    const { markPaymentStatus } = await import("./payment");
+    const result = await markPaymentStatus({ publicId: unpaid.publicId, paymentStatus: "paid" });
+
+    expect(setStatus).toHaveBeenCalledOnce();
+    expect(result.updated).toBe(true);
+    expect(result.receiptSent).toBe(false);
+  });
+});
+
+describe("the receipt itself", () => {
+  it("states the order, the amount and a keepable note in both languages", async () => {
+    const { buildPaymentReceiptContent } = await import("./email");
+    const booking = {
+      publicId: "STRX-11AA22BB33",
+      name: "منى عبد الرحمن",
+      amountDue: "2500.00",
+      currency: "EGP" as const,
+    };
+
+    const ar = buildPaymentReceiptContent(booking, "ar");
+    expect(ar.subject).toContain("STRX-11AA22BB33");
+    expect(ar.html).toContain("2500.00 EGP");
+    expect(ar.html).toContain("إيصال");
+    expect(ar.html).toContain('dir="rtl"');
+
+    const en = buildPaymentReceiptContent(booking, "en");
+    expect(en.subject.toLowerCase()).toContain("payment confirmed");
+    expect(en.html).toContain('dir="ltr"');
+  });
+
+  it("escapes a name so it cannot inject markup into the email", async () => {
+    const { buildPaymentReceiptContent } = await import("./email");
+    const receipt = buildPaymentReceiptContent(
+      {
+        publicId: "STRX-1",
+        name: '<script>alert(1)</script>',
+        amountDue: "100.00",
+        currency: "USD" as const,
+      },
+      "en",
+    );
+
+    expect(receipt.html).not.toContain("<script>");
+    expect(receipt.html).toContain("&lt;script&gt;");
+  });
+});
+
 describe("declaring a payment", () => {
   afterEach(() => {
     vi.resetModules();
