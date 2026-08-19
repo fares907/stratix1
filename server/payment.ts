@@ -9,6 +9,7 @@ import {
 } from "./db";
 import { ENV } from "./_core/env";
 import { sendPaymentDeclaredEmail, sendPaymentReceiptEmail } from "./email";
+import { buildInvoicePdf } from "./invoicePdf";
 import { notifyOwner } from "./_core/notification";
 
 // Payment is settled outside this application. The client transfers by InstaPay
@@ -153,6 +154,38 @@ export async function declarePayment(input: PaymentDeclareInput) {
   return { accepted: true, alreadyPaid: false } as const;
 }
 
+// The same invoice the client receives, for the owners' own records. Returned
+// base64 rather than as a binary stream because it travels over tRPC, which is
+// JSON — a small price for one page of A4 at a few kilobytes.
+export async function getInvoicePdfBase64(publicId: string) {
+  const booking = await getBookingByPublicId(publicId);
+  if (!booking) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "لم نجد هذا الطلب." });
+  }
+  if (!booking.amountDue) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "حدد مبلغ الطلب أولاً قبل إصدار الفاتورة.",
+    });
+  }
+
+  const pdf = await buildInvoicePdf({
+    publicId: booking.publicId,
+    name: booking.name,
+    phone: booking.phone,
+    clientEmail: booking.clientEmail,
+    amountDue: booking.amountDue,
+    currency: booking.currency,
+    paymentReference: booking.paymentReference,
+    paidAt: booking.paidAt,
+  });
+
+  return {
+    filename: `STRATIX-Invoice-${booking.publicId}.pdf`,
+    base64: pdf.toString("base64"),
+  } as const;
+}
+
 // An owner confirming the money arrived is the moment the client is waiting on,
 // so it is also the moment they get a receipt. Only the transition into "paid"
 // sends one — reversing a confirmation, or re-confirming an already-paid
@@ -183,6 +216,11 @@ export async function markPaymentStatus(input: {
       clientEmail: before.clientEmail,
       amountDue: before.amountDue,
       currency: before.currency,
+      phone: before.phone,
+      paymentReference: before.paymentReference,
+      // The row was read before the update, so stamp the confirmation time the
+      // invoice should carry rather than reusing the stale null.
+      paidAt: Date.now(),
     },
     "ar",
   ).catch(error => {

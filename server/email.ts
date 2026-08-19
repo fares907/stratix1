@@ -1,5 +1,6 @@
 import type { Booking } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { buildInvoicePdf } from "./invoicePdf";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const DEFAULT_FROM_ADDRESS = "STRATIX <onboarding@resend.dev>";
@@ -195,7 +196,10 @@ export function buildPaymentReceiptContent(
 }
 
 export async function sendPaymentReceiptEmail(
-  booking: Pick<Booking, "publicId" | "name" | "clientEmail" | "amountDue" | "currency">,
+  booking: Pick<
+    Booking,
+    "publicId" | "name" | "clientEmail" | "amountDue" | "currency" | "phone" | "paymentReference" | "paidAt"
+  >,
   language: CustomerLanguage,
 ): Promise<BookingEmailResult> {
   if (!booking.clientEmail) {
@@ -203,7 +207,33 @@ export async function sendPaymentReceiptEmail(
   }
 
   const content = buildPaymentReceiptContent(booking, language);
-  return sendViaResend({ to: booking.clientEmail, publicId: booking.publicId, ...content });
+
+  // A PDF invoice the client can file or hand to an accountant. Generating it
+  // must never cost them the receipt itself, so a failure here drops the
+  // attachment and still sends the email.
+  let attachments: Array<{ filename: string; content: Buffer }> | undefined;
+  try {
+    const pdf = await buildInvoicePdf({
+      publicId: booking.publicId,
+      name: booking.name,
+      phone: booking.phone,
+      clientEmail: booking.clientEmail,
+      amountDue: booking.amountDue,
+      currency: booking.currency,
+      paymentReference: booking.paymentReference,
+      paidAt: booking.paidAt,
+    });
+    attachments = [{ filename: `STRATIX-Invoice-${booking.publicId}.pdf`, content: pdf }];
+  } catch (error) {
+    console.warn(`[Email] Invoice PDF failed for ${booking.publicId}:`, error);
+  }
+
+  return sendViaResend({
+    to: booking.clientEmail,
+    publicId: booking.publicId,
+    attachments,
+    ...content,
+  });
 }
 
 export function buildCustomerConfirmationContent(booking: Booking, language: CustomerLanguage) {
@@ -230,6 +260,7 @@ async function sendViaResend(params: {
   text: string;
   html: string;
   publicId: string;
+  attachments?: Array<{ filename: string; content: Buffer }>;
 }): Promise<BookingEmailResult> {
   const apiKey = ENV.resendApiKey.trim();
   const from = ENV.resendFromAddress.trim() || DEFAULT_FROM_ADDRESS;
@@ -252,6 +283,11 @@ async function sendViaResend(params: {
         subject: params.subject,
         text: params.text,
         html: params.html,
+        // Resend takes attachment bytes base64-encoded.
+        attachments: params.attachments?.map(file => ({
+          filename: file.filename,
+          content: file.content.toString("base64"),
+        })),
         headers: { "X-STRATIX-Booking-ID": params.publicId },
       }),
     });

@@ -5,6 +5,7 @@ import { bookingInputSchema, submitBooking } from "./booking";
 import { contactInputSchema, submitContactRequest } from "./contact";
 import {
   declarePayment,
+  getInvoicePdfBase64,
   lookupPayment,
   markPaymentStatus,
   paymentDeclareSchema,
@@ -113,6 +114,11 @@ export const appRouter = router({
         }),
       )
       .mutation(({ input }) => markPaymentStatus(input)),
+
+    // The owners' copy of the invoice the client is emailed.
+    invoicePdf: adminSessionProcedure
+      .input(z.object({ publicId: z.string().min(1).max(32) }))
+      .mutation(({ input }) => getInvoicePdfBase64(input.publicId)),
   }),
 
   adminLedger: router({

@@ -101,6 +101,8 @@ const T = {
     markPaid: "تأكيد الدفع",
     markUnpaid: "إلغاء التأكيد",
     confirmMarkPaid: "تأكيد إن المبلغ وصل فعلاً؟ راجع الحساب الأول.",
+    invoice: "الفاتورة",
+    invoiceFail: "تعذر إصدار الفاتورة",
     setAmountFail: "تعذر حفظ المبلغ",
     setPaymentFail: "تعذر تحديث حالة الدفع",
     amountSaved: "تم حفظ المبلغ",
@@ -206,6 +208,8 @@ const T = {
     markPaid: "Confirm payment",
     markUnpaid: "Undo confirmation",
     confirmMarkPaid: "Confirm the money actually arrived? Check the account first.",
+    invoice: "Invoice",
+    invoiceFail: "Could not generate the invoice",
     setAmountFail: "Could not save the amount",
     setPaymentFail: "Could not update payment status",
     amountSaved: "Amount saved",
@@ -598,6 +602,22 @@ function PaymentCell({ booking, t, onChanged }: { booking: BookingRow; t: Dict; 
     onError: error => toast.error(t.setPaymentFail, { description: error.message }),
   });
 
+  // The PDF arrives base64 over tRPC, so it is turned back into bytes and
+  // handed to the browser as a temporary object URL rather than a data: URL —
+  // the latter is blocked as a download target in several browsers.
+  const invoiceMutation = trpc.adminBookings.invoicePdf.useMutation({
+    onSuccess: ({ filename, base64 }) => {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: error => toast.error(t.invoiceFail, { description: error.message }),
+  });
+
   const label: Record<BookingRow["paymentStatus"], string> = {
     unpaid: t.payUnpaid,
     awaiting_review: t.payAwaiting,
@@ -639,6 +659,17 @@ function PaymentCell({ booking, t, onChanged }: { booking: BookingRow; t: Dict; 
           onClick={() => mutation.mutate({ publicId: booking.publicId, paymentStatus: "unpaid" })}
         >
           {t.markUnpaid}
+        </Button>
+      )}
+      {booking.amountDue && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-[11px]"
+          disabled={invoiceMutation.isPending}
+          onClick={() => invoiceMutation.mutate({ publicId: booking.publicId })}
+        >
+          <Download className="size-3" /> {t.invoice}
         </Button>
       )}
     </div>

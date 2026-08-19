@@ -248,6 +248,81 @@ describe("the receipt itself", () => {
   });
 });
 
+describe("the invoice PDF", () => {
+  const base = {
+    publicId: "STRX-11AA22BB33",
+    name: "Mona Abdelrahman",
+    phone: "+201001112222",
+    clientEmail: "mona@example.com",
+    amountDue: "2500.00",
+    currency: "EGP",
+    paymentReference: "TX-83920184",
+    paidAt: Date.now(),
+  };
+
+  it("produces a real single-page PDF", async () => {
+    const { buildInvoicePdf } = await import("./invoicePdf");
+    const pdf = await buildInvoicePdf(base);
+
+    expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(1000);
+    expect(pdf.toString("latin1")).toContain("/Count 1");
+  });
+
+  // Everything the client needs to identify the payment has to be on the page,
+  // since this is the document they keep. Reading it back means undoing two
+  // layers pdfkit applies: the content streams are deflate-compressed, and each
+  // drawn string is written as hex inside a TJ array with kerning offsets
+  // between the runs, so the hex chunks have to be decoded and rejoined.
+  it("carries the order, amount, contact details and reference", async () => {
+    const { buildInvoicePdf } = await import("./invoicePdf");
+    const { inflateSync } = await import("node:zlib");
+
+    const pdf = await buildInvoicePdf(base);
+    const raw = pdf.toString("latin1");
+
+    let content = "";
+    for (const match of raw.matchAll(/stream\r?\n/g)) {
+      const start = match.index! + match[0].length;
+      const end = raw.indexOf("endstream", start);
+      if (end < 0) continue;
+      try {
+        content += inflateSync(pdf.subarray(start, end)).toString("latin1");
+      } catch {
+        // Not every stream is a deflated content stream; skip those.
+      }
+    }
+
+    // Each TJ array becomes one line of text once its hex runs are decoded.
+    const lines = [...content.matchAll(/\[(.*?)\]\s*TJ/g)].map(([, body]) =>
+      [...body.matchAll(/<([0-9A-Fa-f]+)>/g)]
+        .map(([, hex]) => Buffer.from(hex, "hex").toString("latin1"))
+        .join(""),
+    );
+    const drawn = lines.join("\n");
+
+    for (const value of [base.publicId, base.name, base.phone, base.clientEmail, "2500.00", "TX-83920184"]) {
+      expect(drawn).toContain(value);
+    }
+  });
+
+  // A booking with no email and no transfer reference still has to render —
+  // both fields are optional, and an exception here would cost the owner their
+  // confirmation action.
+  it("renders when the optional fields are absent", async () => {
+    const { buildInvoicePdf } = await import("./invoicePdf");
+    const pdf = await buildInvoicePdf({
+      ...base,
+      clientEmail: null,
+      paymentReference: null,
+      paidAt: null,
+    });
+
+    expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(1000);
+  });
+});
+
 describe("declaring a payment", () => {
   afterEach(() => {
     vi.resetModules();
