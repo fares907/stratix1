@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Weekly pull requests for outdated or vulnerable packages; CI must pass on
+  # each before it is merged. Minor and patch bumps arrive together so the
+  # queue stays short; majors come one per package.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
