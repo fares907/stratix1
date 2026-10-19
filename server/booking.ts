@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { z } from "zod";
@@ -114,7 +114,7 @@ function getClientHash(req: TrpcContext["req"]) {
   const address = clientIp(req);
   const userAgent = req.get("user-agent") || "unknown";
   const secret = process.env.JWT_SECRET || FINGERPRINT_FALLBACK_SECRET;
-  return createHash("sha256").update(`${address}|${userAgent}|${secret}`).digest("hex");
+  return createHmac("sha256", secret).update(`${address}|${userAgent}`).digest("hex");
 }
 
 function createPublicId() {

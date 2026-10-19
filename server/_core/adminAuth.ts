@@ -3,20 +3,58 @@ import { parseCookie } from "cookie";
 import type { Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "./env";
+import { base32Decode, verifyTotp } from "./totp";
 
 export const ADMIN_SESSION_COOKIE = "stratix_admin_session";
-// Sessions are bearer cookies with no server-side revocation list, so the TTL
-// is the only thing that limits a stolen cookie's usefulness. Thirty days made
-// one leaked laptop or shared browser an admin for a month; seven still spans a
-// normal working week without a re-login.
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+// Sessions are bearer cookies with no server-side revocation list, so lifetime
+// is the only thing limiting a stolen cookie. Each token lives 12 hours and is
+// reissued while the dashboard is in use, so a cookie left on an abandoned
+// device dies overnight; no session outlives 7 days from the actual login.
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_REFRESH_AFTER_MS = 15 * 60 * 1000;
+const SESSION_ABSOLUTE_MS = 7 * 24 * 60 * 60 * 1000;
+const JWT_ISSUER = "stratix.website";
+const JWT_AUDIENCE = "stratix-admin";
 
 export type AdminAccount = { id: "fares" | "youssef"; name: string };
 
-const ADMIN_ACCOUNTS: Array<AdminAccount & { getPassword: () => string }> = [
-  { id: "fares", name: "فارس سامي", getPassword: () => ENV.adminPasswordFares },
-  { id: "youssef", name: "يوسف تامر", getPassword: () => ENV.adminPasswordYoussef },
+const ADMIN_ACCOUNTS: Array<
+  AdminAccount & { getPassword: () => string; getTotpSecret: () => string }
+> = [
+  {
+    id: "fares",
+    name: "فارس سامي",
+    getPassword: () => ENV.adminPasswordFares,
+    getTotpSecret: () => ENV.adminTotpFares,
+  },
+  {
+    id: "youssef",
+    name: "يوسف تامر",
+    getPassword: () => ENV.adminPasswordYoussef,
+    getTotpSecret: () => ENV.adminTotpYoussef,
+  },
 ];
+
+// A code is valid for about 90 seconds (one step of drift either side), so
+// without this anyone who saw it — over a shoulder, in a screen recording —
+// could reuse it within that window. Each step is accepted once per account.
+const lastTotpStep = new Map<AdminAccount["id"], number>();
+
+// A configured but malformed secret must not quietly downgrade the account to
+// password-only. Login for that account fails until the secret is fixed.
+type SecondFactor = { kind: "none" } | { kind: "totp"; key: Buffer } | { kind: "broken" };
+
+function secondFactorFor(account: (typeof ADMIN_ACCOUNTS)[number]): SecondFactor {
+  const raw = account.getTotpSecret().trim();
+  if (!raw) return { kind: "none" };
+  const key = base32Decode(raw);
+  if (!key || key.length < 10) {
+    console.error(`[Admin] TOTP secret for ${account.id} is malformed; sign-in is blocked until it is fixed.`);
+    return { kind: "broken" };
+  }
+  return { kind: "totp", key };
+}
 
 // This used to fall back to a constant string when JWT_SECRET was unset, which
 // meant a missing environment variable silently signed admin sessions with a
@@ -137,7 +175,12 @@ export function clearLoginAttempts(ip: string) {
   loginAttempts.delete(ip);
 }
 
-export function verifyAdminCredentials(accountId: string, password: string): AdminAccount | null {
+export function verifyAdminCredentials(
+  accountId: string,
+  password: string,
+  code = "",
+  now = Date.now(),
+): AdminAccount | null {
   const account = ADMIN_ACCOUNTS.find(candidate => candidate.id === accountId);
   if (!account) return null;
 
@@ -145,33 +188,81 @@ export function verifyAdminCredentials(accountId: string, password: string): Adm
   if (!expected || !password) return null;
   if (!safeStringsEqual(password, expected)) return null;
 
+  const factor = secondFactorFor(account);
+  if (factor.kind === "broken") return null;
+  if (factor.kind === "totp") {
+    const step = verifyTotp(factor.key, code.trim(), now);
+    if (step === null || step <= (lastTotpStep.get(account.id) ?? -1)) return null;
+    lastTotpStep.set(account.id, step);
+  }
+
   return { id: account.id, name: account.name };
 }
 
-export async function createAdminSessionToken(account: AdminAccount) {
-  return new SignJWT({ id: account.id, name: account.name })
+export async function createAdminSessionToken(account: AdminAccount, authTime = Date.now()) {
+  return new SignJWT({ id: account.id, name: account.name, auth_time: Math.floor(authTime / 1000) })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(Math.floor((Date.now() + SESSION_TTL_MS) / 1000))
     .sign(getSecretKey());
 }
 
-export async function verifyAdminSessionToken(token: string): Promise<AdminAccount | null> {
+type VerifiedSession = AdminAccount & { issuedAt: number; authTime: number };
+
+async function verifySession(token: string): Promise<VerifiedSession | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecretKey());
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ["HS256"],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
     if (payload.id !== "fares" && payload.id !== "youssef") return null;
     if (typeof payload.name !== "string") return null;
-    return { id: payload.id, name: payload.name };
+    if (typeof payload.iat !== "number" || typeof payload.auth_time !== "number") return null;
+    const authTime = payload.auth_time * 1000;
+    if (Date.now() - authTime > SESSION_ABSOLUTE_MS) return null;
+    return { id: payload.id, name: payload.name, issuedAt: payload.iat * 1000, authTime };
   } catch {
     return null;
   }
 }
 
+export async function verifyAdminSessionToken(token: string): Promise<AdminAccount | null> {
+  const session = await verifySession(token);
+  return session ? { id: session.id, name: session.name } : null;
+}
+
+function readSessionCookie(req: Request) {
+  return parseCookie(req.headers.cookie ?? "")[ADMIN_SESSION_COOKIE];
+}
+
 export async function getAdminAccountFromRequest(req: Request): Promise<AdminAccount | null> {
-  const cookies = parseCookie(req.headers.cookie ?? "");
-  const token = cookies[ADMIN_SESSION_COOKIE];
+  const token = readSessionCookie(req);
+  return token ? verifyAdminSessionToken(token) : null;
+}
+
+/**
+ * Verifies the session and, while it is in active use, reissues the cookie so
+ * the 12-hour lifetime slides forward — never past 7 days from sign-in.
+ */
+export async function authenticateAdmin(req: Request, res: Response): Promise<AdminAccount | null> {
+  const token = readSessionCookie(req);
   if (!token) return null;
-  return verifyAdminSessionToken(token);
+  const session = await verifySession(token);
+  if (!session) return null;
+
+  const account: AdminAccount = { id: session.id, name: session.name };
+  if (Date.now() - session.issuedAt > SESSION_REFRESH_AFTER_MS) {
+    const remaining = session.authTime + SESSION_ABSOLUTE_MS - Date.now();
+    const fresh = await createAdminSessionToken(account, session.authTime);
+    res.cookie(ADMIN_SESSION_COOKIE, fresh, {
+      ...adminCookieOptions(req),
+      maxAge: Math.min(SESSION_TTL_MS, remaining),
+    });
+  }
+  return account;
 }
 
 function isSecureRequest(req: Request) {

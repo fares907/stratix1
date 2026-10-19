@@ -8,6 +8,9 @@ import {
   setBookingPaymentStatus,
 } from "./db";
 import { ENV } from "./_core/env";
+import type { TrpcContext } from "./_core/context";
+import { clientIp } from "./_core/origin";
+import { createWindowLimiter } from "./_core/windowLimiter";
 import { sendPaymentDeclaredEmail, sendPaymentReceiptEmail } from "./email";
 import { buildInvoicePdf } from "./invoicePdf";
 
@@ -51,6 +54,11 @@ const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
 const LOOKUP_MAX_ATTEMPTS = 60;
 let lookupWindow = { count: 0, windowStart: 0 };
 
+// A person checking their own order needs a few tries at most. Stopping each
+// visitor here keeps one script from spending the shared ceiling below and
+// locking every real client out of the payment page.
+const lookupPerVisitor = createWindowLimiter({ windowMs: LOOKUP_WINDOW_MS, max: 10 });
+
 function isLookupRateLimited() {
   const now = Date.now();
   if (now - lookupWindow.windowStart > LOOKUP_WINDOW_MS) return false;
@@ -82,14 +90,16 @@ export function getPaymentMethods() {
 export type PaymentLookupInput = z.infer<typeof paymentLookupSchema>;
 export type PaymentDeclareInput = z.infer<typeof paymentDeclareSchema>;
 
-export async function lookupPayment(input: PaymentLookupInput) {
-  if (isLookupRateLimited()) {
+export async function lookupPayment(input: PaymentLookupInput, req?: TrpcContext["req"]) {
+  const visitor = req ? clientIp(req) : null;
+  if ((visitor && lookupPerVisitor.isLimited(visitor)) || isLookupRateLimited()) {
     throw new TRPCError({
       code: "TOO_MANY_REQUESTS",
       message: "محاولات كثيرة. حاول بعد قليل أو تواصل معنا مباشرة.",
     });
   }
   recordLookup();
+  if (visitor) lookupPerVisitor.record(visitor);
 
   const booking = await getBookingForPayment(input);
   // Deliberately identical whether the order id is wrong, the phone is wrong, or

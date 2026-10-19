@@ -45,7 +45,9 @@ export const appRouter = router({
   payment: router({
     // A mutation rather than a query even though it reads: it is rate-limited
     // and must never be cached or prefetched by the client.
-    lookup: publicProcedure.input(paymentLookupSchema).mutation(({ input }) => lookupPayment(input)),
+    lookup: publicProcedure
+      .input(paymentLookupSchema)
+      .mutation(({ ctx, input }) => lookupPayment(input, ctx.req)),
 
     declare: publicProcedure
       .input(paymentDeclareSchema)

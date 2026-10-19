@@ -8,6 +8,10 @@ export const ENV = {
   adminPasswordFares: process.env.ADMIN_PASSWORD_FARES ?? "",
   adminPasswordYoussef: process.env.ADMIN_PASSWORD_YOUSSEF ?? "",
   adminSessionSecret: process.env.JWT_SECRET ?? "",
+  // Optional second factor per account: a base32 TOTP secret from
+  // scripts/totp-setup.mjs. Unset means password-only for that account.
+  adminTotpFares: process.env.ADMIN_TOTP_SECRET_FARES ?? "",
+  adminTotpYoussef: process.env.ADMIN_TOTP_SECRET_YOUSSEF ?? "",
 
   // Where a client sends the transfer. Configuration, not secrets — they are
   // shown to a paying client by design — but kept in the environment so the

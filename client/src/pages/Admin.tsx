@@ -66,6 +66,7 @@ const T = {
     navFinance: "الحسابات",
     navInvoices: "الفواتير",
     password: "كلمة السر",
+    totpCode: "رمز التحقق (لو مفعّل)",
     login: "دخول",
     loggingIn: "جارٍ الدخول…",
     loginFail: "تعذر تسجيل الدخول",
@@ -173,6 +174,7 @@ const T = {
     navFinance: "Finance",
     navInvoices: "Invoices",
     password: "Password",
+    totpCode: "Verification code (if enabled)",
     login: "Sign in",
     loggingIn: "Signing in…",
     loginFail: "Sign-in failed",
@@ -346,12 +348,17 @@ function waLink(phone: string) {
 function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn: () => void }) {
   const [accountId, setAccountId] = useState<"fares" | "youssef">("fares");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const loginMutation = trpc.adminAuth.login.useMutation({
     onSuccess: () => {
       setPassword("");
+      setCode("");
       onLoggedIn();
     },
-    onError: error => toast.error(t.loginFail, { description: error.message }),
+    onError: error => {
+      setCode("");
+      toast.error(t.loginFail, { description: error.message });
+    },
   });
 
   return (
@@ -373,7 +380,7 @@ function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn:
             className="flex flex-col gap-4"
             onSubmit={event => {
               event.preventDefault();
-              loginMutation.mutate({ accountId, password });
+              loginMutation.mutate({ accountId, password, code: code || undefined });
             }}
           >
             <div className="grid grid-cols-2 gap-2">
@@ -399,6 +406,18 @@ function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn:
               onChange={event => setPassword(event.target.value)}
               autoComplete="current-password"
               required
+            />
+            <Input
+              type="text"
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              placeholder={t.totpCode}
+              value={code}
+              onChange={event => setCode(event.target.value.replace(/\D/g, ""))}
+              autoComplete="one-time-code"
+              dir="ltr"
+              className="text-center tracking-[0.4em] font-mono placeholder:tracking-normal placeholder:font-sans"
             />
             <Button type="submit" className="h-11" disabled={loginMutation.isPending || !password}>
               {loginMutation.isPending ? t.loggingIn : t.login}
@@ -513,9 +532,12 @@ function exportBookingsPdf(rows: BookingRow[], t: Dict, lang: Lang) {
       <th>${esc(t.colId)}</th><th>${esc(t.colDate)}</th><th>${esc(t.colName)}</th>
       <th>${esc(t.colPhone)}</th><th>${esc(t.colType)}</th><th>${esc(t.colBudget)}</th><th>${esc(t.colStatus)}</th>
     </tr></thead><tbody>${body}</tbody></table>
-    <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
     </body></html>`);
   win.document.close();
+  // The popup inherits this page's CSP, which forbids inline scripts, so the
+  // print dialog has to be opened from here rather than from inside the popup.
+  win.focus();
+  setTimeout(() => win.print(), 250);
 }
 
 // Quoting a project is what turns its payment page on: until an amount is set,

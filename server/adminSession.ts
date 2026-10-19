@@ -1,10 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  authenticateAdmin,
   clearAdminSessionCookie,
   clearLoginAttempts,
   createAdminSessionToken,
-  getAdminAccountFromRequest,
   isLoginRateLimited,
   recordLoginAttempt,
   setAdminSessionCookie,
@@ -14,10 +14,16 @@ import { clientIp } from "./_core/origin";
 import { publicProcedure, router } from "./_core/trpc";
 
 export const adminAuthRouter = router({
-  me: publicProcedure.query(async ({ ctx }) => getAdminAccountFromRequest(ctx.req)),
+  me: publicProcedure.query(({ ctx }) => authenticateAdmin(ctx.req, ctx.res)),
 
   login: publicProcedure
-    .input(z.object({ accountId: z.enum(["fares", "youssef"]), password: z.string().min(1) }))
+    .input(
+      z.object({
+        accountId: z.enum(["fares", "youssef"]),
+        password: z.string().min(1).max(256),
+        code: z.string().trim().max(6).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const ip = clientIp(ctx.req);
 
@@ -28,7 +34,9 @@ export const adminAuthRouter = router({
         });
       }
 
-      const account = verifyAdminCredentials(input.accountId, input.password);
+      // One message for a wrong password and a wrong code alike, so a failed
+      // attempt never confirms that the password half was right.
+      const account = verifyAdminCredentials(input.accountId, input.password, input.code);
       if (!account) {
         recordLoginAttempt(ip);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "بيانات الدخول غير صحيحة." });

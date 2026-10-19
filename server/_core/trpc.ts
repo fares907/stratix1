@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { getAdminAccountFromRequest } from "./adminAuth";
+import { authenticateAdmin } from "./adminAuth";
 import type { TrpcContext } from "./context";
 
 const t = initTRPC.context<TrpcContext>().create({
@@ -16,7 +16,7 @@ export const adminSessionProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    const adminAccount = await getAdminAccountFromRequest(ctx.req);
+    const adminAccount = await authenticateAdmin(ctx.req, ctx.res);
     if (!adminAccount) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: "STRATIX admin session required" });
     }

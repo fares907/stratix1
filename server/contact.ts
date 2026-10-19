@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { normalizePhone } from "./booking";
 import type { TrpcContext } from "./_core/context";
+import { clientIp } from "./_core/origin";
+import { createWindowLimiter } from "./_core/windowLimiter";
 import { sendContactLeadEmail } from "./email";
 
 // A lighter sibling of the booking form: the chat "talk to us" handoff. The
@@ -60,12 +62,25 @@ function recordGlobalContact() {
   globalContact.count += 1;
 }
 
-export async function submitContactRequest(input: ContactInput, _req: TrpcContext["req"]) {
+// Checked before the global ceiling, so one visitor flooding the form is stopped
+// on their own and cannot spend the allowance that real visitors share.
+const perVisitor = createWindowLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+
+export async function submitContactRequest(input: ContactInput, req: TrpcContext["req"]) {
   // Drop bots that filled the honeypot, but return success so they get no signal
   // that they were caught.
   if (input.website) {
     return { accepted: true } as const;
   }
+
+  const visitor = clientIp(req);
+  if (perVisitor.isLimited(visitor)) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "تم استلام عدة طلبات مؤخراً. حاول مرة أخرى بعد قليل أو اتصل بنا مباشرة.",
+    });
+  }
+  perVisitor.record(visitor);
 
   if (isGlobalContactRateLimited()) {
     throw new TRPCError({

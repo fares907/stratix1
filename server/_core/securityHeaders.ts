@@ -59,7 +59,12 @@ export function createSecurityHeaders(isProduction = process.env.NODE_ENV === "p
     // frame-ancestors (CSP) is what modern browsers honor for clickjacking
     // protection; X-Frame-Options stays as defense-in-depth for older ones.
     res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()",
+    );
+    res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+    res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
     res.setHeader("Origin-Agent-Cluster", "?1");
     if (isProduction) {

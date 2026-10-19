@@ -43,8 +43,8 @@ export function requireCloudflareOrigin(): RequestHandler {
 // Railway hostname it would be a free choice of identity.
 export function clientIp(req: Request): string {
   if (secret()) {
-    const cf = req.get("cf-connecting-ip");
+    const cf = req.get?.("cf-connecting-ip");
     if (cf) return cf;
   }
-  return req.ip || req.socket.remoteAddress || "unknown";
+  return req.ip || req.socket?.remoteAddress || "unknown";
 }
