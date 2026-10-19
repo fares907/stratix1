@@ -14,7 +14,10 @@
 //
 //   node scripts/ensure-invoices-table.mjs
 
-import "dotenv/config";
+// Production (Railway) injects variables directly and has no .env file.
+try {
+  process.loadEnvFile();
+} catch {}
 import mysql from "mysql2/promise";
 
 const url = process.env.DATABASE_URL;

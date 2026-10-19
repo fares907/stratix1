@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import { clientIp } from "./origin";
 
 // Nothing throttled requests before they reached tRPC, so a single client could
 // hold the event loop at 100% and every genuine visitor queued behind it. This
@@ -100,7 +101,7 @@ export function createRateLimiter(options: RateLimitOptions): RequestHandler {
 
     prune(now);
 
-    const key = req.ip || req.socket.remoteAddress || "unknown";
+    const key = clientIp(req);
     let bucket = buckets.get(key);
     if (!bucket) {
       bucket = { count: 0, windowStart: now };

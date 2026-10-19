@@ -1,0 +1,13 @@
+# Refuse versions published in the last 3 days. Hijacked npm releases are
+# usually caught and pulled within hours; this keeps them from ever reaching
+# an install here.
+minimumReleaseAge: 4320
+
+# Only esbuild may run an install script (it fetches its platform binary).
+allowBuilds:
+  esbuild: true
+
+# drizzle-kit's bundled loader pins esbuild 0.18, which has a dev-server advisory.
+# The loader only uses esbuild's transform API, which the current release keeps.
+overrides:
+  "@esbuild-kit/core-utils>esbuild": "^0.28.2"

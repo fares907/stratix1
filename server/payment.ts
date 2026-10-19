@@ -10,7 +10,6 @@ import {
 import { ENV } from "./_core/env";
 import { sendPaymentDeclaredEmail, sendPaymentReceiptEmail } from "./email";
 import { buildInvoicePdf } from "./invoicePdf";
-import { notifyOwner } from "./_core/notification";
 
 // Payment is settled outside this application. The client transfers by InstaPay
 // or bank transfer and an owner confirms the money arrived. Nothing here touches
@@ -144,11 +143,10 @@ export async function declarePayment(input: PaymentDeclareInput) {
     reference: input.reference,
   });
 
+  // The declaration is saved and the booking shows "awaiting review" in the
+  // dashboard, so nothing is lost if this email fails.
   if (email.status !== "sent") {
-    await notifyOwner({
-      title: `تأكيد تحويل — ${booking.publicId}`,
-      content: `${booking.name}\n${booking.phone}\nالمبلغ: ${booking.amountDue} ${booking.currency}\nمرجع: ${input.reference}`,
-    }).catch(error => console.warn("[Payment] Owner notification fallback failed:", error));
+    console.error(`[Payment] Owner email not delivered for ${booking.publicId}: ${email.error}`);
   }
 
   return { accepted: true, alreadyPaid: false } as const;

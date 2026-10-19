@@ -11,7 +11,10 @@
 // Deleting is permanent. The nightly backup keeps 90 days, so a mistake is
 // recoverable from there — but only from there.
 
-import "dotenv/config";
+// Production (Railway) injects variables directly and has no .env file.
+try {
+  process.loadEnvFile();
+} catch {}
 import mysql from "mysql2/promise";
 
 const arg = process.argv[2];

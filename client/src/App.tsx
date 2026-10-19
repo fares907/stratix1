@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import { LazyMotion } from "motion/react";
 import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -8,13 +8,14 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
-// Regular site visitors never need the dashboard's Table/Select/Card UI code
-// (Recharts, etc.) — splitting it into its own chunk keeps the public
-// homepage's bundle smaller without touching build.rollupOptions manually.
+// Visitors never need the dashboard or the payment page up front, so each is its
+// own chunk fetched only when its route is opened.
 const Admin = lazy(() => import("@/pages/Admin"));
-// Only visitors who are settling an invoice load this, so it stays out of the
-// homepage bundle like the dashboard does.
 const Pay = lazy(() => import("@/pages/Pay"));
+
+// The animation engine arrives after first paint; `strict` makes any stray
+// full-size `motion.` component a dev error instead of a silent bundle bloat.
+const loadMotionFeatures = () => import("@/lib/motionFeatures").then(mod => mod.default);
 
 function Router() {
   return (
@@ -41,10 +42,10 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
         <LanguageProvider>
-          <TooltipProvider>
+          <LazyMotion features={loadMotionFeatures} strict>
             <Toaster position="top-center" richColors />
             <Router />
-          </TooltipProvider>
+          </LazyMotion>
         </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>

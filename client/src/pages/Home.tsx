@@ -1,6 +1,5 @@
-import { useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import type { FormEvent, ReactNode } from "react";
-import PhoneField from "@/components/PhoneField";
 import SplashScreen from "@/components/SplashScreen";
 import StratixChat from "@/components/StratixChat";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -9,11 +8,11 @@ import { useLitePerformance, useOnScreen } from "@/hooks/useLitePerformance";
 import { trpc } from "@/lib/trpc";
 import {
   AnimatePresence,
-  motion,
+  m,
   useReducedMotion,
   useScroll,
   useTransform,
-} from "framer-motion";
+} from "motion/react";
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -31,6 +30,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// The country picker carries the full phone-number rules (hundreds of KB), so it
+// loads after the page is interactive instead of delaying first paint. Until it
+// arrives a plain phone input stands in, so the form always works.
+const loadPhoneField = () => import("@/components/PhoneField");
+const PhoneField = lazy(loadPhoneField);
+
 function Reveal({
   children,
   className = "",
@@ -45,7 +50,7 @@ function Reveal({
   const reduceMotion = useReducedMotion();
 
   return (
-    <motion.div
+    <m.div
       className={className}
       dir={dir}
       initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 44 }}
@@ -58,7 +63,7 @@ function Reveal({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -78,6 +83,13 @@ export default function Home() {
   const { scrollYProgress } = useScroll();
   const heroWordY = useTransform(scrollYProgress, [0, 0.28], [0, -120]);
   const orbitY = useTransform(scrollYProgress, [0, 0.32], [0, 160]);
+
+  // Fetch the country picker while the visitor reads the hero, well before they
+  // could reach the booking form.
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500));
+    idle(() => void loadPhoneField());
+  }, []);
   const bookingRequestKey = useRef(crypto.randomUUID());
   const bookingMutation = trpc.booking.submit.useMutation();
 
@@ -127,7 +139,7 @@ export default function Home() {
       <SplashScreen />
       <AnimatePresence mode="wait">
       <div className="site-shell">
-        <motion.div
+        <m.div
           className="scroll-progress"
           style={{ scaleX: scrollYProgress }}
           aria-hidden="true"
@@ -170,26 +182,26 @@ export default function Home() {
               <span /> {t.hero.signal}
             </div>
 
-            <motion.div
+            <m.div
               ref={orbitRef}
               className="hero-orbit"
               style={{ y: reduceMotion ? 0 : orbitY }}
               aria-hidden="true"
             >
-              <motion.div
+              <m.div
                 className="orbit-ring orbit-ring-outer"
                 animate={spinOrbit ? { rotate: 360 } : undefined}
                 transition={{ duration: 24, repeat: Infinity, ease: "linear" }}
               />
-              <motion.div
+              <m.div
                 className="orbit-ring orbit-ring-inner"
                 animate={spinOrbit ? { rotate: -360 } : undefined}
                 transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
               />
               <span className="orbit-core">S</span>
-            </motion.div>
+            </m.div>
 
-            <motion.div
+            <m.div
               className="hero-title-block"
               style={{ y: reduceMotion ? 0 : heroWordY }}
               initial={reduceMotion ? false : "hidden"}
@@ -199,7 +211,7 @@ export default function Home() {
                 visible: { transition: { staggerChildren: 0.11, delayChildren: 0.15 } },
               }}
             >
-              <motion.p
+              <m.p
                 className="eyebrow"
                 variants={{
                   hidden: { opacity: 0, y: 16 },
@@ -207,10 +219,10 @@ export default function Home() {
                 }}
               >
                 {t.hero.eyebrow}
-              </motion.p>
+              </m.p>
 
               <div className="hero-word-mask" dir="ltr">
-                <motion.h1
+                <m.h1
                   id="hero-title"
                   className="hero-word"
                   variants={{
@@ -223,10 +235,10 @@ export default function Home() {
                   }}
                 >
                   STRA<span>TIX</span>
-                </motion.h1>
+                </m.h1>
               </div>
 
-              <motion.div
+              <m.div
                 className="hero-statement"
                 dir={t.dir}
                 variants={{
@@ -256,8 +268,8 @@ export default function Home() {
                     </a>
                   </div>
                 </div>
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
 
             <div className="hero-meta" aria-label={t.hero.metaAria}>
               <div>
@@ -294,14 +306,14 @@ export default function Home() {
           </section>
 
           <div className="kinetic-strip" ref={stripRef} aria-hidden="true" dir="ltr">
-            <motion.div
+            <m.div
               className="kinetic-track"
               animate={spinStrip ? { x: ["0%", "-50%"] } : undefined}
               transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
             >
               <span>SPEED</span><i>•</i><span>MOTION</span><i>•</i><span>TRUST</span><i>•</i><span>SCALE</span><i>•</i>
               <span>SPEED</span><i>•</i><span>MOTION</span><i>•</i><span>TRUST</span><i>•</i><span>SCALE</span><i>•</i>
-            </motion.div>
+            </m.div>
           </div>
 
           <section id="services" className="service-section section-grid" aria-labelledby="service-title">
@@ -422,7 +434,11 @@ export default function Home() {
                 </label>
                 <label>
                   <span>{t.booking.phoneLabel}</span>
-                  <PhoneField />
+                  <Suspense
+                    fallback={<input name="phone" type="tel" dir="ltr" inputMode="tel" autoComplete="tel" placeholder="+20 100 000 0000" required />}
+                  >
+                    <PhoneField />
+                  </Suspense>
                 </label>
                 <label className="form-span-2">
                   <span>{t.booking.emailLabel} <small>{t.booking.optional}</small></span>

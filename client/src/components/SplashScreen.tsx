@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 
 const SESSION_KEY = "stratix-splash-seen";
@@ -41,7 +41,7 @@ export default function SplashScreen() {
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div
+        <m.div
           className="splash-screen"
           role="presentation"
           aria-hidden="true"
@@ -50,7 +50,7 @@ export default function SplashScreen() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
         >
-          <motion.span
+          <m.span
             className="splash-word"
             dir="ltr"
             initial={{ opacity: 0, letterSpacing: "0.4em" }}
@@ -58,8 +58,8 @@ export default function SplashScreen() {
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           >
             STRATIX
-          </motion.span>
-        </motion.div>
+          </m.span>
+        </m.div>
       )}
     </AnimatePresence>
   );

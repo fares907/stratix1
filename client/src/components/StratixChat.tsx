@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { ArrowUpLeft, MessageSquareText, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -174,7 +174,7 @@ export default function StratixChat() {
     <div className="stratix-chat" dir={language === "ar" ? "rtl" : "ltr"}>
       <AnimatePresence>
         {open && (
-          <motion.section
+          <m.section
             id="stratix-chat-panel"
             className="chat-panel"
             role="region"
@@ -196,7 +196,7 @@ export default function StratixChat() {
 
             <div className="chat-messages" aria-live="polite">
               {messages.map(message => (
-                <motion.p
+                <m.p
                   className="chat-message"
                   data-author={message.author}
                   key={message.id}
@@ -204,7 +204,7 @@ export default function StratixChat() {
                   animate={{ opacity: 1, y: 0 }}
                 >
                   {message.text}
-                </motion.p>
+                </m.p>
               ))}
             </div>
 
@@ -279,7 +279,7 @@ export default function StratixChat() {
             <a className="chat-booking-link" href="#booking" onClick={() => setOpen(false)}>
               {copy.bookingLink} <ArrowUpLeft aria-hidden="true" />
             </a>
-          </motion.section>
+          </m.section>
         )}
       </AnimatePresence>
 

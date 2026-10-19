@@ -9,11 +9,9 @@ const dbMocks = vi.hoisted(() => ({
 
 const sendBookingEmail = vi.hoisted(() => vi.fn());
 const sendCustomerConfirmationEmail = vi.hoisted(() => vi.fn());
-const notifyOwner = vi.hoisted(() => vi.fn());
 
 vi.mock("./db", () => dbMocks);
 vi.mock("./email", () => ({ sendBookingEmail, sendCustomerConfirmationEmail }));
-vi.mock("./_core/notification", () => ({ notifyOwner }));
 
 import { BOOKING_LIMITS, bookingInputSchema, submitBooking } from "./booking";
 
@@ -96,7 +94,6 @@ describe("submitBooking", () => {
     dbMocks.updateBookingEmailDelivery.mockResolvedValue(undefined);
     sendBookingEmail.mockResolvedValue({ status: "sent", messageId: "smtp-message-id" });
     sendCustomerConfirmationEmail.mockResolvedValue({ status: "sent", messageId: "confirmation-id" });
-    notifyOwner.mockResolvedValue(true);
   });
 
   it("persists once, sends email, and records delivery", async () => {
@@ -116,7 +113,6 @@ describe("submitBooking", () => {
       messageId: "smtp-message-id",
       error: undefined,
     });
-    expect(notifyOwner).not.toHaveBeenCalled();
     expect(sendCustomerConfirmationEmail).toHaveBeenCalledWith(booking, validInput.language);
   });
 

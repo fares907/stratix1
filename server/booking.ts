@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { z } from "zod";
 import type { TrpcContext } from "./_core/context";
-import { notifyOwner } from "./_core/notification";
+import { clientIp } from "./_core/origin";
 import {
   createBooking,
   getBookingByRequestKey,
@@ -111,7 +111,7 @@ function recordGlobalBookingSubmission() {
 const FINGERPRINT_FALLBACK_SECRET = randomBytes(32).toString("hex");
 
 function getClientHash(req: TrpcContext["req"]) {
-  const address = req.ip || req.socket.remoteAddress || "unknown";
+  const address = clientIp(req);
   const userAgent = req.get("user-agent") || "unknown";
   const secret = process.env.JWT_SECRET || FINGERPRINT_FALLBACK_SECRET;
   return createHash("sha256").update(`${address}|${userAgent}|${secret}`).digest("hex");
@@ -195,11 +195,10 @@ export async function submitBooking(input: BookingInput, req: TrpcContext["req"]
     error: email.status === "sent" ? undefined : email.error,
   });
 
+  // The booking is already saved and visible in the dashboard, so a failed email
+  // loses nothing — but it must be loud in the logs.
   if (email.status !== "sent") {
-    await notifyOwner({
-      title: `حجز STRATIX جديد — ${booking.publicId}`,
-      content: `${booking.name}\n${booking.phone}\n${booking.details}`,
-    }).catch(error => console.warn("[Booking] Owner notification fallback failed:", error));
+    console.error(`[Booking] Owner email not delivered for ${booking.publicId}: ${email.error}`);
   }
 
   if (booking.clientEmail) {

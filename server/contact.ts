@@ -3,7 +3,6 @@ import { z } from "zod";
 import { normalizePhone } from "./booking";
 import type { TrpcContext } from "./_core/context";
 import { sendContactLeadEmail } from "./email";
-import { notifyOwner } from "./_core/notification";
 
 // A lighter sibling of the booking form: the chat "talk to us" handoff. The
 // visitor picks what they need and leaves a phone number, and the owners get an
@@ -84,13 +83,12 @@ export async function submitContactRequest(input: ContactInput, _req: TrpcContex
     note: input.note,
   });
 
-  // If the email provider is down, fall back to the owner-notification path so a
-  // lead is never lost silently. Either channel succeeding is enough.
+  // Leads are not stored in the database, so when the email fails the server log
+  // is the only copy left — it carries the details needed to call them back.
   if (email.status !== "sent") {
-    await notifyOwner({
-      title: "طلب تواصل جديد من الشات",
-      content: `النوع: ${input.topic}\nالرقم: ${input.phone}\nالبريد: ${input.clientEmail ?? "غير مضاف"}`,
-    }).catch(error => console.warn("[Contact] Owner notification fallback failed:", error));
+    console.error(
+      `[Contact] Lead email not delivered (${email.error}). topic=${input.topic} phone=${input.phone} email=${input.clientEmail ?? "-"}`,
+    );
   }
 
   return { accepted: true, delivered: email.status === "sent" } as const;

@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./loadEnv";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
@@ -9,6 +9,7 @@ import { serveStatic, setupVite } from "./vite";
 import { createSecurityHeaders } from "./securityHeaders";
 import { assertProductionSecrets } from "./env";
 import { API_RATE_LIMIT, STATIC_RATE_LIMIT, createRateLimiter } from "./rateLimit";
+import { requireCloudflareOrigin } from "./origin";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -37,13 +38,13 @@ async function startServer() {
   const server = createServer(app);
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
+  app.use(requireCloudflareOrigin());
   // Per-client only: static responses come from memory and are cached at the
   // edge, so a global ceiling here would just lock out real visitors during a
   // flood without protecting anything scarce.
   app.use(createRateLimiter(STATIC_RATE_LIMIT));
   app.use(createSecurityHeaders());
   app.use(express.json({ limit: "256kb" }));
-  app.use(express.urlencoded({ limit: "64kb", extended: true }));
   // tRPC API — the stricter limiter runs before the adapter so a shed request
   // never allocates a context or borrows a database connection.
   app.use(

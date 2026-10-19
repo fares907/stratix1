@@ -10,12 +10,8 @@ import {
   setAdminSessionCookie,
   verifyAdminCredentials,
 } from "./_core/adminAuth";
-import type { TrpcContext } from "./_core/context";
+import { clientIp } from "./_core/origin";
 import { publicProcedure, router } from "./_core/trpc";
-
-function getRequestIp(req: TrpcContext["req"]) {
-  return req.ip || req.socket.remoteAddress || "unknown";
-}
 
 export const adminAuthRouter = router({
   me: publicProcedure.query(async ({ ctx }) => getAdminAccountFromRequest(ctx.req)),
@@ -23,7 +19,7 @@ export const adminAuthRouter = router({
   login: publicProcedure
     .input(z.object({ accountId: z.enum(["fares", "youssef"]), password: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const ip = getRequestIp(ctx.req);
+      const ip = clientIp(ctx.req);
 
       if (isLoginRateLimited(ip)) {
         throw new TRPCError({

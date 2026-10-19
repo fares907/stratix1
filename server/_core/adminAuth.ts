@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { parse as parseCookieHeader } from "cookie";
+import { parseCookie } from "cookie";
 import type { Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import { ENV } from "./env";
@@ -168,7 +168,7 @@ export async function verifyAdminSessionToken(token: string): Promise<AdminAccou
 }
 
 export async function getAdminAccountFromRequest(req: Request): Promise<AdminAccount | null> {
-  const cookies = parseCookieHeader(req.headers.cookie ?? "");
+  const cookies = parseCookie(req.headers.cookie ?? "");
   const token = cookies[ADMIN_SESSION_COOKIE];
   if (!token) return null;
   return verifyAdminSessionToken(token);
