@@ -35,6 +35,7 @@ import {
   LogOut,
   Mail,
   MessageCircle,
+  MessagesSquare,
   Moon,
   Phone,
   Plus,
@@ -186,6 +187,23 @@ const T = {
     noNotes: "العميل مكتبش ملاحظات.",
     paymentSection: "المبلغ والدفع",
     emailDelivery: "إشعار الحجز",
+    navLeads: "طلبات الشات",
+    leadsTitle: "طلبات الشات",
+    leadsSub: "اللي طلبوا تواصل من المساعد في الموقع",
+    leadsTotal: "إجمالي الطلبات",
+    allLeads: "كل الطلبات",
+    noLeads: "مفيش طلبات تواصل لسه.",
+    leadEmailMissed: "الإيميل موصلش — الطلب متسجل هنا",
+    topicNewSite: "موقع جديد",
+    topicExisting: "مشكلة في موقع حالي",
+    topicOther: "طلب تاني",
+    stageSection: "مرحلة المشروع",
+    stageHint: "العميل بيشوف المرحلة دي في صفحة متابعة الطلب.",
+    stageReceived: "تم الاستلام",
+    stageDesign: "التصميم",
+    stageDevelopment: "البرمجة",
+    stageReview: "المراجعة",
+    stageDelivered: "التسليم",
   },
   en: {
     dir: "ltr" as const,
@@ -312,6 +330,23 @@ const T = {
     noNotes: "No notes from the client.",
     paymentSection: "Amount & payment",
     emailDelivery: "Booking notification",
+    navLeads: "Chat leads",
+    leadsTitle: "Chat leads",
+    leadsSub: "Visitors who asked the site assistant to reach them",
+    leadsTotal: "Total leads",
+    allLeads: "All leads",
+    noLeads: "No contact requests yet.",
+    leadEmailMissed: "Email not delivered — saved here",
+    topicNewSite: "New website",
+    topicExisting: "Issue with an existing site",
+    topicOther: "Something else",
+    stageSection: "Project stage",
+    stageHint: "The client sees this stage on the order tracking page.",
+    stageReceived: "Received",
+    stageDesign: "Design",
+    stageDevelopment: "Development",
+    stageReview: "Review",
+    stageDelivered: "Delivered",
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 
@@ -319,7 +354,7 @@ type Dict = (typeof T)[Lang];
 
 const PAGE_SIZE = 20;
 const LEDGER_PAGE_SIZE = 20;
-type Section = "bookings" | "finance" | "invoices";
+type Section = "bookings" | "leads" | "finance" | "invoices";
 
 function useAdminPrefs() {
   const [lang, setLang] = useState<Lang>(() =>
@@ -667,6 +702,19 @@ function paymentLabel(status: BookingRow["paymentStatus"], t: Dict) {
   return { unpaid: t.payUnpaid, awaiting_review: t.payAwaiting, paid: t.payPaid }[status];
 }
 
+type BookingStage = BookingRow["stage"];
+const BOOKING_STAGE_ORDER: BookingStage[] = ["received", "design", "development", "review", "delivered"];
+
+function stageLabel(stage: BookingStage, t: Dict) {
+  return {
+    received: t.stageReceived,
+    design: t.stageDesign,
+    development: t.stageDevelopment,
+    review: t.stageReview,
+    delivered: t.stageDelivered,
+  }[stage];
+}
+
 function statusLabel(status: BookingStatus, t: Dict) {
   return { new: t.stNew, contacted: t.stContacted, closed: t.stClosed }[status];
 }
@@ -784,6 +832,7 @@ function BookingDetails({
   onClose,
   onChanged,
   onStatusChange,
+  onStageChange,
 }: {
   booking: BookingRow | null;
   t: Dict;
@@ -792,6 +841,7 @@ function BookingDetails({
   onClose: () => void;
   onChanged: () => void;
   onStatusChange: (booking: BookingRow, status: BookingStatus) => void;
+  onStageChange: (booking: BookingRow, stage: BookingStage) => void;
 }) {
   const emailState: Record<BookingRow["emailStatus"], string> = {
     sent: t.emailSent,
@@ -878,6 +928,37 @@ function BookingDetails({
               <div className="mt-3 rounded-lg bg-muted/50 p-3.5 text-sm leading-7 whitespace-pre-wrap text-start">
                 {booking.details || <span className="text-muted-foreground">{t.noNotes}</span>}
               </div>
+            </section>
+
+            <section className="rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t.stageSection}
+                </h3>
+                <Select value={booking.stage} onValueChange={value => onStageChange(booking, value as BookingStage)}>
+                  <SelectTrigger size="sm" className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BOOKING_STAGE_ORDER.map(stage => (
+                      <SelectItem key={stage} value={stage}>
+                        {stageLabel(stage, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mt-3 flex gap-1.5" aria-hidden="true">
+                {BOOKING_STAGE_ORDER.map((stage, index) => (
+                  <span
+                    key={stage}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      index <= BOOKING_STAGE_ORDER.indexOf(booking.stage) ? "bg-primary" : "bg-muted"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">{t.stageHint}</p>
             </section>
 
             <section className="rounded-xl border p-4">
@@ -988,6 +1069,13 @@ function BookingsPanel({ t, lang, themeClass }: { t: Dict; lang: Lang; themeClas
   });
   const changeStatus = (booking: BookingRow, status: BookingStatus) =>
     updateStatusMutation.mutate({ publicId: booking.publicId, status });
+
+  const stageMutation = trpc.adminBookings.setStage.useMutation({
+    onSuccess: invalidate,
+    onError: error => toast.error(t.updateStatusFail, { description: error.message }),
+  });
+  const changeStage = (booking: BookingRow, stage: BookingStage) =>
+    stageMutation.mutate({ publicId: booking.publicId, stage });
 
   const handleExport = async () => {
     setExporting(true);
@@ -1257,6 +1345,7 @@ function BookingsPanel({ t, lang, themeClass }: { t: Dict; lang: Lang; themeClas
         onClose={() => setOpenId(null)}
         onChanged={invalidate}
         onStatusChange={changeStatus}
+        onStageChange={changeStage}
       />
     </div>
   );
@@ -1683,12 +1772,170 @@ function InvoicesPanel({ t, lang }: { t: Dict; lang: Lang }) {
 }
 
 // ─────────────────────────── shell ───────────────────────────
+// ─────────────────────────── chat leads ───────────────────────────
+type LeadRow = RouterOutputs["adminLeads"]["list"][number];
+type LeadStatus = LeadRow["status"];
+
+function LeadsPanel({ t, lang }: { t: Dict; lang: Lang }) {
+  const utils = trpc.useUtils();
+  const [statusFilter, setStatusFilter] = useState<"all" | LeadStatus>("all");
+  const [page, setPage] = useState(0);
+
+  const statsQuery = trpc.adminLeads.stats.useQuery();
+  const listQuery = trpc.adminLeads.list.useQuery(
+    { status: statusFilter === "all" ? undefined : statusFilter, limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+    { placeholderData: previous => previous },
+  );
+  const setStatus = trpc.adminLeads.setStatus.useMutation({
+    onSuccess: () => {
+      utils.adminLeads.list.invalidate();
+      utils.adminLeads.stats.invalidate();
+    },
+    onError: error => toast.error(t.updateStatusFail, { description: error.message }),
+  });
+
+  const leads = listQuery.data ?? [];
+  const stats = statsQuery.data;
+  const topicLabel = (topic: LeadRow["topic"]) =>
+    ({ new_site: t.topicNewSite, existing_issue: t.topicExisting, other: t.topicOther })[topic];
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <KpiCard label={t.leadsTotal} value={stats?.total ?? 0} icon={MessagesSquare} tone="bg-primary/12 text-primary" />
+        <KpiCard
+          label={t.kpiNeedsContact}
+          value={stats?.byStatus.new ?? 0}
+          icon={CalendarClock}
+          tone={STATUS_TONE.new}
+          onClick={() => {
+            setStatusFilter("new");
+            setPage(0);
+          }}
+        />
+        <KpiCard
+          label={t.stContacted}
+          value={stats?.byStatus.contacted ?? 0}
+          icon={MessageCircle}
+          tone={STATUS_TONE.contacted}
+          onClick={() => {
+            setStatusFilter("contacted");
+            setPage(0);
+          }}
+        />
+      </div>
+
+      <Card className="gap-0 py-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-3 p-4 border-b">
+          <Select
+            value={statusFilter}
+            onValueChange={value => {
+              setStatusFilter(value as "all" | LeadStatus);
+              setPage(0);
+            }}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.allLeads}</SelectItem>
+              {(["new", "contacted", "closed"] as const).map(status => (
+                <SelectItem key={status} value={status}>
+                  {statusLabel(status, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              listQuery.refetch();
+              statsQuery.refetch();
+            }}
+            aria-label={t.refresh}
+          >
+            <RefreshCw className={listQuery.isFetching ? "animate-spin" : ""} />
+          </Button>
+        </div>
+
+        <ul className="divide-y">
+          {leads.map(lead => (
+            <li key={lead.id} className="p-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{topicLabel(lead.topic)}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(lead.createdAt, lang)}</span>
+                  {lead.emailStatus !== "sent" && (
+                    <span className="text-[11px] text-amber-500">{t.leadEmailMissed}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span dir="ltr" className="font-mono">
+                    {lead.phone}
+                  </span>
+                  {lead.clientEmail && <span dir="ltr">{lead.clientEmail}</span>}
+                </div>
+                {lead.note && <p className="text-sm leading-7 whitespace-pre-wrap">{lead.note}</p>}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Select
+                  value={lead.status}
+                  onValueChange={value => setStatus.mutate({ id: lead.id, status: value as LeadStatus })}
+                >
+                  <SelectTrigger size="sm" className="h-7 w-auto gap-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0">
+                    <Pill tone={STATUS_TONE[lead.status]}>{statusLabel(lead.status, t)}</Pill>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["new", "contacted", "closed"] as const).map(status => (
+                      <SelectItem key={status} value={status}>
+                        {statusLabel(status, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button asChild variant="ghost" size="icon" className="size-8" aria-label={t.call} title={t.call}>
+                  <a href={`tel:${lead.phone}`}>
+                    <Phone className="size-4" />
+                  </a>
+                </Button>
+                <a
+                  href={waLink(lead.phone)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-grid place-items-center size-8 rounded-md text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                  aria-label={t.whatsapp}
+                  title={t.whatsapp}
+                >
+                  <MessageCircle className="size-4" />
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {leads.length === 0 && !listQuery.isLoading && (
+          <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+            <MessagesSquare className="size-10 opacity-40" />
+            <p className="text-sm">{t.noLeads}</p>
+          </div>
+        )}
+
+        <div className="px-4 pb-4">
+          <Pagination t={t} page={page} setPage={setPage} hasNextPage={leads.length === PAGE_SIZE} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 const navItems: Array<{
   id: Section;
-  labelKey: "navBookings" | "navFinance" | "navInvoices";
+  labelKey: "navBookings" | "navLeads" | "navFinance" | "navInvoices";
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { id: "bookings", labelKey: "navBookings", icon: ClipboardList },
+  { id: "leads", labelKey: "navLeads", icon: MessagesSquare },
   { id: "finance", labelKey: "navFinance", icon: Wallet },
   { id: "invoices", labelKey: "navInvoices", icon: Receipt },
 ];
@@ -1709,6 +1956,7 @@ function DashboardShell({
 
   const sectionMeta: Record<Section, { title: string; sub: string }> = {
     bookings: { title: t.bookings, sub: t.bookingsSub },
+    leads: { title: t.leadsTitle, sub: t.leadsSub },
     finance: { title: t.finance, sub: t.financeSub },
     invoices: { title: t.invTitle, sub: t.invSubtitle },
   };
@@ -1785,13 +2033,14 @@ function DashboardShell({
           {section === "bookings" && (
             <BookingsPanel t={t} lang={lang} themeClass={theme === "light" ? "admin-light" : ""} />
           )}
+          {section === "leads" && <LeadsPanel t={t} lang={lang} />}
           {section === "finance" && <FinancePanel t={t} lang={lang} />}
           {section === "invoices" && <InvoicesPanel t={t} lang={lang} />}
         </main>
       </div>
 
       {/* Bottom nav — mobile */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-card grid grid-cols-3">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t bg-card grid grid-cols-4">
         {navItems.map(item => {
           const active = section === item.id;
           return (

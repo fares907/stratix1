@@ -5,13 +5,15 @@ export const ENV = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   resendFromAddress: process.env.RESEND_FROM_ADDRESS ?? "",
   bookingEmailTo: process.env.BOOKING_EMAIL_TO ?? "",
-  adminPasswordFares: process.env.ADMIN_PASSWORD_FARES ?? "",
-  adminPasswordYoussef: process.env.ADMIN_PASSWORD_YOUSSEF ?? "",
+  // One dashboard account. ADMIN_PASSWORD_FARES is read only as a fallback so
+  // a deploy made before the new variable is set in Railway keeps the current
+  // password working instead of refusing to boot; drop it once ADMIN_PASSWORD
+  // is in place.
+  adminPassword: process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD_FARES || "",
   adminSessionSecret: process.env.JWT_SECRET ?? "",
-  // Optional second factor per account: a base32 TOTP secret from
-  // scripts/totp-setup.mjs. Unset means password-only for that account.
-  adminTotpFares: process.env.ADMIN_TOTP_SECRET_FARES ?? "",
-  adminTotpYoussef: process.env.ADMIN_TOTP_SECRET_YOUSSEF ?? "",
+  // Optional second factor: a base32 TOTP secret from scripts/totp-setup.mjs.
+  // Unset means password-only.
+  adminTotpSecret: process.env.ADMIN_TOTP_SECRET ?? "",
 
   // Where a client sends the transfer. Configuration, not secrets — they are
   // shown to a paying client by design — but kept in the environment so the
@@ -44,8 +46,12 @@ export function assertProductionSecrets() {
     );
   }
 
-  if (!ENV.adminPasswordFares || !ENV.adminPasswordYoussef) {
-    problems.push("ADMIN_PASSWORD_FARES and ADMIN_PASSWORD_YOUSSEF must both be set");
+  if (!ENV.adminPassword) {
+    problems.push("ADMIN_PASSWORD must be set");
+  } else if (ENV.adminPassword.length < 12) {
+    // A warning, not a refusal: rejecting the live password at boot would take
+    // the whole site down to fix a dashboard setting.
+    console.warn("[Security] ADMIN_PASSWORD is shorter than 12 characters; choose a longer one.");
   }
 
   if (problems.length > 0) {

@@ -85,6 +85,7 @@ const customerConfirmationCopy = {
       `وصلنا طلبك بنجاح ورقمه ${publicId}. هنراجع التفاصيل ونتواصل معك قريباً لتأكيد السعر والخطوات التالية.`,
     footer: "لو عندك أي سؤال، تقدر تتواصل معنا على 01125839109 أو 01036678093 (متاحون على واتساب كمان).",
     thanks: "شكراً لثقتك في STRATIX.",
+    track: "تابع حالة طلبك",
   },
   en: {
     dir: "ltr" as const,
@@ -95,6 +96,7 @@ const customerConfirmationCopy = {
       `We've received your request (order #${publicId}). We'll review the details and reach out soon to confirm the price and next steps.`,
     footer: "If you have any questions, reach us at 01125839109 or 01036678093 (also available on WhatsApp).",
     thanks: "Thanks for choosing STRATIX.",
+    track: "Track your order",
   },
 };
 
@@ -239,13 +241,26 @@ export async function sendPaymentReceiptEmail(
 export function buildCustomerConfirmationContent(booking: Booking, language: CustomerLanguage) {
   const copy = customerConfirmationCopy[language];
   const subject = copy.subject(booking.publicId);
-  const text = [copy.heading(booking.name), "", copy.body(booking.publicId), "", copy.footer, copy.thanks].join("\n");
+  // The order id is a public reference and the tracking page still asks for the
+  // phone number, so the link reveals nothing on its own.
+  const trackUrl = `https://stratix.website/track?id=${encodeURIComponent(booking.publicId)}`;
+  const text = [
+    copy.heading(booking.name),
+    "",
+    copy.body(booking.publicId),
+    "",
+    `${copy.track}: ${trackUrl}`,
+    "",
+    copy.footer,
+    copy.thanks,
+  ].join("\n");
 
   const html = `
     <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:32px;font-family:Tahoma,Arial,sans-serif">
       <p style="margin:0 0 10px;color:#7c5cff;font-size:13px;letter-spacing:1px">${copy.eyebrow}</p>
       <h1 style="margin:0 0 20px;font-size:24px">${escapeHtml(copy.heading(booking.name))}</h1>
       <p style="line-height:1.9;margin:0 0 18px">${escapeHtml(copy.body(booking.publicId))}</p>
+      <p style="margin:0 0 22px"><a href="${escapeHtml(trackUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#7c5cff;color:#ffffff;text-decoration:none;font-weight:700">${escapeHtml(copy.track)}</a></p>
       <p style="line-height:1.9;margin:0 0 18px;color:#a3a1c2">${escapeHtml(copy.footer)}</p>
       <p style="line-height:1.9;margin:0">${escapeHtml(copy.thanks)}</p>
     </div>`;

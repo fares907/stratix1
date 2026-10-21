@@ -2019,3 +2019,74 @@ select:not(:disabled) {
 .phone-country-trigger { border-radius: 0.8rem; }
 .phone-country-menu { overflow: hidden; border-radius: 1rem; }
 .phone-search { border-radius: 0.7rem; }
+
+/* ── Order tracking ─────────────────────────────────────────────────── */
+.track-meta { margin: 0.4rem 0 1.4rem; color: var(--paper-muted); font-size: 0.82rem; }
+
+.track-steps { position: relative; display: grid; gap: 0.2rem; margin: 0 0 1.4rem; padding: 0; list-style: none; }
+
+.track-step { position: relative; display: grid; grid-template-columns: 2.4rem 1fr; gap: 0.9rem; padding-bottom: 1.1rem; }
+
+.track-step:not(:last-child)::before {
+  position: absolute;
+  top: 2.5rem;
+  bottom: 0.1rem;
+  inset-inline-start: calc(1.2rem - 1px);
+  width: 2px;
+  content: "";
+  background: var(--line);
+}
+
+.track-step[data-state="done"]:not(:last-child)::before { background: var(--gradient); }
+
+.track-dot {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.8rem;
+  background: var(--ink-raised);
+  color: var(--paper-muted);
+  font-weight: 700;
+}
+
+.track-dot svg { width: 1.1rem; height: 1.1rem; }
+.track-step[data-state="done"] .track-dot { border-color: transparent; background: var(--gradient); color: oklch(0.99 0 0); }
+
+.track-step[data-state="current"] .track-dot {
+  border-color: var(--signal-bright);
+  color: var(--paper);
+  box-shadow: 0 0 0 4px oklch(0.83 0.14 205 / 18%), 0 0 24px oklch(0.64 0.25 293 / 45%);
+}
+
+.track-step strong { display: block; margin-top: 0.35rem; font-size: 1rem; }
+.track-step p { margin: 0.25rem 0 0; color: var(--paper-muted); font-size: 0.88rem; line-height: 1.7; }
+.track-step[data-state="upcoming"] strong { color: var(--paper-muted); }
+.track-step[data-state="upcoming"] p { opacity: 0.7; }
+
+.track-payment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+
+.track-payment svg { width: 1.1rem; height: 1.1rem; color: var(--signal-bright); }
+.track-payment[data-state="paid"] { border-color: oklch(0.7 0.16 150 / 50%); background: oklch(0.7 0.16 150 / 8%); }
+.track-payment[data-state="awaiting_review"] { border-color: oklch(0.8 0.15 80 / 45%); background: oklch(0.8 0.15 80 / 7%); }
+
+.track-pay {
+  margin-inline-start: auto;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--gradient);
+  color: oklch(0.99 0 0);
+  font-weight: 700;
+  font-size: 0.85rem;
+}

@@ -17,45 +17,27 @@ const SESSION_ABSOLUTE_MS = 7 * 24 * 60 * 60 * 1000;
 const JWT_ISSUER = "stratix.website";
 const JWT_AUDIENCE = "stratix-admin";
 
-export type AdminAccount = { id: "fares" | "youssef"; name: string };
+export type AdminAccount = { id: "admin"; name: string };
 
-// The dashboard presents one company identity, not the people behind it. The
-// two accounts still exist — separate passwords, separate second factors, and
-// the ledger records which one made each entry — they just aren't named on screen.
+// One company account: the dashboard presents STRATIX, not the people behind it.
 export const ADMIN_DISPLAY_NAME = "STRATIX Management";
-
-const ADMIN_ACCOUNTS: Array<
-  AdminAccount & { getPassword: () => string; getTotpSecret: () => string }
-> = [
-  {
-    id: "fares",
-    name: ADMIN_DISPLAY_NAME,
-    getPassword: () => ENV.adminPasswordFares,
-    getTotpSecret: () => ENV.adminTotpFares,
-  },
-  {
-    id: "youssef",
-    name: ADMIN_DISPLAY_NAME,
-    getPassword: () => ENV.adminPasswordYoussef,
-    getTotpSecret: () => ENV.adminTotpYoussef,
-  },
-];
+const ADMIN: AdminAccount = { id: "admin", name: ADMIN_DISPLAY_NAME };
 
 // A code is valid for about 90 seconds (one step of drift either side), so
 // without this anyone who saw it — over a shoulder, in a screen recording —
-// could reuse it within that window. Each step is accepted once per account.
-const lastTotpStep = new Map<AdminAccount["id"], number>();
+// could reuse it within that window. Each step is accepted once.
+let lastTotpStep = -1;
 
-// A configured but malformed secret must not quietly downgrade the account to
-// password-only. Login for that account fails until the secret is fixed.
+// A configured but malformed secret must not quietly downgrade sign-in to
+// password-only. Sign-in fails until the secret is fixed.
 type SecondFactor = { kind: "none" } | { kind: "totp"; key: Buffer } | { kind: "broken" };
 
-function secondFactorFor(account: (typeof ADMIN_ACCOUNTS)[number]): SecondFactor {
-  const raw = account.getTotpSecret().trim();
+function secondFactor(): SecondFactor {
+  const raw = ENV.adminTotpSecret.trim();
   if (!raw) return { kind: "none" };
   const key = base32Decode(raw);
   if (!key || key.length < 10) {
-    console.error(`[Admin] TOTP secret for ${account.id} is malformed; sign-in is blocked until it is fixed.`);
+    console.error("[Admin] ADMIN_TOTP_SECRET is malformed; sign-in is blocked until it is fixed.");
     return { kind: "broken" };
   }
   return { kind: "totp", key };
@@ -180,36 +162,20 @@ export function clearLoginAttempts(ip: string) {
   loginAttempts.delete(ip);
 }
 
-/**
- * Signs in by password alone: the password identifies which account it is.
- * Both accounts are always compared, so the time taken never reveals which one
- * matched or whether either did. `accountId` narrows the check when given.
- */
-export function verifyAdminCredentials(
-  accountId: string | undefined,
-  password: string,
-  code = "",
-  now = Date.now(),
-): AdminAccount | null {
-  if (!password) return null;
+export function verifyAdminCredentials(password: string, code = "", now = Date.now()): AdminAccount | null {
+  const expected = ENV.adminPassword;
+  if (!expected || !password) return null;
+  if (!safeStringsEqual(password, expected)) return null;
 
-  let matched: (typeof ADMIN_ACCOUNTS)[number] | null = null;
-  for (const candidate of ADMIN_ACCOUNTS) {
-    const expected = candidate.getPassword();
-    const equal = safeStringsEqual(password, expected ?? "");
-    if (equal && expected && (!accountId || candidate.id === accountId) && !matched) matched = candidate;
-  }
-  if (!matched) return null;
-
-  const factor = secondFactorFor(matched);
+  const factor = secondFactor();
   if (factor.kind === "broken") return null;
   if (factor.kind === "totp") {
     const step = verifyTotp(factor.key, code.trim(), now);
-    if (step === null || step <= (lastTotpStep.get(matched.id) ?? -1)) return null;
-    lastTotpStep.set(matched.id, step);
+    if (step === null || step <= lastTotpStep) return null;
+    lastTotpStep = step;
   }
 
-  return { id: matched.id, name: matched.name };
+  return ADMIN;
 }
 
 export async function createAdminSessionToken(account: AdminAccount, authTime = Date.now()) {
@@ -231,7 +197,7 @@ async function verifySession(token: string): Promise<VerifiedSession | null> {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     });
-    if (payload.id !== "fares" && payload.id !== "youssef") return null;
+    if (payload.id !== "admin") return null;
     if (typeof payload.name !== "string") return null;
     if (typeof payload.iat !== "number" || typeof payload.auth_time !== "number") return null;
     const authTime = payload.auth_time * 1000;

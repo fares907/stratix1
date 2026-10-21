@@ -4,12 +4,13 @@ import { normalizePhone } from "./booking";
 import type { TrpcContext } from "./_core/context";
 import { clientIp } from "./_core/origin";
 import { createWindowLimiter } from "./_core/windowLimiter";
+import { createContactLead, updateContactLeadEmail } from "./db";
 import { sendContactLeadEmail } from "./email";
 
 // A lighter sibling of the booking form: the chat "talk to us" handoff. The
-// visitor picks what they need and leaves a phone number, and the owners get an
-// email lead they can act on. No database row — this is a notification, not a
-// tracked order, and it must not turn into a second write path to maintain.
+// visitor picks what they need and leaves a phone number. The lead is stored
+// (it shows in the dashboard) and emailed to the owners. Either channel alone
+// is enough, so a failure in one never stops the other.
 export const contactInputSchema = z.object({
   topic: z.enum(["new_site", "existing_issue", "other"]),
   phone: z
@@ -91,6 +92,21 @@ export async function submitContactRequest(input: ContactInput, req: TrpcContext
 
   recordGlobalContact();
 
+  const now = Date.now();
+  const leadId = await createContactLead({
+    topic: input.topic,
+    phone: input.phone,
+    clientEmail: input.clientEmail ?? null,
+    note: input.note ?? null,
+    status: "new",
+    emailStatus: "pending",
+    createdAt: now,
+    updatedAt: now,
+  }).catch(error => {
+    console.error("[Contact] Could not store lead:", error);
+    return null;
+  });
+
   const email = await sendContactLeadEmail({
     topic: input.topic,
     phone: input.phone,
@@ -98,13 +114,19 @@ export async function submitContactRequest(input: ContactInput, req: TrpcContext
     note: input.note,
   });
 
-  // Leads are not stored in the database, so when the email fails the server log
-  // is the only copy left — it carries the details needed to call them back.
-  if (email.status !== "sent") {
-    console.error(
-      `[Contact] Lead email not delivered (${email.error}). topic=${input.topic} phone=${input.phone} email=${input.clientEmail ?? "-"}`,
+  if (leadId !== null) {
+    await updateContactLeadEmail({ id: leadId, emailStatus: email.status }).catch(error =>
+      console.warn("[Contact] Could not record email status:", error),
     );
   }
 
-  return { accepted: true, delivered: email.status === "sent" } as const;
+  // Only when neither channel worked is the server log the last copy, so it
+  // carries what is needed to call them back.
+  if (email.status !== "sent" && leadId === null) {
+    console.error(
+      `[Contact] Lead neither stored nor emailed (${email.error}). topic=${input.topic} phone=${input.phone} email=${input.clientEmail ?? "-"}`,
+    );
+  }
+
+  return { accepted: true, delivered: email.status === "sent" || leadId !== null } as const;
 }

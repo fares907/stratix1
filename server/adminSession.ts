@@ -19,7 +19,6 @@ export const adminAuthRouter = router({
   login: publicProcedure
     .input(
       z.object({
-        accountId: z.enum(["fares", "youssef"]).optional(),
         password: z.string().min(1).max(256),
         code: z.string().trim().max(6).optional(),
       }),
@@ -36,7 +35,7 @@ export const adminAuthRouter = router({
 
       // One message for a wrong password and a wrong code alike, so a failed
       // attempt never confirms that the password half was right.
-      const account = verifyAdminCredentials(input.accountId, input.password, input.code);
+      const account = verifyAdminCredentials(input.password, input.code);
       if (!account) {
         recordLoginAttempt(ip);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "بيانات الدخول غير صحيحة." });

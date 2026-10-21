@@ -16,14 +16,20 @@ import {
   deleteInvoice,
   deleteLedgerEntry,
   getBookingStats,
+  getContactLeadStats,
   getInvoiceStats,
   getLedgerStats,
   listBookings,
+  listContactLeads,
   listInvoices,
   listLedgerEntries,
   setBookingAmount,
+  setBookingStage,
   updateBookingStatus,
+  updateContactLeadStatus,
 } from "./db";
+import { BOOKING_STAGES } from "../drizzle/schema";
+import { trackOrder, trackingLookupSchema } from "./tracking";
 import { systemRouter } from "./_core/systemRouter";
 import { adminSessionProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -52,6 +58,14 @@ export const appRouter = router({
     declare: publicProcedure
       .input(paymentDeclareSchema)
       .mutation(({ input }) => declarePayment(input)),
+  }),
+
+  tracking: router({
+    // A mutation for the same reason as payment.lookup: rate-limited, and must
+    // never be cached or prefetched.
+    lookup: publicProcedure
+      .input(trackingLookupSchema)
+      .mutation(({ ctx, input }) => trackOrder(input, ctx.req)),
   }),
 
   adminAuth: adminAuthRouter,
@@ -105,6 +119,11 @@ export const appRouter = router({
       )
       .mutation(({ input }) => markPaymentStatus(input)),
 
+    // Moves the project along the stages the client sees on /track.
+    setStage: adminSessionProcedure
+      .input(z.object({ publicId: z.string().min(1).max(32), stage: z.enum(BOOKING_STAGES) }))
+      .mutation(({ input }) => setBookingStage(input)),
+
     // The owners' copy of the invoice the client is emailed.
     invoicePdf: adminSessionProcedure
       .input(z.object({ publicId: z.string().min(1).max(32) }))
@@ -141,6 +160,24 @@ export const appRouter = router({
     remove: adminSessionProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(({ input }) => deleteLedgerEntry(input.id)),
+  }),
+
+  adminLeads: router({
+    list: adminSessionProcedure
+      .input(
+        z.object({
+          status: z.enum(["new", "contacted", "closed"]).optional(),
+          limit: z.number().int().min(1).max(100).default(25),
+          offset: z.number().int().min(0).max(1_000_000).default(0),
+        }),
+      )
+      .query(({ input }) => listContactLeads(input)),
+
+    stats: adminSessionProcedure.query(() => getContactLeadStats()),
+
+    setStatus: adminSessionProcedure
+      .input(z.object({ id: z.number().int().positive(), status: z.enum(["new", "contacted", "closed"]) }))
+      .mutation(({ input }) => updateContactLeadStatus(input)),
   }),
 
   adminInvoices: router({

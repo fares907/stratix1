@@ -16,9 +16,9 @@ describe("admin session signing", () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const auth = await loadAuth();
 
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
+    const token = await auth.createAdminSessionToken({ id: "admin", name: "STRATIX Management" });
 
-    expect(await auth.verifyAdminSessionToken(token)).toEqual({ id: "fares", name: "STRATIX Management" });
+    expect(await auth.verifyAdminSessionToken(token)).toEqual({ id: "admin", name: "STRATIX Management" });
   });
 
   // The secret used to fall back to a constant committed to this repository, so
@@ -28,7 +28,7 @@ describe("admin session signing", () => {
     vi.stubEnv("JWT_SECRET", "");
     const auth = await loadAuth();
 
-    await expect(auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" })).rejects.toThrow(
+    await expect(auth.createAdminSessionToken({ id: "admin", name: "STRATIX Management" })).rejects.toThrow(
       /JWT_SECRET/,
     );
   });
@@ -36,7 +36,7 @@ describe("admin session signing", () => {
   it("treats any token as invalid when JWT_SECRET is missing", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const signing = await loadAuth();
-    const token = await signing.createAdminSessionToken({ id: "youssef", name: "STRATIX Management" });
+    const token = await signing.createAdminSessionToken({ id: "admin", name: "STRATIX Management" });
 
     vi.stubEnv("JWT_SECRET", "");
     const verifying = await loadAuth();
@@ -47,7 +47,7 @@ describe("admin session signing", () => {
   it("rejects a token signed with a different secret", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const signing = await loadAuth();
-    const token = await signing.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
+    const token = await signing.createAdminSessionToken({ id: "admin", name: "STRATIX Management" });
 
     vi.stubEnv("JWT_SECRET", "b".repeat(48));
     const verifying = await loadAuth();
@@ -72,35 +72,35 @@ describe("admin session signing", () => {
 describe("admin credential check", () => {
   it("accepts the configured password and rejects a wrong one", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "correct-horse-battery");
+    vi.stubEnv("ADMIN_PASSWORD", "correct-horse-battery");
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery")).toEqual({
-      id: "fares",
+    expect(auth.verifyAdminCredentials("correct-horse-battery")).toEqual({
+      id: "admin",
       name: "STRATIX Management",
     });
-    expect(auth.verifyAdminCredentials("fares", "wrong")).toBeNull();
+    expect(auth.verifyAdminCredentials("wrong")).toBeNull();
   });
 
   // The old comparison returned early on a length mismatch, which let an
   // attacker time the endpoint to learn how long the real password is.
   it("rejects passwords of every length without an early length exit", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "correct-horse-battery");
+    vi.stubEnv("ADMIN_PASSWORD", "correct-horse-battery");
     const auth = await loadAuth();
 
     for (const guess of ["a", "a".repeat(20), "a".repeat(500)]) {
-      expect(auth.verifyAdminCredentials("fares", guess)).toBeNull();
+      expect(auth.verifyAdminCredentials(guess)).toBeNull();
     }
   });
 
   it("fails closed when no password is configured", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "");
+    vi.stubEnv("ADMIN_PASSWORD", "");
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials("fares", "")).toBeNull();
-    expect(auth.verifyAdminCredentials("fares", "anything")).toBeNull();
+    expect(auth.verifyAdminCredentials("")).toBeNull();
+    expect(auth.verifyAdminCredentials("anything")).toBeNull();
   });
 });
 
@@ -117,8 +117,7 @@ describe("production secret validation", () => {
   it("refuses to boot in production with a short signing secret", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("JWT_SECRET", "short");
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "x");
-    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "y");
+    vi.stubEnv("ADMIN_PASSWORD", "x");
     vi.resetModules();
     const { assertProductionSecrets } = await import("./_core/env");
 
@@ -128,8 +127,7 @@ describe("production secret validation", () => {
   it("starts in production when everything is configured", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "x");
-    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "y");
+    vi.stubEnv("ADMIN_PASSWORD", "x");
     vi.resetModules();
     const { assertProductionSecrets } = await import("./_core/env");
 
@@ -146,32 +144,37 @@ describe("production secret validation", () => {
   });
 });
 
-describe("password-only sign-in", () => {
-  it("identifies the account from the password and shows only the company name", async () => {
+describe("single admin account", () => {
+  it("signs in with the one password and shows only the company name", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "first-owner-passphrase");
-    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "second-owner-passphrase");
+    vi.stubEnv("ADMIN_PASSWORD", "one-company-passphrase");
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials(undefined, "first-owner-passphrase")).toEqual({
-      id: "fares",
+    expect(auth.verifyAdminCredentials("one-company-passphrase")).toEqual({
+      id: "admin",
       name: "STRATIX Management",
     });
-    expect(auth.verifyAdminCredentials(undefined, "second-owner-passphrase")).toEqual({
-      id: "youssef",
-      name: "STRATIX Management",
-    });
-    expect(auth.verifyAdminCredentials(undefined, "neither")).toBeNull();
+    expect(auth.verifyAdminCredentials("anything else")).toBeNull();
   });
 
-  // An unset password must never match an empty or blank attempt.
-  it("never matches an account whose password is not configured", async () => {
+  // Deploys made before ADMIN_PASSWORD exists in Railway must keep the current
+  // password working rather than locking the owners out.
+  it("falls back to the previous variable until ADMIN_PASSWORD is set", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "");
-    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "second-owner-passphrase");
+    vi.stubEnv("ADMIN_PASSWORD", "");
+    vi.stubEnv("ADMIN_PASSWORD_FARES", "previous-passphrase");
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials(undefined, "")).toBeNull();
-    expect(auth.verifyAdminCredentials(undefined, " ")).toBeNull();
+    expect(auth.verifyAdminCredentials("previous-passphrase")).not.toBeNull();
+  });
+
+  it("prefers ADMIN_PASSWORD once both are set", async () => {
+    vi.stubEnv("JWT_SECRET", SECRET);
+    vi.stubEnv("ADMIN_PASSWORD", "new-passphrase-here");
+    vi.stubEnv("ADMIN_PASSWORD_FARES", "previous-passphrase");
+    const auth = await loadAuth();
+
+    expect(auth.verifyAdminCredentials("new-passphrase-here")).not.toBeNull();
+    expect(auth.verifyAdminCredentials("previous-passphrase")).toBeNull();
   });
 });

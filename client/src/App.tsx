@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 // own chunk fetched only when its route is opened.
 const Admin = lazy(() => import("@/pages/Admin"));
 const Pay = lazy(() => import("@/pages/Pay"));
+const Track = lazy(() => import("@/pages/Track"));
 
 // The animation engine arrives after first paint; `strict` makes any stray
 // full-size `motion.` component a dev error instead of a silent bundle bloat.
@@ -30,6 +31,11 @@ function Router() {
       <Route path="/pay">
         <Suspense fallback={null}>
           <Pay />
+        </Suspense>
+      </Route>
+      <Route path="/track">
+        <Suspense fallback={null}>
+          <Track />
         </Suspense>
       </Route>
       <Route path="/404" component={NotFound} />

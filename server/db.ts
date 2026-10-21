@@ -4,7 +4,10 @@ import { startOfMonth, startOfYear, subMonths } from "date-fns";
 import {
   Booking,
   bookings,
+  ContactLead,
+  contactLeads,
   InsertBooking,
+  InsertContactLead,
   InsertInvoice,
   InsertLedgerEntry,
   invoices,
@@ -395,4 +398,84 @@ export async function getInvoiceStats() {
     usdAllTime: sumFor("USD", 0),
     egpAllTime: sumFor("EGP", 0),
   };
+}
+
+// ── Order tracking ────────────────────────────────────────────────────────
+
+export async function setBookingStage(input: { publicId: string; stage: Booking["stage"] }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const now = Date.now();
+  await db
+    .update(bookings)
+    .set({ stage: input.stage, stageUpdatedAt: now, updatedAt: now })
+    .where(eq(bookings.publicId, input.publicId));
+}
+
+// ── Chat leads ────────────────────────────────────────────────────────────
+
+const LEAD_LIST_MAX_LIMIT = 100;
+
+export async function createContactLead(input: InsertContactLead) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const [result] = await db.insert(contactLeads).values(input).$returningId();
+  return result.id;
+}
+
+export async function updateContactLeadEmail(input: { id: number; emailStatus: ContactLead["emailStatus"] }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(contactLeads)
+    .set({ emailStatus: input.emailStatus, updatedAt: Date.now() })
+    .where(eq(contactLeads.id, input.id));
+}
+
+export async function listContactLeads(input: {
+  status?: ContactLead["status"];
+  limit: number;
+  offset: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const limit = Math.min(Math.max(input.limit, 1), LEAD_LIST_MAX_LIMIT);
+  const query = db
+    .select()
+    .from(contactLeads)
+    .orderBy(desc(contactLeads.createdAt))
+    .limit(limit)
+    .offset(Math.max(input.offset, 0));
+
+  return input.status ? query.where(eq(contactLeads.status, input.status)) : query;
+}
+
+export async function getContactLeadStats() {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const rows = await db
+    .select({ status: contactLeads.status, value: count() })
+    .from(contactLeads)
+    .groupBy(contactLeads.status);
+
+  const byStatus = Object.fromEntries(rows.map(row => [row.status, row.value])) as Record<
+    ContactLead["status"],
+    number
+  >;
+  return { total: rows.reduce((sum, row) => sum + row.value, 0), byStatus };
+}
+
+export async function updateContactLeadStatus(input: { id: number; status: ContactLead["status"] }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  await db
+    .update(contactLeads)
+    .set({ status: input.status, updatedAt: Date.now() })
+    .where(eq(contactLeads.id, input.id));
 }

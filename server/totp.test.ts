@@ -58,17 +58,17 @@ afterEach(() => {
 describe("admin two-factor sign-in", () => {
   it("requires a valid code once a secret is configured", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "correct-horse-battery");
-    vi.stubEnv("ADMIN_TOTP_SECRET_FARES", TOTP_SECRET);
+    vi.stubEnv("ADMIN_PASSWORD", "correct-horse-battery");
+    vi.stubEnv("ADMIN_TOTP_SECRET", TOTP_SECRET);
     const auth = await loadAuth();
     const now = 1_700_000_000_000;
     const code = totpAt(RFC_KEY, Math.floor(now / 30_000));
 
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", "", now)).toBeNull();
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", "000000", now)).toBeNull();
-    expect(auth.verifyAdminCredentials("fares", "wrong", code, now)).toBeNull();
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", code, now)).toEqual({
-      id: "fares",
+    expect(auth.verifyAdminCredentials("correct-horse-battery", "", now)).toBeNull();
+    expect(auth.verifyAdminCredentials("correct-horse-battery", "000000", now)).toBeNull();
+    expect(auth.verifyAdminCredentials("wrong", code, now)).toBeNull();
+    expect(auth.verifyAdminCredentials("correct-horse-battery", code, now)).toEqual({
+      id: "admin",
       name: "STRATIX Management",
     });
   });
@@ -77,34 +77,34 @@ describe("admin two-factor sign-in", () => {
   // screen recording must not open a second session.
   it("refuses to accept the same code twice", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "correct-horse-battery");
-    vi.stubEnv("ADMIN_TOTP_SECRET_FARES", TOTP_SECRET);
+    vi.stubEnv("ADMIN_PASSWORD", "correct-horse-battery");
+    vi.stubEnv("ADMIN_TOTP_SECRET", TOTP_SECRET);
     const auth = await loadAuth();
     const now = 1_700_000_000_000;
     const code = totpAt(RFC_KEY, Math.floor(now / 30_000));
 
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", code, now)).not.toBeNull();
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", code, now + 5_000)).toBeNull();
+    expect(auth.verifyAdminCredentials("correct-horse-battery", code, now)).not.toBeNull();
+    expect(auth.verifyAdminCredentials("correct-horse-battery", code, now + 5_000)).toBeNull();
   });
 
   it("blocks sign-in rather than dropping to password-only when the secret is malformed", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_FARES", "correct-horse-battery");
-    vi.stubEnv("ADMIN_TOTP_SECRET_FARES", "not-a-secret!");
+    vi.stubEnv("ADMIN_PASSWORD", "correct-horse-battery");
+    vi.stubEnv("ADMIN_TOTP_SECRET", "not-a-secret!");
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials("fares", "correct-horse-battery")).toBeNull();
+    expect(auth.verifyAdminCredentials("correct-horse-battery")).toBeNull();
     errors.mockRestore();
   });
 
-  it("leaves an account without a secret on password-only", async () => {
+  it("stays password-only when no secret is configured", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
-    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "another-strong-one");
-    vi.stubEnv("ADMIN_TOTP_SECRET_FARES", TOTP_SECRET);
+    vi.stubEnv("ADMIN_PASSWORD", "another-strong-one");
+    vi.stubEnv("ADMIN_TOTP_SECRET", "");
     const auth = await loadAuth();
 
-    expect(auth.verifyAdminCredentials("youssef", "another-strong-one")).not.toBeNull();
+    expect(auth.verifyAdminCredentials("another-strong-one")).not.toBeNull();
   });
 });
 
@@ -124,7 +124,7 @@ describe("admin sessions", () => {
     const { SignJWT } = await import("jose");
     const now = Math.floor(Date.now() / 1000);
 
-    const foreign = await new SignJWT({ id: "fares", name: "x", auth_time: now })
+    const foreign = await new SignJWT({ id: "admin", name: "x", auth_time: now })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime(now + 3600)
@@ -137,10 +137,10 @@ describe("admin sessions", () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     vi.useFakeTimers({ now: 1_700_000_000_000 });
     const auth = await loadAuth();
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
+    const token = await auth.createAdminSessionToken({ id: "admin", name: "STRATIX Management" });
 
     const fresh = fakeExchange(`${auth.ADMIN_SESSION_COOKIE}=${token}`);
-    expect(await auth.authenticateAdmin(fresh.req, fresh.res)).toEqual({ id: "fares", name: "STRATIX Management" });
+    expect(await auth.authenticateAdmin(fresh.req, fresh.res)).toEqual({ id: "admin", name: "STRATIX Management" });
     expect(fresh.set).toHaveLength(0);
 
     vi.setSystemTime(1_700_000_000_000 + 20 * 60 * 1000);
@@ -155,7 +155,7 @@ describe("admin sessions", () => {
     const signIn = 1_700_000_000_000;
     vi.useFakeTimers({ now: signIn + 7 * 24 * 60 * 60 * 1000 + 60_000 });
     const auth = await loadAuth();
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" }, signIn);
+    const token = await auth.createAdminSessionToken({ id: "admin", name: "STRATIX Management" }, signIn);
 
     const exchange = fakeExchange(`${auth.ADMIN_SESSION_COOKIE}=${token}`);
     expect(await auth.authenticateAdmin(exchange.req, exchange.res)).toBeNull();

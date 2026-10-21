@@ -82,3 +82,45 @@ describe("contact request delivery", () => {
     expect(result.accepted).toBe(true);
   });
 });
+
+describe("chat leads are kept even when one channel fails", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  const lead = { topic: "new_site" as const, phone: "+201125839109", clientEmail: undefined, note: "hi", website: "" };
+
+  // The email used to be the only record of a lead; a failed send lost it.
+  it("stores the lead and records a failed email against it", async () => {
+    vi.resetModules();
+    const db = await import("./db");
+    const email = await import("./email");
+    const store = vi.spyOn(db, "createContactLead").mockResolvedValue(42);
+    const mark = vi.spyOn(db, "updateContactLeadEmail").mockResolvedValue();
+    vi.spyOn(email, "sendContactLeadEmail").mockResolvedValue({ status: "failed", error: "provider down" });
+
+    const { submitContactRequest } = await import("./contact");
+    const result = await submitContactRequest(lead, {} as never);
+
+    expect(store).toHaveBeenCalledOnce();
+    expect(store.mock.calls[0][0]).toMatchObject({ topic: "new_site", phone: "+201125839109", note: "hi", status: "new" });
+    expect(mark).toHaveBeenCalledWith({ id: 42, emailStatus: "failed" });
+    expect(result).toEqual({ accepted: true, delivered: true });
+  });
+
+  it("still emails the owners when the database is unavailable", async () => {
+    vi.resetModules();
+    const db = await import("./db");
+    const email = await import("./email");
+    vi.spyOn(db, "createContactLead").mockRejectedValue(new Error("db down"));
+    const send = vi.spyOn(email, "sendContactLeadEmail").mockResolvedValue({ status: "sent", messageId: "m1" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { submitContactRequest } = await import("./contact");
+    const result = await submitContactRequest(lead, {} as never);
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(result).toEqual({ accepted: true, delivered: true });
+  });
+});

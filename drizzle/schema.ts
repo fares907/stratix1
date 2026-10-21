@@ -25,6 +25,8 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const BOOKING_STAGES = ["received", "design", "development", "review", "delivered"] as const;
+
 export const bookings = mysqlTable(
   "bookings",
   {
@@ -64,6 +66,12 @@ export const bookings = mysqlTable(
     paymentDeclaredAt: bigint("paymentDeclaredAt", { mode: "number", unsigned: true }),
     paidAt: bigint("paidAt", { mode: "number", unsigned: true }),
 
+    // Where the project is, as the client sees it on the tracking page. Owners
+    // move it forward from the dashboard; it is independent of `status`, which
+    // tracks the sales conversation rather than the build.
+    stage: mysqlEnum("stage", BOOKING_STAGES).default("received").notNull(),
+    stageUpdatedAt: bigint("stageUpdatedAt", { mode: "number", unsigned: true }),
+
     createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
     updatedAt: bigint("updatedAt", { mode: "number", unsigned: true }).notNull(),
   },
@@ -85,7 +93,7 @@ export const ledgerEntries = mysqlTable(
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     note: varchar("note", { length: 255 }).notNull(),
     occurredAt: bigint("occurredAt", { mode: "number", unsigned: true }).notNull(),
-    createdBy: mysqlEnum("createdBy", ["fares", "youssef"]).notNull(),
+    createdBy: mysqlEnum("createdBy", ["fares", "youssef", "admin"]).notNull(),
     createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
   },
   table => [index("ledger_occurred_at_idx").on(table.occurredAt)],
@@ -115,7 +123,7 @@ export const invoices = mysqlTable(
     currency: mysqlEnum("currency", ["USD", "EGP"]).notNull(),
     note: varchar("note", { length: 255 }).notNull(),
     occurredAt: bigint("occurredAt", { mode: "number", unsigned: true }).notNull(),
-    createdBy: mysqlEnum("createdBy", ["fares", "youssef"]).notNull(),
+    createdBy: mysqlEnum("createdBy", ["fares", "youssef", "admin"]).notNull(),
     createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
   },
   table => [index("invoices_occurred_at_idx").on(table.occurredAt)],
@@ -123,3 +131,27 @@ export const invoices = mysqlTable(
 
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = typeof invoices.$inferInsert;
+
+// Leads from the chat's "talk to us" handoff. They used to exist only as an
+// email, so a failed send left nothing behind but a server log line. Stored
+// now so every lead shows up in the dashboard whatever happened to the email.
+export const contactLeads = mysqlTable(
+  "contactLeads",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    topic: mysqlEnum("topic", ["new_site", "existing_issue", "other"]).notNull(),
+    phone: varchar("phone", { length: 24 }).notNull(),
+    clientEmail: varchar("clientEmail", { length: 320 }),
+    note: text("note"),
+    status: mysqlEnum("status", ["new", "contacted", "closed"]).default("new").notNull(),
+    emailStatus: mysqlEnum("emailStatus", ["pending", "sent", "failed", "not_configured"])
+      .default("pending")
+      .notNull(),
+    createdAt: bigint("createdAt", { mode: "number", unsigned: true }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number", unsigned: true }).notNull(),
+  },
+  table => [index("contact_leads_created_at_idx").on(table.createdAt)],
+);
+
+export type ContactLead = typeof contactLeads.$inferSelect;
+export type InsertContactLead = typeof contactLeads.$inferInsert;

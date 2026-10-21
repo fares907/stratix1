@@ -650,6 +650,7 @@ export default function Home() {
             <div className="footer-links">
               <a href="#top">{t.footer.topLink}</a>
               <a href="#booking">{t.footer.bookLink}</a>
+              <a href="/track">{t.footer.trackLink}</a>
             </div>
           </div>
           <div className="footer-word" dir="ltr" aria-hidden="true">
