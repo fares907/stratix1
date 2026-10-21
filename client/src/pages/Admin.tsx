@@ -74,7 +74,7 @@ const T = {
     navFinance: "الحسابات",
     navInvoices: "الفواتير",
     password: "كلمة السر",
-    totpCode: "رمز التحقق (لو مفعّل)",
+    totpCode: "رمز التحقق",
     login: "دخول",
     loggingIn: "جارٍ الدخول…",
     loginFail: "تعذر تسجيل الدخول",
@@ -217,7 +217,7 @@ const T = {
     navFinance: "Finance",
     navInvoices: "Invoices",
     password: "Password",
-    totpCode: "Verification code (if enabled)",
+    totpCode: "Verification code",
     login: "Sign in",
     loggingIn: "Signing in…",
     loginFail: "Sign-in failed",
@@ -421,6 +421,8 @@ function waLink(phone: string) {
 function LoginScreen({ t, onLoggedIn }: { t: Dict; onLoggedIn: () => void }) {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  // The code field appears only once two-factor is configured on the server.
+  const secondFactor = trpc.adminAuth.loginOptions.useQuery().data?.secondFactor ?? false;
   const loginMutation = trpc.adminAuth.login.useMutation({
     onSuccess: () => {
       setPassword("");
@@ -463,18 +465,21 @@ function LoginScreen({ t, onLoggedIn }: { t: Dict; onLoggedIn: () => void }) {
               autoComplete="current-password"
               required
             />
-            <Input
-              type="text"
-              inputMode="numeric"
-              pattern="\d{6}"
-              maxLength={6}
-              placeholder={t.totpCode}
-              value={code}
-              onChange={event => setCode(event.target.value.replace(/\D/g, ""))}
-              autoComplete="one-time-code"
-              dir="ltr"
-              className="text-center tracking-[0.4em] font-mono placeholder:tracking-normal placeholder:font-sans"
-            />
+            {secondFactor && (
+              <Input
+                type="text"
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                placeholder={t.totpCode}
+                value={code}
+                onChange={event => setCode(event.target.value.replace(/\D/g, ""))}
+                autoComplete="one-time-code"
+                dir="ltr"
+                required
+                className="text-center tracking-[0.4em] font-mono placeholder:tracking-normal placeholder:font-sans"
+              />
+            )}
             <Button type="submit" className="h-11" disabled={loginMutation.isPending || !password}>
               {loginMutation.isPending ? t.loggingIn : t.login}
             </Button>

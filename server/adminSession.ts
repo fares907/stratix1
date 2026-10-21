@@ -6,6 +6,7 @@ import {
   clearLoginAttempts,
   createAdminSessionToken,
   isLoginRateLimited,
+  isSecondFactorEnabled,
   recordLoginAttempt,
   setAdminSessionCookie,
   verifyAdminCredentials,
@@ -15,6 +16,9 @@ import { publicProcedure, router } from "./_core/trpc";
 
 export const adminAuthRouter = router({
   me: publicProcedure.query(({ ctx }) => authenticateAdmin(ctx.req, ctx.res)),
+
+  // Lets the login form hide the code field until two-factor is configured.
+  loginOptions: publicProcedure.query(() => ({ secondFactor: isSecondFactorEnabled() })),
 
   login: publicProcedure
     .input(

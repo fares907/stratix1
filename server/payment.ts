@@ -78,7 +78,7 @@ const NOT_FOUND_MESSAGE =
   "لم نجد طلباً بهذا الرقم مرتبطاً بهذا الهاتف. راجع البيانات أو تواصل معنا.";
 
 /** Payment destinations shown to a verified client. Empty ones are omitted. */
-export function getPaymentMethods() {
+function getPaymentMethods() {
   return {
     instapay: ENV.paymentInstapay.trim(),
     iban: ENV.paymentIban.trim(),

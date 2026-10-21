@@ -5,7 +5,6 @@ import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { LanguageProvider } from "./contexts/LanguageContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
 // Visitors never need the dashboard or the payment page up front, so each is its
@@ -47,14 +46,12 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
-        <LanguageProvider>
-          <LazyMotion features={loadMotionFeatures} strict>
-            <Toaster position="top-center" richColors />
-            <Router />
-          </LazyMotion>
-        </LanguageProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <LazyMotion features={loadMotionFeatures} strict>
+          <Toaster position="top-center" richColors />
+          <Router />
+        </LazyMotion>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }

@@ -21,10 +21,10 @@ function swap(source, name, replacement) {
   return source.slice(0, from + start.length) + "\n" + replacement + "    " + source.slice(to);
 }
 
-const opening = '<html lang="ar" dir="rtl">';
-if (!html.includes(opening)) throw new Error("build-en: <html lang=\"ar\" dir=\"rtl\"> not found");
+const opening = '<html lang="ar" dir="rtl" class="dark">';
+if (!html.includes(opening)) throw new Error(`build-en: ${opening} not found`);
 
-let en = html.replace(opening, '<html lang="en" dir="ltr">');
+let en = html.replace(opening, '<html lang="en" dir="ltr" class="dark">');
 en = swap(en, "head", await readFile(path.join(root, "client", "i18n", "en.head.html"), "utf8"));
 en = swap(en, "noscript", await readFile(path.join(root, "client", "i18n", "en.noscript.html"), "utf8"));
 

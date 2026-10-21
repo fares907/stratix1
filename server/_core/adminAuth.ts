@@ -162,6 +162,11 @@ export function clearLoginAttempts(ip: string) {
   loginAttempts.delete(ip);
 }
 
+/** Whether sign-in asks for a code — the login form only shows the field then. */
+export function isSecondFactorEnabled() {
+  return secondFactor().kind !== "none";
+}
+
 export function verifyAdminCredentials(password: string, code = "", now = Date.now()): AdminAccount | null {
   const expected = ENV.adminPassword;
   if (!expected || !password) return null;

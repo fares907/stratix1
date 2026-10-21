@@ -1,6 +1,5 @@
 export type Language = "ar" | "en";
 
-export type Translation = typeof translations["ar"];
 
 export const translations = {
   ar: {
@@ -25,12 +24,6 @@ export const translations = {
       bookCta: "احجز مشروعك",
       discoverCta: "اكتشف الخدمة",
       metaAria: "معلومات سريعة",
-      metaStartLabel: "التسعير",
-      metaStartValue: "حسب المشروع",
-      metaDurationLabel: "المدة المتوقعة",
-      metaDurationValue: "أسبوع",
-      scrollCue: "مرّر لاكتشاف المزيد",
-      scrollAria: "انتقل إلى القسم التالي",
       badgeSpeed: "سرعة محسوبة",
       badgeSecurity: "حماية من الأساس",
       badgeResponsive: "متجاوب مع كل شاشة",
@@ -102,7 +95,6 @@ export const translations = {
       nameLabel: "الاسم",
       namePlaceholder: "اكتب اسمك",
       phoneLabel: "رقم الهاتف",
-      phonePlaceholder: "01xxxxxxxxx أو +966xxxxxxxxx",
       emailLabel: "البريد الإلكتروني",
       optional: "(اختياري)",
       emailPlaceholder: "name@example.com",
@@ -159,12 +151,6 @@ export const translations = {
       bookCta: "Book Your Project",
       discoverCta: "Discover the Service",
       metaAria: "Quick info",
-      metaStartLabel: "Pricing",
-      metaStartValue: "Per project",
-      metaDurationLabel: "Estimated Time",
-      metaDurationValue: "One Week",
-      scrollCue: "Scroll to discover more",
-      scrollAria: "Go to the next section",
       badgeSpeed: "Built for speed",
       badgeSecurity: "Secure by design",
       badgeResponsive: "Fits every screen",
@@ -246,7 +232,6 @@ export const translations = {
       nameLabel: "Name",
       namePlaceholder: "Enter your name",
       phoneLabel: "Phone Number",
-      phonePlaceholder: "+20 1x xxx xxxx (include country code)",
       emailLabel: "Email",
       optional: "(optional)",
       emailPlaceholder: "name@example.com",
