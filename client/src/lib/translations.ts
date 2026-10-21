@@ -31,6 +31,14 @@ export const translations = {
       metaDurationValue: "أسبوع",
       scrollCue: "مرّر لاكتشاف المزيد",
       scrollAria: "انتقل إلى القسم التالي",
+      badgeSpeed: "سرعة محسوبة",
+      badgeSecurity: "حماية من الأساس",
+      badgeResponsive: "متجاوب مع كل شاشة",
+      stats: [
+        { value: "100%", label: "كود مكتوب لمشروعك" },
+        { value: "≈ 7", label: "أيام للإطلاق" },
+        { value: "1:1", label: "عرض سعر لكل مشروع" },
+      ],
     },
     manifesto: {
       index: "01 / الرؤية",
@@ -54,6 +62,9 @@ export const translations = {
         { title: "حركة لها معنى", text: "انتقالات تقود العين ولا تشتتها" },
         { title: "أساس آمن", text: "تحقق وحماية لبيانات التواصل" },
       ],
+      scopeTitle: "من صفحة واحدة لنظام كامل",
+      scopeText: "مواقع شركات، متاجر، لوحات تحكم وأنظمة ويب — كل مشروع بحجمه الحقيقي.",
+      scopeTags: ["مواقع شركات", "متاجر", "لوحات تحكم", "أنظمة ويب"],
     },
     process: {
       index: "03 / الطريقة",
@@ -153,6 +164,14 @@ export const translations = {
       metaDurationValue: "One Week",
       scrollCue: "Scroll to discover more",
       scrollAria: "Go to the next section",
+      badgeSpeed: "Built for speed",
+      badgeSecurity: "Secure by design",
+      badgeResponsive: "Fits every screen",
+      stats: [
+        { value: "100%", label: "Code written for your project" },
+        { value: "≈ 7", label: "Days to launch" },
+        { value: "1:1", label: "A quote for every project" },
+      ],
     },
     manifesto: {
       index: "01 / Vision",
@@ -176,6 +195,9 @@ export const translations = {
         { title: "Motion with Meaning", text: "Transitions that guide the eye, not distract it" },
         { title: "Secure Foundation", text: "Validation and protection for contact data" },
       ],
+      scopeTitle: "From one page to a full system",
+      scopeText: "Company sites, stores, dashboards and web systems — each built at its real size.",
+      scopeTags: ["Company sites", "Stores", "Dashboards", "Web systems"],
     },
     process: {
       index: "03 / Process",

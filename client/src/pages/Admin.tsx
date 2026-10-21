@@ -534,7 +534,7 @@ function exportBookingsPdf(rows: BookingRow[], t: Dict, lang: Lang) {
     <style>
       *{box-sizing:border-box}
       body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;color:#1a1a1a;margin:24px;font-size:11px}
-      .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #ff6b1a;padding-bottom:10px;margin-bottom:16px}
+      .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #7c5cff;padding-bottom:10px;margin-bottom:16px}
       .mark{font-size:24px;font-weight:800;letter-spacing:3px;direction:ltr}
       .meta{font-size:10px;color:#666;text-align:${lang === "ar" ? "left" : "right"}}
       h1{font-size:15px;margin:0 0 2px}
@@ -642,7 +642,7 @@ function AmountCell({ booking, t, onSaved }: { booking: BookingRow; t: Dict; onS
 // Status and payment are read at a glance from colour; the light theme gets
 // deeper shades so the text keeps its contrast on a white card.
 const STATUS_TONE: Record<BookingStatus, string> = {
-  new: "bg-orange-500/12 text-orange-400 ring-orange-500/25 in-[.admin-light]:text-orange-700",
+  new: "bg-violet-500/14 text-violet-300 ring-violet-500/30 in-[.admin-light]:text-violet-700",
   contacted: "bg-sky-500/12 text-sky-400 ring-sky-500/25 in-[.admin-light]:text-sky-700",
   closed: "bg-emerald-500/12 text-emerald-400 ring-emerald-500/25 in-[.admin-light]:text-emerald-700",
 };

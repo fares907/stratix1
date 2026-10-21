@@ -5,9 +5,13 @@ import { defineConfig, type Plugin } from "vite";
 
 // The hero headline and Arabic body text are the first things painted, but the
 // browser only discovers their fonts after downloading and parsing the CSS.
-// Preloading the two faces from the HTML starts both downloads immediately, so
-// the first paint uses the real fonts instead of swapping in a moment later.
-const CRITICAL_FONTS = [/unbounded-latin-wght-normal-.*\.woff2$/, /ibm-plex-sans-arabic-arabic-400-normal-.*\.woff2$/];
+// Preloading these faces from the HTML starts the downloads immediately, so the
+// first paint uses the real fonts instead of swapping in a moment later.
+const CRITICAL_FONTS = [
+  /alexandria-arabic-wght-normal-.*\.woff2$/,
+  /alexandria-latin-wght-normal-.*\.woff2$/,
+  /ibm-plex-sans-arabic-arabic-400-normal-.*\.woff2$/,
+];
 
 function preloadCriticalFonts(): Plugin {
   return {

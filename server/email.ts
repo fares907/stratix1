@@ -57,18 +57,18 @@ export function buildBookingEmailContent(booking: Booking) {
   ].join("\n");
 
   const html = `
-    <div dir="rtl" style="max-width:680px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
-      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">STRATIX / NEW BOOKING</p>
+    <div dir="rtl" style="max-width:680px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#7c5cff;font-size:13px;letter-spacing:1px">STRATIX / NEW BOOKING</p>
       <h1 style="margin:0 0 28px;font-size:28px">طلب مشروع جديد</h1>
-      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4eee4">
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">رقم الطلب</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(booking.publicId)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الاسم</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(booking.name)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الهاتف</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(booking.phone)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">البريد</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${booking.clientEmail ? escapeHtml(booking.clientEmail) : "غير مضاف"}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">نوع الموقع</td><td style="padding:10px;border-bottom:1px solid #39332e">${projectType}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الميزانية</td><td style="padding:10px;border-bottom:1px solid #39332e">${budget}</td></tr>
+      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4f3fb">
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">رقم الطلب</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(booking.publicId)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">الاسم</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(booking.name)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">الهاتف</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${escapeHtml(booking.phone)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">البريد</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${booking.clientEmail ? escapeHtml(booking.clientEmail) : "غير مضاف"}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">نوع الموقع</td><td style="padding:10px;border-bottom:1px solid #2a2840">${projectType}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">الميزانية</td><td style="padding:10px;border-bottom:1px solid #2a2840">${budget}</td></tr>
       </table>
-      <h2 style="margin:28px 0 10px;font-size:17px;color:#ff6b1a">تفاصيل المشروع</h2>
+      <h2 style="margin:28px 0 10px;font-size:17px;color:#7c5cff">تفاصيل المشروع</h2>
       <p style="white-space:pre-wrap;line-height:1.9;margin:0">${booking.details ? escapeHtml(booking.details) : "لم يضف العميل ملاحظات إضافية."}</p>
     </div>`;
 
@@ -162,13 +162,13 @@ export function buildPaymentReceiptContent(
 
   const row = (label: string, value: string, accent = false) => `
     <tr>
-      <td style="padding:12px 0;border-bottom:1px solid #2a2521;color:#aaa099;font-size:14px">${escapeHtml(label)}</td>
-      <td dir="ltr" style="padding:12px 0;border-bottom:1px solid #2a2521;text-align:${copy.dir === "rtl" ? "left" : "right"};font-size:${accent ? "20px" : "15px"};font-weight:${accent ? "700" : "500"};color:${accent ? "#ff6b1a" : "#f4eee4"}">${escapeHtml(value)}</td>
+      <td style="padding:12px 0;border-bottom:1px solid #1f1d33;color:#a3a1c2;font-size:14px">${escapeHtml(label)}</td>
+      <td dir="ltr" style="padding:12px 0;border-bottom:1px solid #1f1d33;text-align:${copy.dir === "rtl" ? "left" : "right"};font-size:${accent ? "20px" : "15px"};font-weight:${accent ? "700" : "500"};color:${accent ? "#7c5cff" : "#f4f3fb"}">${escapeHtml(value)}</td>
     </tr>`;
 
   const html = `
-    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#11100f;color:#f4eee4;padding:36px 32px;font-family:Tahoma,Arial,sans-serif">
-      <p style="margin:0 0 22px;color:#ff6b1a;font-size:12px;letter-spacing:2px">${escapeHtml(copy.eyebrow)}</p>
+    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:36px 32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 22px;color:#7c5cff;font-size:12px;letter-spacing:2px">${escapeHtml(copy.eyebrow)}</p>
 
       <!-- A single large tick reads as "done" before any text is parsed, which is
            the whole point of this message. Built from a table cell so it renders
@@ -179,16 +179,16 @@ export function buildPaymentReceiptContent(
 
       <h1 style="margin:0 0 8px;font-size:24px;line-height:1.4">${escapeHtml(copy.title)}</h1>
       <p style="margin:0 0 6px;font-size:15px">${escapeHtml(copy.heading(booking.name))}</p>
-      <p style="margin:0 0 26px;line-height:1.9;color:#c9c1b6">${escapeHtml(copy.body)}</p>
+      <p style="margin:0 0 26px;line-height:1.9;color:#c8c6de">${escapeHtml(copy.body)}</p>
 
-      <table role="presentation" style="width:100%;border-collapse:collapse;border-top:1px solid #2a2521">
+      <table role="presentation" style="width:100%;border-collapse:collapse;border-top:1px solid #1f1d33">
         ${row(copy.orderLabel, booking.publicId)}
         ${row(copy.amountLabel, amount, true)}
         ${row(copy.dateLabel, confirmedAt)}
       </table>
 
-      <p style="margin:24px 0 0;padding:12px 14px;background:#1a1815;color:#c9c1b6;font-size:13px;line-height:1.8">${escapeHtml(copy.keepNote)}</p>
-      <p style="margin:20px 0 0;line-height:1.9;color:#aaa099;font-size:13px">${escapeHtml(copy.footer)}</p>
+      <p style="margin:24px 0 0;padding:12px 14px;background:#171628;color:#c8c6de;font-size:13px;line-height:1.8">${escapeHtml(copy.keepNote)}</p>
+      <p style="margin:20px 0 0;line-height:1.9;color:#a3a1c2;font-size:13px">${escapeHtml(copy.footer)}</p>
       <p style="margin:14px 0 0;line-height:1.9;font-size:14px">${escapeHtml(copy.thanks)}</p>
     </div>`;
 
@@ -242,11 +242,11 @@ export function buildCustomerConfirmationContent(booking: Booking, language: Cus
   const text = [copy.heading(booking.name), "", copy.body(booking.publicId), "", copy.footer, copy.thanks].join("\n");
 
   const html = `
-    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
-      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">${copy.eyebrow}</p>
+    <div dir="${copy.dir}" style="max-width:560px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#7c5cff;font-size:13px;letter-spacing:1px">${copy.eyebrow}</p>
       <h1 style="margin:0 0 20px;font-size:24px">${escapeHtml(copy.heading(booking.name))}</h1>
       <p style="line-height:1.9;margin:0 0 18px">${escapeHtml(copy.body(booking.publicId))}</p>
-      <p style="line-height:1.9;margin:0 0 18px;color:#aaa099">${escapeHtml(copy.footer)}</p>
+      <p style="line-height:1.9;margin:0 0 18px;color:#a3a1c2">${escapeHtml(copy.footer)}</p>
       <p style="line-height:1.9;margin:0">${escapeHtml(copy.thanks)}</p>
     </div>`;
 
@@ -362,16 +362,16 @@ export async function sendContactLeadEmail(lead: {
     .join("\n");
 
   const html = `
-    <div dir="rtl" style="max-width:680px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
-      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">STRATIX / CHAT LEAD</p>
+    <div dir="rtl" style="max-width:680px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#7c5cff;font-size:13px;letter-spacing:1px">STRATIX / CHAT LEAD</p>
       <h1 style="margin:0 0 24px;font-size:26px">طلب تواصل جديد</h1>
-      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4eee4">
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">نوع الطلب</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(topic)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">رقم العميل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(lead.phone)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">البريد</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${lead.clientEmail ? escapeHtml(lead.clientEmail) : "غير مضاف"}</td></tr>
-        ${lead.note ? `<tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">ملاحظة</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(lead.note)}</td></tr>` : ""}
+      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4f3fb">
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">نوع الطلب</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(topic)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">رقم العميل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${escapeHtml(lead.phone)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">البريد</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${lead.clientEmail ? escapeHtml(lead.clientEmail) : "غير مضاف"}</td></tr>
+        ${lead.note ? `<tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">ملاحظة</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(lead.note)}</td></tr>` : ""}
       </table>
-      <p style="margin:24px 0 0;color:#aaa099;font-size:13px">وقت الاستلام: ${escapeHtml(receivedAt)}</p>
+      <p style="margin:24px 0 0;color:#a3a1c2;font-size:13px">وقت الاستلام: ${escapeHtml(receivedAt)}</p>
     </div>`;
 
   return sendViaResend({
@@ -414,20 +414,20 @@ export async function sendPaymentDeclaredEmail(payment: {
   ].join("\n");
 
   const html = `
-    <div dir="rtl" style="max-width:680px;margin:auto;background:#11100f;color:#f4eee4;padding:32px;font-family:Tahoma,Arial,sans-serif">
-      <p style="margin:0 0 10px;color:#ff6b1a;font-size:13px;letter-spacing:1px">STRATIX / PAYMENT DECLARED</p>
+    <div dir="rtl" style="max-width:680px;margin:auto;background:#0f0e1a;color:#f4f3fb;padding:32px;font-family:Tahoma,Arial,sans-serif">
+      <p style="margin:0 0 10px;color:#7c5cff;font-size:13px;letter-spacing:1px">STRATIX / PAYMENT DECLARED</p>
       <h1 style="margin:0 0 24px;font-size:26px">عميل أكد التحويل</h1>
-      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4eee4">
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">رقم الطلب</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(payment.publicId)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الاسم</td><td style="padding:10px;border-bottom:1px solid #39332e">${escapeHtml(payment.name)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">الهاتف</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(payment.phone)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">المبلغ</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(amount)}</td></tr>
-        <tr><td style="padding:10px;border-bottom:1px solid #39332e;color:#aaa099">مرجع التحويل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #39332e;text-align:right">${escapeHtml(payment.reference)}</td></tr>
+      <table role="presentation" style="width:100%;border-collapse:collapse;color:#f4f3fb">
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">رقم الطلب</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(payment.publicId)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">الاسم</td><td style="padding:10px;border-bottom:1px solid #2a2840">${escapeHtml(payment.name)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">الهاتف</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${escapeHtml(payment.phone)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">المبلغ</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${escapeHtml(amount)}</td></tr>
+        <tr><td style="padding:10px;border-bottom:1px solid #2a2840;color:#a3a1c2">مرجع التحويل</td><td dir="ltr" style="padding:10px;border-bottom:1px solid #2a2840;text-align:right">${escapeHtml(payment.reference)}</td></tr>
       </table>
-      <p style="margin:24px 0 0;line-height:1.9;color:#ffb27a">
+      <p style="margin:24px 0 0;line-height:1.9;color:#67e8f9">
         ⚠️ ده تأكيد من العميل وليس إثباتاً. راجع وصول المبلغ فعلياً قبل أن تعلّم الطلب كمدفوع.
       </p>
-      <p style="margin:12px 0 0;color:#aaa099;font-size:13px">وقت التأكيد: ${escapeHtml(receivedAt)}</p>
+      <p style="margin:12px 0 0;color:#a3a1c2;font-size:13px">وقت التأكيد: ${escapeHtml(receivedAt)}</p>
     </div>`;
 
   return sendViaResend({ to, publicId: payment.publicId, subject, text, html });

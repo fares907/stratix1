@@ -24,10 +24,10 @@ export type InvoiceData = {
   paidAt: number | null;
 };
 
-const INK = "#11100f";
-const SIGNAL = "#ff6b1a";
-const MUTED = "#6b6560";
-const LINE = "#ddd8d2";
+const INK = "#0f0e1a";
+const SIGNAL = "#7c5cff";
+const MUTED = "#64627a";
+const LINE = "#dcdbe6";
 const REGULAR = "Helvetica";
 const BOLD = "Helvetica-Bold";
 
