@@ -88,12 +88,15 @@ export function serveStatic(app: Express) {
     }),
   );
 
-  // Every client-side route gets the app shell, compressed when the browser allows.
+  // Every client-side route gets the app shell, compressed when the browser
+  // allows. /en gets the English shell, whose language, title, description and
+  // share tags are already English before any JavaScript runs.
   app.use((req, res) => {
-    req.url = "/index.html";
+    const shell = req.path === "/en" || req.path.startsWith("/en/") ? "en.html" : "index.html";
+    req.url = `/${shell}`;
     precompressed(req, res, () => {
       res.setHeader("Cache-Control", "no-cache");
-      res.sendFile(path.resolve(distPath, "index.html"));
+      res.sendFile(path.resolve(distPath, shell));
     });
   });
 }

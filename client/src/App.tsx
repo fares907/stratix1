@@ -21,6 +21,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/en" component={Home} />
       <Route path="/admin">
         <Suspense fallback={null}>
           <Admin />

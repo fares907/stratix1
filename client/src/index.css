@@ -413,6 +413,7 @@ select:not(:disabled) {
 
 .nav-cta {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.5rem;
   padding: 0.7rem 1.15rem;
