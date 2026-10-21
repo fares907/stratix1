@@ -19,18 +19,23 @@ const JWT_AUDIENCE = "stratix-admin";
 
 export type AdminAccount = { id: "fares" | "youssef"; name: string };
 
+// The dashboard presents one company identity, not the people behind it. The
+// two accounts still exist — separate passwords, separate second factors, and
+// the ledger records which one made each entry — they just aren't named on screen.
+export const ADMIN_DISPLAY_NAME = "STRATIX Management";
+
 const ADMIN_ACCOUNTS: Array<
   AdminAccount & { getPassword: () => string; getTotpSecret: () => string }
 > = [
   {
     id: "fares",
-    name: "فارس سامي",
+    name: ADMIN_DISPLAY_NAME,
     getPassword: () => ENV.adminPasswordFares,
     getTotpSecret: () => ENV.adminTotpFares,
   },
   {
     id: "youssef",
-    name: "يوسف تامر",
+    name: ADMIN_DISPLAY_NAME,
     getPassword: () => ENV.adminPasswordYoussef,
     getTotpSecret: () => ENV.adminTotpYoussef,
   },
@@ -175,28 +180,36 @@ export function clearLoginAttempts(ip: string) {
   loginAttempts.delete(ip);
 }
 
+/**
+ * Signs in by password alone: the password identifies which account it is.
+ * Both accounts are always compared, so the time taken never reveals which one
+ * matched or whether either did. `accountId` narrows the check when given.
+ */
 export function verifyAdminCredentials(
-  accountId: string,
+  accountId: string | undefined,
   password: string,
   code = "",
   now = Date.now(),
 ): AdminAccount | null {
-  const account = ADMIN_ACCOUNTS.find(candidate => candidate.id === accountId);
-  if (!account) return null;
+  if (!password) return null;
 
-  const expected = account.getPassword();
-  if (!expected || !password) return null;
-  if (!safeStringsEqual(password, expected)) return null;
+  let matched: (typeof ADMIN_ACCOUNTS)[number] | null = null;
+  for (const candidate of ADMIN_ACCOUNTS) {
+    const expected = candidate.getPassword();
+    const equal = safeStringsEqual(password, expected ?? "");
+    if (equal && expected && (!accountId || candidate.id === accountId) && !matched) matched = candidate;
+  }
+  if (!matched) return null;
 
-  const factor = secondFactorFor(account);
+  const factor = secondFactorFor(matched);
   if (factor.kind === "broken") return null;
   if (factor.kind === "totp") {
     const step = verifyTotp(factor.key, code.trim(), now);
-    if (step === null || step <= (lastTotpStep.get(account.id) ?? -1)) return null;
-    lastTotpStep.set(account.id, step);
+    if (step === null || step <= (lastTotpStep.get(matched.id) ?? -1)) return null;
+    lastTotpStep.set(matched.id, step);
   }
 
-  return { id: account.id, name: account.name };
+  return { id: matched.id, name: matched.name };
 }
 
 export async function createAdminSessionToken(account: AdminAccount, authTime = Date.now()) {

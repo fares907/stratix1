@@ -19,7 +19,7 @@ export const adminAuthRouter = router({
   login: publicProcedure
     .input(
       z.object({
-        accountId: z.enum(["fares", "youssef"]),
+        accountId: z.enum(["fares", "youssef"]).optional(),
         password: z.string().min(1).max(256),
         code: z.string().trim().max(6).optional(),
       }),

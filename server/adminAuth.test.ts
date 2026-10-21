@@ -16,9 +16,9 @@ describe("admin session signing", () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const auth = await loadAuth();
 
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "فارس سامي" });
+    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
 
-    expect(await auth.verifyAdminSessionToken(token)).toEqual({ id: "fares", name: "فارس سامي" });
+    expect(await auth.verifyAdminSessionToken(token)).toEqual({ id: "fares", name: "STRATIX Management" });
   });
 
   // The secret used to fall back to a constant committed to this repository, so
@@ -28,7 +28,7 @@ describe("admin session signing", () => {
     vi.stubEnv("JWT_SECRET", "");
     const auth = await loadAuth();
 
-    await expect(auth.createAdminSessionToken({ id: "fares", name: "فارس" })).rejects.toThrow(
+    await expect(auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" })).rejects.toThrow(
       /JWT_SECRET/,
     );
   });
@@ -36,7 +36,7 @@ describe("admin session signing", () => {
   it("treats any token as invalid when JWT_SECRET is missing", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const signing = await loadAuth();
-    const token = await signing.createAdminSessionToken({ id: "youssef", name: "يوسف" });
+    const token = await signing.createAdminSessionToken({ id: "youssef", name: "STRATIX Management" });
 
     vi.stubEnv("JWT_SECRET", "");
     const verifying = await loadAuth();
@@ -47,7 +47,7 @@ describe("admin session signing", () => {
   it("rejects a token signed with a different secret", async () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     const signing = await loadAuth();
-    const token = await signing.createAdminSessionToken({ id: "fares", name: "فارس" });
+    const token = await signing.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
 
     vi.stubEnv("JWT_SECRET", "b".repeat(48));
     const verifying = await loadAuth();
@@ -77,7 +77,7 @@ describe("admin credential check", () => {
 
     expect(auth.verifyAdminCredentials("fares", "correct-horse-battery")).toEqual({
       id: "fares",
-      name: "فارس سامي",
+      name: "STRATIX Management",
     });
     expect(auth.verifyAdminCredentials("fares", "wrong")).toBeNull();
   });
@@ -143,5 +143,35 @@ describe("production secret validation", () => {
     const { assertProductionSecrets } = await import("./_core/env");
 
     expect(() => assertProductionSecrets()).not.toThrow();
+  });
+});
+
+describe("password-only sign-in", () => {
+  it("identifies the account from the password and shows only the company name", async () => {
+    vi.stubEnv("JWT_SECRET", SECRET);
+    vi.stubEnv("ADMIN_PASSWORD_FARES", "first-owner-passphrase");
+    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "second-owner-passphrase");
+    const auth = await loadAuth();
+
+    expect(auth.verifyAdminCredentials(undefined, "first-owner-passphrase")).toEqual({
+      id: "fares",
+      name: "STRATIX Management",
+    });
+    expect(auth.verifyAdminCredentials(undefined, "second-owner-passphrase")).toEqual({
+      id: "youssef",
+      name: "STRATIX Management",
+    });
+    expect(auth.verifyAdminCredentials(undefined, "neither")).toBeNull();
+  });
+
+  // An unset password must never match an empty or blank attempt.
+  it("never matches an account whose password is not configured", async () => {
+    vi.stubEnv("JWT_SECRET", SECRET);
+    vi.stubEnv("ADMIN_PASSWORD_FARES", "");
+    vi.stubEnv("ADMIN_PASSWORD_YOUSSEF", "second-owner-passphrase");
+    const auth = await loadAuth();
+
+    expect(auth.verifyAdminCredentials(undefined, "")).toBeNull();
+    expect(auth.verifyAdminCredentials(undefined, " ")).toBeNull();
   });
 });

@@ -93,6 +93,7 @@ const BOOKING_LIST_MAX_LIMIT = 100;
 
 export async function listBookings(input: {
   status?: Booking["status"];
+  paymentStatus?: Booking["paymentStatus"];
   search?: string;
   limit: number;
   offset: number;
@@ -105,6 +106,9 @@ export async function listBookings(input: {
   const conditions = [];
   if (input.status) {
     conditions.push(eq(bookings.status, input.status));
+  }
+  if (input.paymentStatus) {
+    conditions.push(eq(bookings.paymentStatus, input.paymentStatus));
   }
   if (input.search) {
     const term = `%${input.search.trim()}%`;
@@ -129,13 +133,17 @@ export async function getBookingStats() {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
-  const [total, byStatus, byEmailStatus] = await Promise.all([
+  const [total, byStatus, byEmailStatus, byPaymentStatus] = await Promise.all([
     db.select({ value: count() }).from(bookings),
     db.select({ status: bookings.status, value: count() }).from(bookings).groupBy(bookings.status),
     db
       .select({ emailStatus: bookings.emailStatus, value: count() })
       .from(bookings)
       .groupBy(bookings.emailStatus),
+    db
+      .select({ paymentStatus: bookings.paymentStatus, value: count() })
+      .from(bookings)
+      .groupBy(bookings.paymentStatus),
   ]);
 
   return {
@@ -147,6 +155,9 @@ export async function getBookingStats() {
     byEmailStatus: Object.fromEntries(
       byEmailStatus.map(row => [row.emailStatus, row.value]),
     ) as Record<Booking["emailStatus"], number>,
+    byPaymentStatus: Object.fromEntries(
+      byPaymentStatus.map(row => [row.paymentStatus, row.value]),
+    ) as Record<Booking["paymentStatus"], number>,
   };
 }
 

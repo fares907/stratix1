@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -21,16 +22,21 @@ import {
 import { trpc } from "@/lib/trpc";
 import type { inferRouterOutputs } from "@trpc/server";
 import {
+  BadgeCheck,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
   ClipboardList,
   Download,
   FileText,
   Globe,
+  Hourglass,
   Inbox,
   LogOut,
+  Mail,
   MessageCircle,
   Moon,
+  Phone,
   Plus,
   Receipt,
   RefreshCw,
@@ -38,6 +44,7 @@ import {
   Sun,
   Trash2,
   Wallet,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
@@ -161,6 +168,24 @@ const T = {
     pdfGenerated: "تاريخ التصدير",
     pdfCount: "عدد الحجوزات",
     popupBlocked: "المتصفح منع النافذة — اسمح بالنوافذ المنبثقة وحاول مرة أخرى",
+    kpiNeedsContact: "جديد يحتاج تواصل",
+    kpiAwaiting: "تحويلات للمراجعة",
+    attention: (n: number) => (n === 1 ? "فيه تحويل مستني مراجعتك" : `فيه ${n} تحويلات مستنية مراجعتك`),
+    review: "راجعها",
+    showAll: "عرض الكل",
+    filteredBy: "معروض",
+    colClient: "العميل",
+    colOrder: "الطلب",
+    colProject: "المشروع",
+    details: "التفاصيل",
+    close: "إغلاق",
+    call: "اتصال",
+    sendEmail: "إيميل",
+    contactInfo: "بيانات التواصل",
+    projectInfo: "المشروع",
+    noNotes: "العميل مكتبش ملاحظات.",
+    paymentSection: "المبلغ والدفع",
+    emailDelivery: "إشعار الحجز",
   },
   en: {
     dir: "ltr" as const,
@@ -269,15 +294,28 @@ const T = {
     pdfGenerated: "Exported",
     pdfCount: "Bookings",
     popupBlocked: "The browser blocked the window — allow pop-ups and try again",
+    kpiNeedsContact: "New, needs contact",
+    kpiAwaiting: "Transfers to review",
+    attention: (n: number) => (n === 1 ? "A transfer is waiting for your review" : `${n} transfers are waiting for your review`),
+    review: "Review",
+    showAll: "Show all",
+    filteredBy: "Showing",
+    colClient: "Client",
+    colOrder: "Order",
+    colProject: "Project",
+    details: "Details",
+    close: "Close",
+    call: "Call",
+    sendEmail: "Email",
+    contactInfo: "Contact",
+    projectInfo: "Project",
+    noNotes: "No notes from the client.",
+    paymentSection: "Amount & payment",
+    emailDelivery: "Booking notification",
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 
 type Dict = (typeof T)[Lang];
-
-const accounts = [
-  { id: "fares" as const, labelAr: "فارس سامي", labelEn: "Fares Samy" },
-  { id: "youssef" as const, labelAr: "يوسف تامر", labelEn: "Youssef Tamer" },
-];
 
 const PAGE_SIZE = 20;
 const LEDGER_PAGE_SIZE = 20;
@@ -345,8 +383,7 @@ function waLink(phone: string) {
 }
 
 // ─────────────────────────── login ───────────────────────────
-function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn: () => void }) {
-  const [accountId, setAccountId] = useState<"fares" | "youssef">("fares");
+function LoginScreen({ t, onLoggedIn }: { t: Dict; onLoggedIn: () => void }) {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const loginMutation = trpc.adminAuth.login.useMutation({
@@ -364,7 +401,7 @@ function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn:
   return (
     <div className="min-h-screen flex items-center justify-center p-6" dir={t.dir}>
       <Card className="w-full max-w-sm shadow-2xl border-border/60">
-        <CardHeader className="items-center text-center gap-2">
+        <CardHeader className="items-center justify-items-center text-center gap-2">
           <div className="size-12 rounded-xl bg-primary/12 grid place-items-center mb-1">
             <span className="font-display text-primary text-xl font-bold" dir="ltr">
               S
@@ -380,25 +417,9 @@ function LoginScreen({ t, lang, onLoggedIn }: { t: Dict; lang: Lang; onLoggedIn:
             className="flex flex-col gap-4"
             onSubmit={event => {
               event.preventDefault();
-              loginMutation.mutate({ accountId, password, code: code || undefined });
+              loginMutation.mutate({ password, code: code || undefined });
             }}
           >
-            <div className="grid grid-cols-2 gap-2">
-              {accounts.map(account => (
-                <button
-                  type="button"
-                  key={account.id}
-                  onClick={() => setAccountId(account.id)}
-                  className={`h-11 rounded-lg border text-sm font-medium transition-colors ${
-                    accountId === account.id
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
-                  }`}
-                >
-                  {lang === "ar" ? account.labelAr : account.labelEn}
-                </button>
-              ))}
-            </div>
             <Input
               type="password"
               placeholder={t.password}
@@ -618,93 +639,316 @@ function AmountCell({ booking, t, onSaved }: { booking: BookingRow; t: Dict; onS
   );
 }
 
-function PaymentCell({ booking, t, onChanged }: { booking: BookingRow; t: Dict; onChanged: () => void }) {
+// Status and payment are read at a glance from colour; the light theme gets
+// deeper shades so the text keeps its contrast on a white card.
+const STATUS_TONE: Record<BookingStatus, string> = {
+  new: "bg-orange-500/12 text-orange-400 ring-orange-500/25 in-[.admin-light]:text-orange-700",
+  contacted: "bg-sky-500/12 text-sky-400 ring-sky-500/25 in-[.admin-light]:text-sky-700",
+  closed: "bg-emerald-500/12 text-emerald-400 ring-emerald-500/25 in-[.admin-light]:text-emerald-700",
+};
+const PAYMENT_TONE: Record<BookingRow["paymentStatus"], string> = {
+  unpaid: "bg-muted text-muted-foreground ring-border",
+  awaiting_review: "bg-amber-500/14 text-amber-400 ring-amber-500/30 in-[.admin-light]:text-amber-700",
+  paid: "bg-emerald-500/12 text-emerald-400 ring-emerald-500/25 in-[.admin-light]:text-emerald-700",
+};
+
+function Pill({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap ${tone}`}
+    >
+      <span className="size-1.5 rounded-full bg-current" />
+      {children}
+    </span>
+  );
+}
+
+function paymentLabel(status: BookingRow["paymentStatus"], t: Dict) {
+  return { unpaid: t.payUnpaid, awaiting_review: t.payAwaiting, paid: t.payPaid }[status];
+}
+
+function statusLabel(status: BookingStatus, t: Dict) {
+  return { new: t.stNew, contacted: t.stContacted, closed: t.stClosed }[status];
+}
+
+function projectLabel(type: BookingRow["projectType"], t: Dict) {
+  return { company: t.company, personal: t.personal, other: t.other }[type];
+}
+
+function StatusSelect({
+  booking,
+  t,
+  onChange,
+}: {
+  booking: BookingRow;
+  t: Dict;
+  onChange: (status: BookingStatus) => void;
+}) {
+  return (
+    <Select value={booking.status} onValueChange={value => onChange(value as BookingStatus)}>
+      <SelectTrigger
+        size="sm"
+        className="h-7 w-auto gap-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+        onClick={event => event.stopPropagation()}
+      >
+        <Pill tone={STATUS_TONE[booking.status]}>{statusLabel(booking.status, t)}</Pill>
+      </SelectTrigger>
+      <SelectContent>
+        {(["new", "contacted", "closed"] as const).map(status => (
+          <SelectItem key={status} value={status}>
+            {statusLabel(status, t)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function downloadBase64Pdf(filename: string, base64: string) {
+  // An object URL rather than a data: URL — several browsers refuse data: URLs
+  // as download targets.
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function PaymentActions({ booking, t, onChanged }: { booking: BookingRow; t: Dict; onChanged: () => void }) {
   const mutation = trpc.adminBookings.setPaymentStatus.useMutation({
     onSuccess: onChanged,
     onError: error => toast.error(t.setPaymentFail, { description: error.message }),
   });
-
-  // The PDF arrives base64 over tRPC, so it is turned back into bytes and
-  // handed to the browser as a temporary object URL rather than a data: URL —
-  // the latter is blocked as a download target in several browsers.
   const invoiceMutation = trpc.adminBookings.invoicePdf.useMutation({
-    onSuccess: ({ filename, base64 }) => {
-      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
-    },
+    onSuccess: ({ filename, base64 }) => downloadBase64Pdf(filename, base64),
     onError: error => toast.error(t.invoiceFail, { description: error.message }),
   });
 
-  const label: Record<BookingRow["paymentStatus"], string> = {
-    unpaid: t.payUnpaid,
-    awaiting_review: t.payAwaiting,
-    paid: t.payPaid,
-  };
-  const variant: Record<BookingRow["paymentStatus"], "outline" | "default" | "secondary"> = {
-    unpaid: "outline",
-    awaiting_review: "default",
-    paid: "secondary",
-  };
-
   return (
-    <div className="flex flex-col gap-1 items-start">
-      <Badge variant={variant[booking.paymentStatus]}>{label[booking.paymentStatus]}</Badge>
-      {booking.paymentReference && (
-        <span className="text-[11px] text-muted-foreground font-mono" dir="ltr" title={t.ref}>
-          {booking.paymentReference}
-        </span>
-      )}
+    <div className="flex flex-wrap items-center gap-2">
       {booking.amountDue && booking.paymentStatus !== "paid" && (
         <Button
-          variant="ghost"
           size="sm"
-          className="h-6 px-1.5 text-[11px] text-emerald-500"
+          className="bg-emerald-600 text-white hover:bg-emerald-600/90"
+          disabled={mutation.isPending}
           onClick={() => {
             if (window.confirm(t.confirmMarkPaid)) {
               mutation.mutate({ publicId: booking.publicId, paymentStatus: "paid" });
             }
           }}
         >
-          <CheckCircle2 className="size-3" /> {t.markPaid}
-        </Button>
-      )}
-      {booking.paymentStatus === "paid" && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-1.5 text-[11px] text-muted-foreground"
-          onClick={() => mutation.mutate({ publicId: booking.publicId, paymentStatus: "unpaid" })}
-        >
-          {t.markUnpaid}
+          <CheckCircle2 className="size-4" /> {t.markPaid}
         </Button>
       )}
       {booking.amountDue && (
         <Button
-          variant="ghost"
           size="sm"
-          className="h-6 px-1.5 text-[11px]"
+          variant="outline"
           disabled={invoiceMutation.isPending}
           onClick={() => invoiceMutation.mutate({ publicId: booking.publicId })}
         >
-          <Download className="size-3" /> {t.invoice}
+          <Download className="size-4" /> {t.invoice}
+        </Button>
+      )}
+      {booking.paymentStatus === "paid" && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate({ publicId: booking.publicId, paymentStatus: "unpaid" })}
+        >
+          {t.markUnpaid}
         </Button>
       )}
     </div>
   );
 }
 
-function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/60 last:border-0">
+      <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+      <div className="text-sm text-end min-w-0 break-words">{children}</div>
+    </div>
+  );
+}
+
+function BookingDetails({
+  booking,
+  t,
+  lang,
+  themeClass,
+  onClose,
+  onChanged,
+  onStatusChange,
+}: {
+  booking: BookingRow | null;
+  t: Dict;
+  lang: Lang;
+  themeClass: string;
+  onClose: () => void;
+  onChanged: () => void;
+  onStatusChange: (booking: BookingRow, status: BookingStatus) => void;
+}) {
+  const emailState: Record<BookingRow["emailStatus"], string> = {
+    sent: t.emailSent,
+    pending: t.emailPending,
+    failed: t.emailFailed,
+    not_configured: t.emailNotConf,
+  };
+
+  return (
+    <Dialog open={booking !== null} onOpenChange={open => !open && onClose()}>
+      {booking && (
+        <DialogContent
+          dir={t.dir}
+          showCloseButton={false}
+          className={`${themeClass} bg-background text-foreground sm:max-w-xl max-h-[90dvh] overflow-y-auto p-0 gap-0`}
+        >
+          <div className="p-5 sm:p-6 border-b bg-card/60">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 text-start">
+                <DialogTitle className="text-xl font-semibold truncate">{booking.name}</DialogTitle>
+                <DialogDescription className="mt-1 font-mono text-xs" dir="ltr">
+                  {booking.publicId} · {formatDate(booking.createdAt, lang)}
+                </DialogDescription>
+              </div>
+              <Button variant="ghost" size="icon" className="shrink-0 -mt-1 -me-2" onClick={onClose} aria-label={t.close}>
+                <X />
+              </Button>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <StatusSelect booking={booking} t={t} onChange={status => onStatusChange(booking, status)} />
+              <Pill tone={PAYMENT_TONE[booking.paymentStatus]}>{paymentLabel(booking.paymentStatus, t)}</Pill>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <Button asChild variant="outline" size="sm">
+                <a href={`tel:${booking.phone}`}>
+                  <Phone className="size-4" /> {t.call}
+                </a>
+              </Button>
+              <Button asChild size="sm" className="bg-emerald-600 text-white hover:bg-emerald-600/90">
+                <a href={waLink(booking.phone)} target="_blank" rel="noreferrer">
+                  <MessageCircle className="size-4" /> {t.whatsapp}
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="sm" disabled={!booking.clientEmail}>
+                {booking.clientEmail ? (
+                  <a href={`mailto:${booking.clientEmail}`}>
+                    <Mail className="size-4" /> {t.sendEmail}
+                  </a>
+                ) : (
+                  <span className="opacity-50 pointer-events-none">
+                    <Mail className="size-4" /> {t.sendEmail}
+                  </span>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-5 sm:p-6 flex flex-col gap-6">
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                {t.contactInfo}
+              </h3>
+              <DetailRow label={t.colPhone}>
+                <span dir="ltr" className="font-mono">
+                  {booking.phone}
+                </span>
+              </DetailRow>
+              <DetailRow label={t.colEmail}>
+                {booking.clientEmail ? (
+                  <span dir="ltr">{booking.clientEmail}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </DetailRow>
+              <DetailRow label={t.emailDelivery}>{emailState[booking.emailStatus]}</DetailRow>
+            </section>
+
+            <section>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                {t.projectInfo}
+              </h3>
+              <DetailRow label={t.colType}>{projectLabel(booking.projectType, t)}</DetailRow>
+              <DetailRow label={t.colBudget}>{budgetLabels[booking.budget][lang]}</DetailRow>
+              <div className="mt-3 rounded-lg bg-muted/50 p-3.5 text-sm leading-7 whitespace-pre-wrap text-start">
+                {booking.details || <span className="text-muted-foreground">{t.noNotes}</span>}
+              </div>
+            </section>
+
+            <section className="rounded-xl border p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                {t.paymentSection}
+              </h3>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="text-sm text-muted-foreground">{t.colAmount}</span>
+                <AmountCell booking={booking} t={t} onSaved={onChanged} />
+              </div>
+              {booking.paymentReference && (
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="text-sm text-muted-foreground">{t.ref}</span>
+                  <span className="font-mono text-sm" dir="ltr">
+                    {booking.paymentReference}
+                  </span>
+                </div>
+              )}
+              <PaymentActions booking={booking} t={t} onChanged={onChanged} />
+            </section>
+          </div>
+        </DialogContent>
+      )}
+    </Dialog>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: string;
+  onClick?: () => void;
+}) {
+  const Wrapper = onClick ? "button" : "div";
+  return (
+    <Wrapper
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-xl border bg-card p-3.5 sm:p-4 text-start transition-colors ${
+        onClick ? "hover:border-primary/40 cursor-pointer" : ""
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs sm:text-sm text-muted-foreground truncate">{label}</span>
+        <span className={`size-8 shrink-0 rounded-lg grid place-items-center ${tone}`}>
+          <Icon className="size-4" />
+        </span>
+      </div>
+      <p className="mt-2 text-2xl sm:text-3xl font-semibold font-display tabular-nums leading-none">{value}</p>
+    </Wrapper>
+  );
+}
+
+type PaymentFilter = "all" | BookingRow["paymentStatus"];
+
+function BookingsPanel({ t, lang, themeClass }: { t: Dict; lang: Lang; themeClass: string }) {
   const utils = trpc.useUtils();
   const [statusFilter, setStatusFilter] = useState<"all" | BookingStatus>("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [page, setPage] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -714,25 +958,6 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
     return () => clearTimeout(timeout);
   }, [searchInput]);
 
-  const statusLabels: Record<BookingStatus, string> = {
-    new: t.stNew,
-    contacted: t.stContacted,
-    closed: t.stClosed,
-  };
-  const projectTypeLabels: Record<BookingRow["projectType"], string> = {
-    company: t.company,
-    personal: t.personal,
-    other: t.other,
-  };
-  const emailStatusLabels: Record<
-    BookingRow["emailStatus"],
-    { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
-  > = {
-    sent: { label: t.emailSent, variant: "secondary" },
-    pending: { label: t.emailPending, variant: "outline" },
-    failed: { label: t.emailFailed, variant: "destructive" },
-    not_configured: { label: t.emailNotConf, variant: "outline" },
-  };
   const statusFilters: Array<{ value: "all" | BookingStatus; label: string }> = [
     { value: "all", label: t.allBookings },
     { value: "new", label: t.stNew },
@@ -742,15 +967,15 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
 
   const filterArgs = {
     status: search || statusFilter === "all" ? undefined : statusFilter,
+    paymentStatus: search || paymentFilter === "all" ? undefined : paymentFilter,
     search: search || undefined,
   };
 
   const statsQuery = trpc.adminBookings.stats.useQuery();
-  const listQuery = trpc.adminBookings.list.useQuery({
-    ...filterArgs,
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-  });
+  const listQuery = trpc.adminBookings.list.useQuery(
+    { ...filterArgs, limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+    { placeholderData: previous => previous },
+  );
 
   const invalidate = () => {
     utils.adminBookings.list.invalidate();
@@ -761,6 +986,8 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
     onSuccess: invalidate,
     onError: error => toast.error(t.updateStatusFail, { description: error.message }),
   });
+  const changeStatus = (booking: BookingRow, status: BookingStatus) =>
+    updateStatusMutation.mutate({ publicId: booking.publicId, status });
 
   const handleExport = async () => {
     setExporting(true);
@@ -774,30 +1001,74 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
 
   const bookings = listQuery.data ?? [];
   const hasNextPage = bookings.length === PAGE_SIZE;
+  const openBooking = bookings.find(b => b.publicId === openId) ?? null;
+  const stats = statsQuery.data;
+  const awaiting = stats?.byPaymentStatus.awaiting_review ?? 0;
+
+  const showPayment = (filter: PaymentFilter) => {
+    setPaymentFilter(filter);
+    setStatusFilter("all");
+    setSearchInput("");
+    setPage(0);
+  };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
+      {awaiting > 0 && paymentFilter !== "awaiting_review" && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <span className="relative flex size-2.5 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-500 opacity-60" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
+          </span>
+          <p className="flex-1 text-sm">{t.attention(awaiting)}</p>
+          <Button size="sm" variant="outline" onClick={() => showPayment("awaiting_review")}>
+            {t.review}
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={t.totalBookings} value={statsQuery.data?.total ?? 0} icon={Inbox} accent />
-        <StatCard label={t.stNew} value={statsQuery.data?.byStatus.new ?? 0} icon={CalendarClock} />
-        <StatCard label={t.stContacted} value={statsQuery.data?.byStatus.contacted ?? 0} icon={MessageCircle} />
-        <StatCard label={t.stClosed} value={statsQuery.data?.byStatus.closed ?? 0} icon={CheckCircle2} />
+        <KpiCard label={t.totalBookings} value={stats?.total ?? 0} icon={Inbox} tone="bg-primary/12 text-primary" />
+        <KpiCard
+          label={t.kpiNeedsContact}
+          value={stats?.byStatus.new ?? 0}
+          icon={CalendarClock}
+          tone={STATUS_TONE.new}
+          onClick={() => {
+            setStatusFilter("new");
+            setPaymentFilter("all");
+            setPage(0);
+          }}
+        />
+        <KpiCard
+          label={t.kpiAwaiting}
+          value={awaiting}
+          icon={Hourglass}
+          tone={PAYMENT_TONE.awaiting_review}
+          onClick={() => showPayment("awaiting_review")}
+        />
+        <KpiCard
+          label={t.payPaid}
+          value={stats?.byPaymentStatus.paid ?? 0}
+          icon={BadgeCheck}
+          tone={PAYMENT_TONE.paid}
+          onClick={() => showPayment("paid")}
+        />
       </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between flex-wrap gap-3 space-y-0">
-          <CardTitle>{t.bookings}</CardTitle>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <Search className="absolute end-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={searchInput}
-                onChange={event => setSearchInput(event.target.value)}
-                placeholder={t.searchBooking}
-                className="w-full sm:w-56 pe-8"
-                dir={t.dir}
-              />
-            </div>
+      <Card className="gap-0 py-0 overflow-hidden">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-b">
+          <div className="relative sm:w-72">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              value={searchInput}
+              onChange={event => setSearchInput(event.target.value)}
+              placeholder={t.searchBooking}
+              className="ps-9"
+              dir={t.dir}
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <Select
               value={statusFilter}
               disabled={Boolean(search)}
@@ -806,7 +1077,7 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="flex-1 sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -817,8 +1088,9 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting || bookings.length === 0}>
-              <FileText className="size-4" /> {t.exportPdf}
+            <Button variant="outline" onClick={handleExport} disabled={exporting || bookings.length === 0}>
+              <FileText className="size-4" />
+              <span className="hidden sm:inline">{t.exportPdf}</span>
             </Button>
             <Button
               variant="outline"
@@ -832,90 +1104,71 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
               <RefreshCw className={listQuery.isFetching ? "animate-spin" : ""} />
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto -mx-2 px-2">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t.colId}</TableHead>
-                  <TableHead>{t.colDate}</TableHead>
-                  <TableHead>{t.colName}</TableHead>
-                  <TableHead>{t.colPhone}</TableHead>
-                  <TableHead>{t.colEmail}</TableHead>
-                  <TableHead>{t.colType}</TableHead>
-                  <TableHead>{t.colBudget}</TableHead>
-                  <TableHead>{t.colDetails}</TableHead>
-                  <TableHead>{t.colAmount}</TableHead>
-                  <TableHead>{t.colPayment}</TableHead>
-                  <TableHead>{t.colEmailStatus}</TableHead>
-                  <TableHead>{t.colStatus}</TableHead>
-                  <TableHead className="text-center">{t.colContact}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bookings.map(booking => (
-                  <TableRow key={booking.publicId}>
-                    <TableCell className="font-mono text-xs" dir="ltr">
+        </div>
+
+        {paymentFilter !== "all" && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b bg-muted/40 text-sm">
+            <span>
+              {t.filteredBy}: <Pill tone={PAYMENT_TONE[paymentFilter]}>{paymentLabel(paymentFilter, t)}</Pill>
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => showPayment("all")}>
+              {t.showAll}
+            </Button>
+          </div>
+        )}
+
+        {/* Desktop: a table whose rows open the full record. */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="ps-4">{t.colClient}</TableHead>
+                <TableHead>{t.colOrder}</TableHead>
+                <TableHead>{t.colProject}</TableHead>
+                <TableHead>{t.colAmount}</TableHead>
+                <TableHead>{t.colPayment}</TableHead>
+                <TableHead>{t.colStatus}</TableHead>
+                <TableHead className="pe-4 w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bookings.map(booking => (
+                <TableRow
+                  key={booking.publicId}
+                  className="cursor-pointer"
+                  onClick={() => setOpenId(booking.publicId)}
+                >
+                  <TableCell className="ps-4 py-3">
+                    <div className="font-medium">{booking.name}</div>
+                    <div className="text-xs text-muted-foreground font-mono" dir="ltr">
+                      {booking.phone}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-mono text-xs" dir="ltr">
                       {booking.publicId}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDate(booking.createdAt, lang)}
-                    </TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">{booking.name}</TableCell>
-                    <TableCell dir="ltr" className="whitespace-nowrap">
-                      <a className="hover:text-primary" href={`tel:${booking.phone}`}>
-                        {booking.phone}
-                      </a>
-                    </TableCell>
-                    <TableCell dir="ltr">
-                      {booking.clientEmail ? (
-                        <a className="hover:text-primary" href={`mailto:${booking.clientEmail}`}>
-                          {booking.clientEmail}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{projectTypeLabels[booking.projectType]}</TableCell>
-                    <TableCell className="whitespace-nowrap">{budgetLabels[booking.budget][lang]}</TableCell>
-                    <TableCell className="max-w-64 whitespace-normal text-sm text-muted-foreground">
-                      {booking.details || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <AmountCell booking={booking} t={t} onSaved={invalidate} />
-                    </TableCell>
-                    <TableCell>
-                      <PaymentCell booking={booking} t={t} onChanged={invalidate} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={emailStatusLabels[booking.emailStatus].variant}>
-                        {emailStatusLabels[booking.emailStatus].label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={booking.status}
-                        onValueChange={value =>
-                          updateStatusMutation.mutate({
-                            publicId: booking.publicId,
-                            status: value as BookingStatus,
-                          })
-                        }
-                      >
-                        <SelectTrigger size="sm" className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(Object.keys(statusLabels) as BookingStatus[]).map(s => (
-                            <SelectItem key={s} value={s}>
-                              {statusLabels[s]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-center">
+                    </div>
+                    <div className="text-xs text-muted-foreground">{formatDate(booking.createdAt, lang)}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">{projectLabel(booking.projectType, t)}</div>
+                    <div className="text-xs text-muted-foreground">{budgetLabels[booking.budget][lang]}</div>
+                  </TableCell>
+                  <TableCell className="tabular-nums" dir="ltr">
+                    {booking.amountDue ? (
+                      `${booking.amountDue} ${booking.currency}`
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Pill tone={PAYMENT_TONE[booking.paymentStatus]}>{paymentLabel(booking.paymentStatus, t)}</Pill>
+                  </TableCell>
+                  <TableCell onClick={event => event.stopPropagation()}>
+                    <StatusSelect booking={booking} t={t} onChange={status => changeStatus(booking, status)} />
+                  </TableCell>
+                  <TableCell className="pe-4" onClick={event => event.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
                       <a
                         href={waLink(booking.phone)}
                         target="_blank"
@@ -926,22 +1179,85 @@ function BookingsPanel({ t, lang }: { t: Dict; lang: Lang }) {
                       >
                         <MessageCircle className="size-4" />
                       </a>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {bookings.length === 0 && !listQuery.isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
-                      {t.noBookings}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setOpenId(booking.publicId)}
+                        aria-label={t.details}
+                        title={t.details}
+                      >
+                        <ChevronLeft className="size-4 ltr:rotate-180" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile: one card per booking. */}
+        <div className="md:hidden divide-y">
+          {bookings.map(booking => (
+            <button
+              key={booking.publicId}
+              type="button"
+              onClick={() => setOpenId(booking.publicId)}
+              className="w-full p-4 text-start active:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{booking.name}</div>
+                  <div className="text-xs text-muted-foreground font-mono" dir="ltr">
+                    {booking.publicId}
+                  </div>
+                </div>
+                <Pill tone={STATUS_TONE[booking.status]}>{statusLabel(booking.status, t)}</Pill>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground truncate">
+                  {projectLabel(booking.projectType, t)} · {formatDate(booking.createdAt, lang)}
+                </span>
+                <Pill tone={PAYMENT_TONE[booking.paymentStatus]}>{paymentLabel(booking.paymentStatus, t)}</Pill>
+              </div>
+              {booking.amountDue && (
+                <div className="mt-2 font-semibold tabular-nums" dir="ltr">
+                  {booking.amountDue} {booking.currency}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {bookings.length === 0 && !listQuery.isLoading && (
+          <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+            <Inbox className="size-10 opacity-40" />
+            <p className="text-sm">{t.noBookings}</p>
           </div>
+        )}
+        {listQuery.isLoading && (
+          <div className="flex flex-col gap-2 p-4">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="h-14 rounded-lg bg-muted/60 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        <div className="px-4 pb-4">
           <Pagination t={t} page={page} setPage={setPage} hasNextPage={hasNextPage} />
-        </CardContent>
+        </div>
       </Card>
+
+      <BookingDetails
+        booking={openBooking}
+        t={t}
+        lang={lang}
+        themeClass={themeClass}
+        onClose={() => setOpenId(null)}
+        onChanged={invalidate}
+        onStatusChange={changeStatus}
+      />
     </div>
   );
 }
@@ -1129,7 +1445,6 @@ function FinancePanel({ t, lang }: { t: Dict; lang: Lang }) {
                   <TableHead>{t.colType}</TableHead>
                   <TableHead>{t.amount}</TableHead>
                   <TableHead>{t.desc}</TableHead>
-                  <TableHead>{t.by}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1146,12 +1461,6 @@ function FinancePanel({ t, lang }: { t: Dict; lang: Lang }) {
                     </TableCell>
                     <TableCell className="font-medium whitespace-nowrap">{money(Number(entry.amount))}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{entry.note}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {(() => {
-                        const a = accounts.find(acc => acc.id === entry.createdBy);
-                        return a ? (lang === "ar" ? a.labelAr : a.labelEn) : entry.createdBy;
-                      })()}
-                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -1166,7 +1475,7 @@ function FinancePanel({ t, lang }: { t: Dict; lang: Lang }) {
                 ))}
                 {entries.length === 0 && !listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
                       {t.noMovements}
                     </TableCell>
                   </TableRow>
@@ -1328,7 +1637,6 @@ function InvoicesPanel({ t, lang }: { t: Dict; lang: Lang }) {
                   <TableHead>{t.colCategory}</TableHead>
                   <TableHead>{t.amount}</TableHead>
                   <TableHead>{t.desc}</TableHead>
-                  <TableHead>{t.by}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -1345,12 +1653,6 @@ function InvoicesPanel({ t, lang }: { t: Dict; lang: Lang }) {
                       {formatMoney(Number(entry.amount), entry.currency, lang)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{entry.note}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {(() => {
-                        const a = accounts.find(acc => acc.id === entry.createdBy);
-                        return a ? (lang === "ar" ? a.labelAr : a.labelEn) : entry.createdBy;
-                      })()}
-                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -1365,7 +1667,7 @@ function InvoicesPanel({ t, lang }: { t: Dict; lang: Lang }) {
                 ))}
                 {entries.length === 0 && !listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
                       {t.noInvoices}
                     </TableCell>
                   </TableRow>
@@ -1446,7 +1748,7 @@ function DashboardShell({
           })}
         </nav>
         <div className="p-2 lg:p-3 border-t text-xs text-muted-foreground hidden lg:block">
-          {t.hi} {accountName}
+          {accountName}
         </div>
       </aside>
 
@@ -1480,7 +1782,9 @@ function DashboardShell({
             <h2 className="font-semibold text-lg">{sectionMeta[section].title}</h2>
             <p className="text-sm text-muted-foreground">{sectionMeta[section].sub}</p>
           </div>
-          {section === "bookings" && <BookingsPanel t={t} lang={lang} />}
+          {section === "bookings" && (
+            <BookingsPanel t={t} lang={lang} themeClass={theme === "light" ? "admin-light" : ""} />
+          )}
           {section === "finance" && <FinancePanel t={t} lang={lang} />}
           {section === "invoices" && <InvoicesPanel t={t} lang={lang} />}
         </main>
@@ -1530,7 +1834,7 @@ export default function Admin() {
       <div className="min-h-screen grid place-items-center text-muted-foreground">{prefs.t.loading}</div>
     );
   } else if (!meQuery.data) {
-    content = <LoginScreen t={prefs.t} lang={prefs.lang} onLoggedIn={() => meQuery.refetch()} />;
+    content = <LoginScreen t={prefs.t} onLoggedIn={() => meQuery.refetch()} />;
   } else {
     content = <DashboardShell accountName={meQuery.data.name} prefs={prefs} />;
   }

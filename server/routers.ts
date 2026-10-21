@@ -61,6 +61,7 @@ export const appRouter = router({
       .input(
         z.object({
           status: z.enum(["new", "contacted", "closed"]).optional(),
+          paymentStatus: z.enum(["unpaid", "awaiting_review", "paid"]).optional(),
           search: z.string().trim().max(64).optional(),
           limit: z.number().int().min(1).max(100).default(25),
           offset: z.number().int().min(0).default(0),

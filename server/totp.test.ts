@@ -69,7 +69,7 @@ describe("admin two-factor sign-in", () => {
     expect(auth.verifyAdminCredentials("fares", "wrong", code, now)).toBeNull();
     expect(auth.verifyAdminCredentials("fares", "correct-horse-battery", code, now)).toEqual({
       id: "fares",
-      name: "فارس سامي",
+      name: "STRATIX Management",
     });
   });
 
@@ -137,10 +137,10 @@ describe("admin sessions", () => {
     vi.stubEnv("JWT_SECRET", SECRET);
     vi.useFakeTimers({ now: 1_700_000_000_000 });
     const auth = await loadAuth();
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "فارس سامي" });
+    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" });
 
     const fresh = fakeExchange(`${auth.ADMIN_SESSION_COOKIE}=${token}`);
-    expect(await auth.authenticateAdmin(fresh.req, fresh.res)).toEqual({ id: "fares", name: "فارس سامي" });
+    expect(await auth.authenticateAdmin(fresh.req, fresh.res)).toEqual({ id: "fares", name: "STRATIX Management" });
     expect(fresh.set).toHaveLength(0);
 
     vi.setSystemTime(1_700_000_000_000 + 20 * 60 * 1000);
@@ -155,7 +155,7 @@ describe("admin sessions", () => {
     const signIn = 1_700_000_000_000;
     vi.useFakeTimers({ now: signIn + 7 * 24 * 60 * 60 * 1000 + 60_000 });
     const auth = await loadAuth();
-    const token = await auth.createAdminSessionToken({ id: "fares", name: "فارس سامي" }, signIn);
+    const token = await auth.createAdminSessionToken({ id: "fares", name: "STRATIX Management" }, signIn);
 
     const exchange = fakeExchange(`${auth.ADMIN_SESSION_COOKIE}=${token}`);
     expect(await auth.authenticateAdmin(exchange.req, exchange.res)).toBeNull();
