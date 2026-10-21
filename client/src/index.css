@@ -642,7 +642,7 @@ select:not(:disabled) {
   min-height: 46rem;
   align-content: center;
   row-gap: 2.5rem;
-  padding-block: clamp(8rem, 14vw, 14rem);
+  padding-block: clamp(6rem, 11vw, 11rem);
   background:
     linear-gradient(to bottom, transparent, oklch(0.18 0.02 45 / 85%)),
     var(--ink);
@@ -723,7 +723,7 @@ select:not(:disabled) {
   min-height: 62rem;
   align-content: center;
   row-gap: 4rem;
-  padding-block: clamp(10rem, 16vw, 16rem) clamp(8rem, 13vw, 12rem);
+  padding-block: clamp(7rem, 12vw, 12rem) clamp(6rem, 10vw, 10rem);
   background:
     linear-gradient(132deg, transparent 0 58%, oklch(0.7 0.22 42 / 9%) 58.1% 67%, transparent 67.1%),
     var(--paper);
@@ -750,7 +750,7 @@ select:not(:disabled) {
   position: relative;
   grid-column: 3 / span 5;
   align-self: center;
-  padding: 2rem 0 2rem 2rem;
+  padding: 4.5rem 0 2rem 2rem;
   border-left: 1px solid var(--line-dark);
 }
 
@@ -835,7 +835,7 @@ select:not(:disabled) {
   min-height: 62rem;
   align-content: center;
   row-gap: 4.5rem;
-  padding-block: clamp(8rem, 14vw, 13rem);
+  padding-block: clamp(6rem, 11vw, 10rem);
   background:
     radial-gradient(circle at 82% 18%, oklch(0.7 0.22 42 / 12%), transparent 28rem),
     var(--ink);
@@ -915,7 +915,7 @@ select:not(:disabled) {
 .founders-section {
   position: relative;
   min-height: 58rem;
-  padding-block: clamp(10rem, 14vw, 14rem);
+  padding-block: clamp(7rem, 11vw, 11rem);
   background: var(--paper);
   color: var(--ink);
 }
@@ -994,7 +994,7 @@ select:not(:disabled) {
   min-height: 66rem;
   align-content: center;
   row-gap: 4rem;
-  padding-block: clamp(8rem, 14vw, 13rem);
+  padding-block: clamp(6rem, 11vw, 10rem);
   background:
     linear-gradient(45deg, transparent 48%, oklch(0.94 0.025 80 / 3%) 48% 52%, transparent 52%),
     var(--ink);
@@ -1980,29 +1980,30 @@ select:not(:disabled) {
   .scroll-cue { display: none; }
 
   .section-index { grid-column: 2 / span 4; }
-  .manifesto-section { min-height: 42rem; padding-block: 8rem; }
+  .manifesto-section { min-height: 0; padding-block: 4.5rem; }
   .manifesto-copy { grid-column: 2 / span 4; }
   .oversized-quote { font-size: clamp(2.8rem, 13vw, 4.7rem); }
   .manifesto-note { grid-column: 2 / span 4; }
   .kinetic-strip { transform: rotate(-3deg) scale(1.05); }
 
-  .service-section { padding-block: 9rem 8rem; }
+  .service-section { padding-block: 5rem 4.5rem; }
   .service-heading { grid-column: 2 / span 4; }
   .service-heading h2 { font-size: clamp(2.35rem, 11vw, 3.5rem); }
-  .price-stage { grid-column: 2 / span 4; padding-left: 0; border-left: 0; }
+  .price-stage { grid-column: 2 / span 4; padding: 1rem 0 0; border-left: 0; }
+  .price-orbit-label { position: static; display: inline-block; margin-bottom: 1.25rem; transform: rotate(-4deg); }
   .price-number { font-size: clamp(5.8rem, 31vw, 8.5rem); }
   .capability-list { grid-column: 2 / span 4; }
 
-  .process-section { padding-block: 8rem 10rem; }
+  .process-section { padding-block: 4.5rem 5rem; }
   .process-intro { grid-column: 2 / span 4; display: block; }
   .process-intro h2 { font-size: clamp(2.35rem, 11vw, 3.5rem); }
   .process-intro > p:last-child { margin-top: 2rem; }
   .process-steps { grid-column: 2 / span 4; grid-template-columns: 1fr; }
-  .process-step { min-height: 18rem; }
+  .process-step { min-height: 0; }
   .process-step:nth-child(2) { transform: none; }
-  .process-step h3 { margin-top: 4.5rem; }
+  .process-step h3 { margin-top: 2.5rem; }
 
-  .founders-section { padding-block: 9rem; }
+  .founders-section { padding-block: 5rem; }
   .founders-angle { width: 28%; opacity: 0.38; }
   .founders-intro { grid-column: 2 / span 4; }
   .founders-intro h2 { font-size: clamp(2.4rem, 12vw, 4rem); }
@@ -2011,7 +2012,7 @@ select:not(:disabled) {
   .founder-row .brand-mark { display: none; }
   .founder-row h3 { font-size: 1.35rem; }
 
-  .booking-section { padding-block: 8rem; }
+  .booking-section { padding-block: 5rem; }
   .booking-intro { grid-column: 2 / span 4; }
   .booking-intro h2 { font-size: clamp(2.6rem, 12vw, 4rem); }
   .booking-panel { grid-column: 2 / span 4; }
@@ -2019,7 +2020,7 @@ select:not(:disabled) {
   .form-span-2 { grid-column: 1; }
   .contact-mini-list { align-items: flex-start; }
 
-  .site-footer { padding-block: 4rem; }
+  .site-footer { padding-block: 3rem; }
   .footer-logo { grid-column: 2 / span 4; }
   .site-footer > p:nth-of-type(1) { grid-column: 2 / span 3; }
   .footer-links { grid-column: 5; }
