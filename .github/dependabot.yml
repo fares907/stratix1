@@ -1,14 +1,15 @@
 version: 2
 updates:
-  # Weekly pull requests for outdated or vulnerable packages; CI must pass on
-  # each before it is merged. Minor and patch bumps arrive together so the
-  # queue stays short; majors come one per package.
+  # Checked daily, but a release is only proposed once it is 3 days old: the
+  # same window pnpm enforces locally, long enough for a hijacked version to be
+  # caught and pulled from npm before it can reach this project.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: daily
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 10
     groups:
       minor-and-patch:
         update-types: [minor, patch]
@@ -16,4 +17,6 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 3

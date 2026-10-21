@@ -5,6 +5,7 @@ import { type Server } from "http";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
+import { servePrecompressed } from "./precompressed";
 
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
@@ -70,8 +71,13 @@ export function serveStatic(app: Express) {
     next();
   });
 
+  const precompressed = servePrecompressed(distPath);
+  app.use(precompressed);
+
   app.use(
     express.static(distPath, {
+      // "/" is answered by the SPA fallback below, so it gets the compressed page too.
+      index: false,
       setHeaders(res, filePath) {
         const isHashedAsset = filePath.includes(`${path.sep}assets${path.sep}`);
         res.setHeader(
@@ -82,9 +88,12 @@ export function serveStatic(app: Express) {
     }),
   );
 
-  // fall through to index.html if the file doesn't exist
-  app.use((_req, res) => {
-    res.setHeader("Cache-Control", "no-cache");
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Every client-side route gets the app shell, compressed when the browser allows.
+  app.use((req, res) => {
+    req.url = "/index.html";
+    precompressed(req, res, () => {
+      res.setHeader("Cache-Control", "no-cache");
+      res.sendFile(path.resolve(distPath, "index.html"));
+    });
   });
 }

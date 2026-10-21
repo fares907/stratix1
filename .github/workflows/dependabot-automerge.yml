@@ -1,0 +1,59 @@
+name: Dependabot auto-merge
+
+# Minor and patch updates merge themselves, so the site stays current without
+# anyone clicking through routine bumps. Major versions change APIs (Express 5,
+# Recharts 3) and stay open for a person to review.
+#
+# The merge is driven by CI finishing successfully rather than by GitHub's
+# auto-merge, because main has no required status checks — auto-merge would
+# merge immediately, before the tests had run.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  label:
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3
+      - if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh label create automerge --repo "$REPO" --color 2ea44f \
+            --description "Merged automatically once CI passes" --force
+          gh pr edit "$PR_URL" --add-label automerge
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  merge:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge if labelled for auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pr=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,labels,headRefOid \
+                 --jq ".[] | select(.headRefOid == \"$SHA\") | select([.labels[].name] | index(\"automerge\")) | .number")
+          if [ -z "$pr" ]; then
+            echo "No auto-merge candidate for $BRANCH at $SHA"
+            exit 0
+          fi
+          gh pr merge "$pr" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"

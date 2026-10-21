@@ -1,10 +1,34 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+// The hero headline and Arabic body text are the first things painted, but the
+// browser only discovers their fonts after downloading and parsing the CSS.
+// Preloading the two faces from the HTML starts both downloads immediately, so
+// the first paint uses the real fonts instead of swapping in a moment later.
+const CRITICAL_FONTS = [/unbounded-latin-wght-normal-.*\.woff2$/, /ibm-plex-sans-arabic-arabic-400-normal-.*\.woff2$/];
+
+function preloadCriticalFonts(): Plugin {
+  return {
+    name: "preload-critical-fonts",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(_html, ctx) {
+        const files = Object.keys(ctx.bundle ?? {}).filter(file => CRITICAL_FONTS.some(pattern => pattern.test(file)));
+        return files.map(file => ({
+          tag: "link",
+          attrs: { rel: "preload", href: `/${file}`, as: "font", type: "font/woff2", crossorigin: "" },
+          injectTo: "head" as const,
+        }));
+      },
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), preloadCriticalFonts()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),

@@ -5,7 +5,7 @@
 
 @theme inline {
   --font-sans: "IBM Plex Sans Arabic", sans-serif;
-  --font-display: "Unbounded", sans-serif;
+  --font-display: "Unbounded Variable", sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -286,7 +286,7 @@ select:not(:disabled) {
 
 .logo-word,
 .footer-logo {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.92rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -328,7 +328,7 @@ select:not(:disabled) {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--paper-muted);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   transition: border-color 180ms cubic-bezier(0.23, 1, 0.32, 1), color 180ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -427,7 +427,7 @@ select:not(:disabled) {
 .eyebrow {
   margin: 0 0 1.25rem;
   color: var(--signal-bright);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(0.63rem, 0.8vw, 0.76rem);
   font-weight: 600;
   letter-spacing: 0.13em;
@@ -441,7 +441,7 @@ select:not(:disabled) {
 .hero-word {
   margin: 0;
   color: var(--paper);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(4.25rem, 13.4vw, 13rem);
   font-weight: 800;
   line-height: 0.82;
@@ -584,7 +584,7 @@ select:not(:disabled) {
   transform: rotate(-12deg);
   background: var(--signal);
   color: var(--ink);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(2.3rem, 5vw, 5rem);
   font-weight: 800;
   box-shadow: 0 28px 80px oklch(0.7 0.22 42 / 25%);
@@ -652,7 +652,7 @@ select:not(:disabled) {
   grid-column: 2 / span 2;
   align-self: start;
   color: var(--paper-muted);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
 }
@@ -709,7 +709,7 @@ select:not(:disabled) {
   align-items: center;
   gap: 2rem;
   padding-block: 1.1rem;
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(1rem, 2vw, 1.7rem);
   font-weight: 700;
   white-space: nowrap;
@@ -770,7 +770,7 @@ select:not(:disabled) {
    instead. It keeps the slot's visual weight but at a size Arabic and English
    words actually fit, rather than the numeral-only scale used before. */
 .price-headline {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(2.4rem, 5.5vw, 4.4rem);
   font-weight: 800;
   line-height: 1.15;
@@ -828,7 +828,7 @@ select:not(:disabled) {
 }
 
 .capability-index {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
 }
 
 .process-section {
@@ -892,7 +892,7 @@ select:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   color: var(--signal-bright);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.78rem;
 }
 
@@ -968,7 +968,7 @@ select:not(:disabled) {
 
 .founder-index {
   color: oklch(0.4 0.02 45);
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.75rem;
 }
 
@@ -1027,7 +1027,7 @@ select:not(:disabled) {
   align-items: center;
   gap: 0.7rem;
   color: var(--paper-muted);
-  font-family: "Unbounded", "IBM Plex Sans Arabic", sans-serif;
+  font-family: "Unbounded Variable", "IBM Plex Sans Arabic", sans-serif;
   font-size: 0.76rem;
   transition: color 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -1346,7 +1346,7 @@ select:not(:disabled) {
 
 .splash-word {
   position: relative;
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-weight: 800;
   font-size: clamp(2.6rem, 9vw, 6rem);
   letter-spacing: -0.02em;
@@ -1478,7 +1478,7 @@ select:not(:disabled) {
 }
 
 .chat-header b {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
 }
@@ -1619,7 +1619,7 @@ select:not(:disabled) {
 .pay-back:hover { color: var(--signal); }
 
 .pay-card h1 {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(1.4rem, 4vw, 1.9rem);
   margin: 0 0 0.75rem;
 }
@@ -1707,7 +1707,7 @@ select:not(:disabled) {
 }
 
 .pay-amount strong {
-  font-family: "Unbounded", sans-serif;
+  font-family: "Unbounded Variable", sans-serif;
   font-size: clamp(1.2rem, 3.5vw, 1.6rem);
   color: var(--signal);
 }
