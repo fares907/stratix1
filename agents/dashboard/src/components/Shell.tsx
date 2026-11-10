@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { KillSwitch } from "./KillSwitch";
 import { supabase } from "@/lib/supabase";
 
@@ -19,11 +19,30 @@ const LINKS = [
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
-  const path = usePathname();
+  const path = usePathname().replace(/(.)\/$/, "$1");
   const router = useRouter();
+  const onLogin = path.startsWith("/login");
+  const [authed, setAuthed] = useState<boolean | null>(null);
 
-  if (path.startsWith("/login")) {
+  // اللوحة ملفات ثابتة، فالتأكد من تسجيل الدخول بيحصل هنا في المتصفح.
+  // ده للراحة بس: من غير تسجيل دخول Supabase نفسه (RLS) مابيرجّعش أي بيانات.
+  useEffect(() => {
+    const db = supabase();
+    db.auth.getSession().then(({ data }) => setAuthed(Boolean(data.session)));
+    const { data: sub } = db.auth.onAuthStateChange((_event, session) => setAuthed(Boolean(session)));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (authed === false && !onLogin) router.replace("/login");
+    if (authed === true && onLogin) router.replace("/");
+  }, [authed, onLogin, router]);
+
+  if (onLogin) {
     return <main className="shell">{children}</main>;
+  }
+  if (!authed) {
+    return <main className="shell"><p className="muted">جاري التحميل…</p></main>;
   }
 
   async function logout() {

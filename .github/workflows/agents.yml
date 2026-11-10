@@ -6,7 +6,9 @@ name: Agents
 # - كل ساعتين: يقرا الردود وينفّذ الموافقات
 # - آخر اليوم (6:43 القاهرة): اجتماع ← التقرير اليومي ← تليجرام
 # المواعيد بتوقيت UTC (القاهرة +2 في الشتا و+3 في الصيف)، وGitHub ممكن يأخرها شوية.
-# مش هيشتغل غير لما تضيف SUPABASE_URL في Secrets.
+# الموظفين بيدخلوا Supabase من غير أي مفتاح هنا: GitHub بيدّيهم توكن هوية (OIDC)
+# والـ edge function "agents-gateway" بتتأكد إنه من الـ workflow ده على main.
+# والموديلات من GitHub Models بالـ GITHUB_TOKEN (مجاني). أي مفتاح تاني في Secrets اختياري.
 on:
   push:
     branches: [main]
@@ -84,7 +86,15 @@ jobs:
     concurrency:
       group: agents-run
       cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write          # المطوّر بيفتح Issues
+      pull-requests: write   # المراجِعة بتعلّق على PRs (مفيش merge)
+      id-token: write        # توكن الهوية لـ agents-gateway
+      models: read           # GitHub Models
     env:
+      SUPABASE_GATEWAY_URL: https://frpqnfygixxolvpseqox.supabase.co/functions/v1/agents-gateway
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -112,12 +122,7 @@ jobs:
             *) RUN=inbox ;;
           esac
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "SUPABASE_URL مش موجود في Secrets — مفيش تشغيل."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
       - if: steps.pick.outputs.ready == 'true'
         uses: actions/checkout@v7
       - if: steps.pick.outputs.ready == 'true' && steps.pick.outputs.run == 'morning'

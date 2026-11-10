@@ -1,19 +1,15 @@
 import type { NextConfig } from "next";
 
+// اللوحة بتتبني كملفات ثابتة وبتتعرض جوه موقع STRATIX على /hq
+// (السيرفر بتاع الموقع هو اللي بيعرضها، بحماية headers خاصة بيها).
+// مفيش سيرفر خاص باللوحة: الحماية كلها في Supabase (تسجيل الدخول + RLS)،
+// والشات بيروح لـ edge function في Supabase.
 const config: NextConfig = {
+  output: "export",
+  basePath: "/hq",
+  trailingSlash: true,
+  images: { unoptimized: true },
   poweredByHeader: false,
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "no-referrer" },
-        ],
-      },
-    ];
-  },
 };
 
 export default config;

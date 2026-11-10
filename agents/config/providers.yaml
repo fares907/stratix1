@@ -40,3 +40,25 @@ providers:
     models:
       llama70b: { id: "meta-llama/llama-3.3-70b-instruct:free", rpm: 20, rpd: 50 }
       coder:    { id: "qwen/qwen3-coder:free",                  rpm: 20, rpd: 50 }
+
+  # GitHub Models: مجاني من جوه GitHub Actions بالـ GITHUB_TOKEN (من غير أي مفتاح منك)،
+  # وGitHub مابيستخدمش البيانات في التدريب.
+  github:
+    base_url: https://models.github.ai/inference
+    api_key_env: GITHUB_TOKEN
+    models:
+      mini: { id: openai/gpt-4.1-mini, rpm: 15, rpd: 150 }
+      big:  { id: openai/gpt-4.1,      rpm: 10, rpd: 50 }
+
+  # Pollinations: مجاني ومن غير مفتاح خالص. مش مضمون، وممكن يحتفظ بالبيانات،
+  # فمابيستخدموش غير الموظفين اللي مش sensitive.
+  pollinations:
+    base_url: https://text.pollinations.ai
+    api_key_env: ""
+    trains_on_free_data: true
+    models:
+      openai: { id: openai, rpm: 10, rpd: 2000 }
+
+# لو الأساسي والاحتياطي بتوع الموظف مش متاحين (مفيش مفتاح أو الحد خلص)،
+# الـ router بيجرّب دول بالترتيب. البيانات الحساسة بتتخطى أي مزوّد trains_on_free_data.
+last_resort: [github:mini, github:big, pollinations:openai]

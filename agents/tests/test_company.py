@@ -277,3 +277,14 @@ def test_daily_report_uses_real_numbers():
     assert "1 إيميل" in row["headline"] and "1 مستنية موافقتك" in row["headline"]
     assert "باقة جديدة" in row["body"] and "دخل 5000" in row["body"] and "يوم كويس" in row["body"]
     assert s.select("daily_reports")[0]["report_date"] == row["report_date"]
+
+
+def test_ceo_meeting_follows_chairman_chat_directives():
+    llm = ScriptedLLM([])
+    company = make_company(llm)
+    company.store.insert("chats", {"agent_id": "ceo", "role": "owner", "content": "ركزوا بكرة على العيادات"})
+    company.store.insert("chats", {"agent_id": "writer", "role": "owner", "content": "خلي الرسايل أقصر"})
+    meeting.run(company, {})
+    opening, decision = llm.prompts[0], llm.prompts[-1]
+    assert "ركزوا بكرة على العيادات" in opening and "ركزوا بكرة على العيادات" in decision
+    assert any("خلي الرسايل أقصر" in p for p in llm.prompts[1:-1])  # الكاتبة شافت توجيهها

@@ -49,13 +49,21 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
     try:
         pending = store.select("approvals", status="pending")
         open_tasks = [t for t in store.select("tasks") if t.get("status") in ("todo", "doing", "blocked")]
+        # توجيهات رئيس مجلس الإدارة للمدير التنفيذي في الشات: ليها الأولوية في الاجتماع
+        directives = [c["content"] for c in store.select("chats", agent_id="ceo") if c.get("role") == "owner"][-5:]
+        directive_text = (
+            "توجيهات رئيس مجلس الإدارة ليك في الشات (ليها الأولوية):\n- " + "\n- ".join(directives) + "\n"
+            if directives else ""
+        )
         agenda = (
             f"الأرقام الحقيقية النهارده:\n{facts.get('_company', '')}\n"
             f"موافقات مستنية رئيس مجلس الإدارة: {len(pending)}\n"
-            f"مهام مفتوحة من الاجتماعات اللي فاتت: {len(open_tasks)}"
+            f"مهام مفتوحة من الاجتماعات اللي فاتت: {len(open_tasks)}\n"
+            f"{directive_text}"
         )
         opening = ceo.think(
-            f"افتح الاجتماع في سطرين: إيه أهم حاجة النهارده؟\n{agenda}", meeting_id=mid
+            "افتح الاجتماع في سطرين: إيه أهم حاجة النهارده؟ لو فيه توجيهات من رئيس مجلس الإدارة ابدأ بيها.\n"
+            f"{agenda}", meeting_id=mid
         )
         transcript.append(f"{ceo.spec.name} (المدير): {opening['say']}")
 
@@ -127,7 +135,8 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
         # ── القرار ──────────────────────────────────────────
         decision = ceo.think(
             "ده الاجتماع كله:\n" + "\n".join(transcript) + "\n\n"
-            "اقفل الاجتماع بقرار. في JSON زوّد:\n"
+            + directive_text
+            + "اقفل الاجتماع بقرار يحقق توجيهات رئيس مجلس الإدارة لو فيه. في JSON زوّد:\n"
             '"proposals": [{"id": رقم الفكرة, "decision": "approved" أو "rejected", "reason": ليه}]'
             " — قرار في كل فكرة 💡، ووافق بس على اللي يفيد الشركة فعلًا وفي حدود القوانين.\n"
             '"tasks": [{"agent_id": كود الموظف, "title": المهمة, "details": تفاصيل}] (من دول: '
