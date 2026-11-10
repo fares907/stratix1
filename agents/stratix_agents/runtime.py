@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from dataclasses import dataclass, field
 
 from . import config as config_mod
@@ -40,6 +42,17 @@ class Company:
                 return default
             node = node[key]
         return node
+
+
+def within_working_hours(rules: dict, now: datetime | None = None) -> tuple[bool, str]:
+    hours = rules.get("working_hours") or {}
+    if not hours:
+        return True, ""
+    zone = ZoneInfo(hours.get("timezone", "Africa/Cairo"))
+    local = (now or datetime.now(timezone.utc)).astimezone(zone)
+    start, end = int(hours.get("start", 8)), int(hours.get("end", 17))
+    ok = start <= local.hour < end
+    return ok, f"الساعة {local:%H:%M} بتوقيت القاهرة، ومواعيد العمل من {start} لـ {end}"
 
 
 def from_env() -> Company:

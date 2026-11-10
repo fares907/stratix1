@@ -224,3 +224,22 @@ def test_scout_keeps_only_places_without_website_but_with_contact():
     leads = parse_leads(elements, "بنها")
     assert [lead["name"] for lead in leads] == ["مطعم الشيف", "صيدلية النور"]
     assert leads[1]["lat"] == 30.46 and leads[0]["phone"] == "+20 10 0000 0001"
+
+
+
+@pytest.mark.parametrize("utc_hour, ok", [(5, False), (6, True), (14, True), (15, False), (20, False)])
+def test_working_hours_8_to_5_cairo(cfg, utc_hour, ok):
+    from datetime import datetime, timezone
+    from stratix_agents.runtime import within_working_hours
+    # نوفمبر: القاهرة = UTC+2، فـ 6 UTC = 8 الصبح و15 UTC = 5 العصر
+    now = datetime(2026, 11, 11, utc_hour, 30, tzinfo=timezone.utc)
+    assert within_working_hours(cfg.rules, now)[0] is ok
+
+
+def test_outside_hours_nothing_runs(monkeypatch, capsys):
+    from stratix_agents import __main__ as cli
+    monkeypatch.setattr(cli, "within_working_hours", lambda rules: (False, "الساعة 23:00"))
+    called = []
+    monkeypatch.setitem(cli.COMMANDS, "morning", lambda cfg: called.append(1))
+    cli.main(["morning"])
+    assert called == [] and "برّا مواعيد العمل" in capsys.readouterr().out

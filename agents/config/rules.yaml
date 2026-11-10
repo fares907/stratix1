@@ -14,6 +14,12 @@ targeting:
   amenity: [restaurant, cafe, fast_food, pharmacy, clinic, dentist, doctors]
   shop: any
 
+# مواعيد العمل: برّاها الموظفين مابيشتغلوش خالص (الكود بيرفض أي تشغيل)
+working_hours:
+  timezone: Africa/Cairo
+  start: 8    # 8 الصبح
+  end: 17     # 5 العصر
+
 pricing:
   currency: جنيه
   min: 2000
@@ -24,7 +30,6 @@ pricing:
 
 outreach:
   daily_limit: 15
-  # الموظفين بيشتغلوا من 8 الصبح لـ 5 العصر بتوقيت القاهرة (المواعيد في .github/workflows/agents.yml)
   needs_approval: false   # الرسايل بتطلع أوتوماتيك
   unsubscribe_text: لو مش حابب نتواصل معاك تاني، رد بكلمة "إلغاء" ومش هنبعتلك تاني.
 

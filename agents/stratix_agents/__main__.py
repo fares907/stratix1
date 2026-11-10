@@ -24,7 +24,7 @@ from . import config as config_mod
 from . import devteam, meeting, notify, report, sales, scout, site, sitedb
 from .mailer import Mailer
 from .router import Halted
-from .runtime import Company, from_env
+from .runtime import Company, from_env, within_working_hours
 
 
 def _mailer(env) -> Mailer | None:
@@ -232,6 +232,11 @@ def main(argv: list[str]) -> None:
     if len(argv) != 1 or argv[0] not in COMMANDS:
         sys.exit(__doc__)
     cfg = config_mod.load()
+    if argv[0] in ("morning", "evening", "inbox"):
+        ok, why = within_working_hours(cfg.rules)
+        if not ok:
+            print(f"برّا مواعيد العمل — مفيش شغل. {why}")
+            return
     try:
         COMMANDS[argv[0]](cfg)
     except Halted as exc:
