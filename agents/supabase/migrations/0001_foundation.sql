@@ -51,7 +51,7 @@ create table if not exists agent_revisions (
 );
 
 create or replace function touch_updated_at() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 begin
   new.updated_at := now();
   return new;
@@ -59,7 +59,7 @@ end $$;
 
 -- after: الصف لازم يكون اتحفظ الأول عشان الـ foreign key
 create or replace function log_agent_revision() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = public as $$
 begin
   insert into agent_revisions (agent_id, before, after)
   values (new.id, case when tg_op = 'UPDATE' then to_jsonb(old) end, to_jsonb(new));
@@ -148,7 +148,7 @@ create index if not exists llm_calls_day_idx on llm_calls (created_at, model_key
 
 -- المحاولات اللي المزوّد رفضها قبل ما يحسبها مابتتعدّش، والباقي بيتعدّ
 create or replace function llm_usage_for_day(day date)
-returns table (model_key text, calls bigint) language sql stable as $$
+returns table (model_key text, calls bigint) language sql stable set search_path = public as $$
   select model_key, count(*) from llm_calls
   where created_at >= day and created_at < day + 1
     and status not in ('network_error')

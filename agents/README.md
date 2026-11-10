@@ -46,7 +46,7 @@
 
 ### 1. Supabase (قاعدة البيانات)
 1. اعمل مشروع مجاني على supabase.com.
-2. من **SQL Editor** شغّل ملفات `supabase/migrations/` بالترتيب (0001 ← 0004)، كل ملف مرة واحدة.
+2. من **SQL Editor** شغّل ملفات `supabase/migrations/` بالترتيب (0001 ← 0005)، كل ملف مرة واحدة.
 3. من **Authentication → Users** اعمل حساب لنفسك، وبعدين في SQL Editor شغّل:
    `insert into owners (user_id) select id from auth.users where email = 'إيميلك';`
 
