@@ -111,6 +111,7 @@ jobs:
     steps:
       - name: Pick the run
         id: pick
+        working-directory: .   # قبل الـ checkout، فولدر agents لسه مش موجود
         env:
           SCHEDULE: ${{ github.event.schedule }}
           INPUT: ${{ inputs.run }}
