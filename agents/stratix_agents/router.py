@@ -1,0 +1,181 @@
+"""الـ Model Router: بيبعت لأي مزوّد OpenAI-compatible، ويتحول للاحتياطي أوتوماتيك.
+
+الترتيب لكل طلب: الموديل الأساسي، وبعده الاحتياطي. أي موديل بيتخطّى لو:
+  - مفتاحه مش موجود في .env
+  - خلّص حدّه (في الدقيقة أو في اليوم)
+  - المزوّد وقّفه بـ 429
+  - الطلب حساس والمزوّد بيستخدم بيانات الخطة المجانية
+وكل محاولة (نجحت أو فشلت) بتتسجل في جدول llm_calls.
+"""
+
+from __future__ import annotations
+
+import os
+import time
+from dataclasses import dataclass
+from typing import Callable, Mapping
+
+import httpx
+
+from .config import Config, ModelSpec
+from .ratelimit import RateTracker
+from .store import Store
+
+DEFAULT_COOLDOWN_SECONDS = 60.0
+
+
+class Halted(RuntimeError):
+    """زرار "إيقاف الكل" مضغوط."""
+
+
+class AllModelsUnavailable(RuntimeError):
+    def __init__(self, reasons: dict[str, str]):
+        self.reasons = reasons
+        detail = "؛ ".join(f"{k}: {v}" for k, v in reasons.items())
+        super().__init__(f"مفيش موديل متاح دلوقتي — {detail}")
+
+
+@dataclass(frozen=True)
+class Completion:
+    text: str
+    model_key: str
+    used_fallback: bool
+    prompt_tokens: int
+    completion_tokens: int
+
+
+def _retry_after(response: httpx.Response) -> float:
+    value = response.headers.get("retry-after", "")
+    try:
+        return max(1.0, float(value))
+    except ValueError:
+        return DEFAULT_COOLDOWN_SECONDS
+
+
+class ModelRouter:
+    def __init__(
+        self,
+        config: Config,
+        store: Store,
+        *,
+        env: Mapping[str, str] | None = None,
+        http: httpx.Client | None = None,
+        tracker: RateTracker | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ):
+        self.config = config
+        self.store = store
+        self.env = os.environ if env is None else env
+        self.http = http or httpx.Client(timeout=90)
+        self.tracker = tracker or RateTracker()
+        self._clock = clock
+        for key, count in store.usage_today().items():
+            self.tracker.seed(key, count)
+
+    def _skip_reason(self, spec: ModelSpec, sensitive: bool) -> str | None:
+        provider = self.config.providers[spec.provider]
+        if not self.env.get(provider.api_key_env):
+            return f"مفيش مفتاح ({provider.api_key_env})"
+        if sensitive and provider.trains_on_free_data:
+            return "بيانات حساسة — المزوّد ده ممنوع"
+        return self.tracker.why_blocked(spec)
+
+    def complete(
+        self,
+        agent_id: str,
+        messages: list[dict],
+        *,
+        chain: list[str],
+        sensitive: bool = False,
+        temperature: float = 0.4,
+        json_mode: bool = False,
+    ) -> Completion:
+        if self.store.is_halted():
+            raise Halted("الشركة واقفة بأمر رئيس مجلس الإدارة")
+
+        reasons: dict[str, str] = {}
+        for index, key in enumerate(chain):
+            spec = self.config.model(key)
+            skip = self._skip_reason(spec, sensitive)
+            if skip:
+                reasons[key] = skip
+                continue
+
+            provider = self.config.providers[spec.provider]
+            body: dict = {
+                "model": spec.model_id,
+                "messages": messages,
+                "temperature": temperature,
+            }
+            if json_mode:
+                body["response_format"] = {"type": "json_object"}
+
+            self.tracker.record(spec)
+            started = self._clock()
+            try:
+                response = self.http.post(
+                    f"{provider.base_url}/chat/completions",
+                    json=body,
+                    headers={
+                        "Authorization": f"Bearer {self.env[provider.api_key_env]}"
+                    },
+                )
+            except httpx.HTTPError as exc:
+                reasons[key] = f"خطأ شبكة: {type(exc).__name__}"
+                self._log(agent_id, spec, index, "network_error", started)
+                continue
+
+            if response.status_code == 429:
+                self.tracker.cooldown(spec, _retry_after(response))
+                reasons[key] = "المزوّد رجّع 429 (الحد خلص)"
+                self._log(agent_id, spec, index, "rate_limited", started)
+                continue
+            if response.status_code >= 400:
+                reasons[key] = f"HTTP {response.status_code}"
+                self._log(agent_id, spec, index, f"http_{response.status_code}", started)
+                continue
+
+            try:
+                data = response.json()
+                text = data["choices"][0]["message"]["content"] or ""
+            except (ValueError, KeyError, IndexError, TypeError):
+                reasons[key] = "رد مش مفهوم من المزوّد"
+                self._log(agent_id, spec, index, "bad_response", started)
+                continue
+
+            usage = data.get("usage") or {}
+            result = Completion(
+                text=text,
+                model_key=key,
+                used_fallback=index > 0,
+                prompt_tokens=int(usage.get("prompt_tokens") or 0),
+                completion_tokens=int(usage.get("completion_tokens") or 0),
+            )
+            self._log(agent_id, spec, index, "ok", started, result)
+            return result
+
+        raise AllModelsUnavailable(reasons)
+
+    def _log(
+        self,
+        agent_id: str,
+        spec: ModelSpec,
+        index: int,
+        status: str,
+        started: float,
+        result: Completion | None = None,
+    ) -> None:
+        self.store.insert(
+            "llm_calls",
+            {
+                "agent_id": agent_id,
+                "provider": spec.provider,
+                "model_key": spec.key,
+                "model_id": spec.model_id,
+                "is_fallback": index > 0,
+                "status": status,
+                "latency_ms": int((self._clock() - started) * 1000),
+                "prompt_tokens": result.prompt_tokens if result else 0,
+                "completion_tokens": result.completion_tokens if result else 0,
+            },
+        )
