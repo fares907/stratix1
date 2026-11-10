@@ -191,9 +191,32 @@ def test_guard(text, ok):
 
 
 # ── scout ────────────────────────────────────────────────
-def test_scout_query_targets_city():
-    q = build_query("Banha", ["restaurant", "cafe"], include_shops=True)
-    assert '"name:en"="Banha"' in q and "restaurant|cafe" in q and '["shop"]' in q
+def test_scout_query_targets_every_city_name():
+    q = build_query(["Banha", "Benha", "بنها"], ["restaurant", "cafe"], include_shops=True)
+    assert '"name:en"~"^(Banha|Benha|بنها)$"' in q and '"name"~"^(Banha|Benha|بنها)$"' in q
+    assert "restaurant|cafe" in q and '["shop"]' in q
+
+
+def test_scout_tries_other_servers_when_busy():
+    from stratix_agents.scout import fetch
+    seen, waits = [], []
+    def handler(req):
+        seen.append(req.url.host)
+        if req.url.host == "overpass.private.coffee":
+            return httpx.Response(200, json={"elements": [{"type": "node", "id": 1}]})
+        return httpx.Response(502, text="busy")
+    out = fetch("q", httpx.Client(transport=httpx.MockTransport(handler)), sleep=waits.append)
+    assert out == [{"type": "node", "id": 1}] and waits == []
+    assert seen == ["overpass-api.de", "overpass.kumi.systems", "overpass.private.coffee"]
+
+
+def test_scout_gives_up_with_a_clear_error():
+    from stratix_agents.scout import fetch
+    waits = []
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(504)))
+    with pytest.raises(RuntimeError, match="مزحومة"):
+        fetch("q", client, sleep=waits.append)
+    assert waits == [20, 40]
 
 
 def test_scout_keeps_only_places_without_website_but_with_contact():
@@ -201,3 +224,22 @@ def test_scout_keeps_only_places_without_website_but_with_contact():
     leads = parse_leads(elements, "بنها")
     assert [lead["name"] for lead in leads] == ["مطعم الشيف", "صيدلية النور"]
     assert leads[1]["lat"] == 30.46 and leads[0]["phone"] == "+20 10 0000 0001"
+
+
+
+@pytest.mark.parametrize("utc_hour, ok", [(5, False), (6, True), (14, True), (15, False), (20, False)])
+def test_working_hours_8_to_5_cairo(cfg, utc_hour, ok):
+    from datetime import datetime, timezone
+    from stratix_agents.runtime import within_working_hours
+    # نوفمبر: القاهرة = UTC+2، فـ 6 UTC = 8 الصبح و15 UTC = 5 العصر
+    now = datetime(2026, 11, 11, utc_hour, 30, tzinfo=timezone.utc)
+    assert within_working_hours(cfg.rules, now)[0] is ok
+
+
+def test_outside_hours_nothing_runs(monkeypatch, capsys):
+    from stratix_agents import __main__ as cli
+    monkeypatch.setattr(cli, "within_working_hours", lambda rules: (False, "الساعة 23:00"))
+    called = []
+    monkeypatch.setitem(cli.COMMANDS, "morning", lambda cfg: called.append(1))
+    cli.main(["morning"])
+    assert called == [] and "برّا مواعيد العمل" in capsys.readouterr().out

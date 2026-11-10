@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import httpx
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# السيرفرات العامة بتبقى مزحومة أحيانًا (502/504/429)، فبنجرّب أكتر من واحد
+OVERPASS_URLS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+)
 USER_AGENT = "stratix-agents/0.1 (+https://stratix.website)"
 
 _WEBSITE_TAGS = ("website", "contact:website", "url", "brand:website")
@@ -17,8 +22,10 @@ _EMAIL_TAGS = ("email", "contact:email")
 _SOCIAL_TAGS = ("contact:facebook", "facebook", "contact:instagram", "instagram")
 
 
-def build_query(city_name_en: str, amenities: list[str], include_shops: bool) -> str:
+def build_query(city_names: list[str], amenities: list[str], include_shops: bool) -> str:
+    """المدينة ممكن تكون متسجلة بأكتر من اسم (Banha / Benha / بنها)، فبندوّر بيهم كلهم."""
     amenity_re = "|".join(amenities)
+    names = "|".join(city_names)
     parts = []
     if amenities:
         parts.append(f'  nwr(area.city)["amenity"~"^({amenity_re})$"]["name"];')
@@ -27,7 +34,8 @@ def build_query(city_name_en: str, amenities: list[str], include_shops: bool) ->
     body = "\n".join(parts)
     return (
         "[out:json][timeout:120];\n"
-        f'area["name:en"="{city_name_en}"]["boundary"="administrative"]->.city;\n'
+        f'(area["boundary"="administrative"]["name:en"~"^({names})$"];'
+        f' area["boundary"="administrative"]["name"~"^({names})$"];)->.city;\n'
         f"(\n{body}\n);\n"
         "out tags center;"
     )
@@ -71,13 +79,28 @@ def parse_leads(elements: list[dict], city: str) -> list[dict]:
     return leads
 
 
-def fetch(query: str, http: httpx.Client | None = None) -> list[dict]:
+def fetch(query: str, http: httpx.Client | None = None, sleep=None, rounds: int = 3) -> list[dict]:
+    """بيجرّب كل سيرفر، ولو كلهم مزحومين بيستنى (20 ثم 40 ثانية) ويعيد."""
+    import time
+
     client = http or httpx.Client(timeout=150)
-    response = client.post(
-        OVERPASS_URL, data={"data": query}, headers={"User-Agent": USER_AGENT}
-    )
-    response.raise_for_status()
-    return response.json().get("elements", [])
+    wait = sleep or time.sleep
+    last_error = "مفيش رد"
+    for attempt in range(rounds):
+        for url in OVERPASS_URLS:
+            try:
+                response = client.post(url, data={"data": query}, headers={"User-Agent": USER_AGENT})
+            except httpx.HTTPError as exc:
+                last_error = f"{url}: {type(exc).__name__}"
+                continue
+            if response.status_code in (429, 502, 503, 504):
+                last_error = f"{url}: HTTP {response.status_code} (مزحوم)"
+                continue
+            response.raise_for_status()
+            return response.json().get("elements", [])
+        if attempt < rounds - 1:
+            wait(20 * (attempt + 1))
+    raise RuntimeError(f"سيرفرات الخريطة كلها مزحومة: {last_error}")
 
 
 def run(agent, http: httpx.Client | None = None) -> int:
@@ -86,7 +109,7 @@ def run(agent, http: httpx.Client | None = None) -> int:
     agent.require("osm_search")
     targeting = agent.config.rules["targeting"]
     query = build_query(
-        targeting["city_osm_name_en"],
+        list(targeting.get("city_osm_names") or [targeting.get("city_osm_name_en", "Banha")]),
         list(targeting.get("amenity") or []),
         include_shops=targeting.get("shop") == "any",
     )

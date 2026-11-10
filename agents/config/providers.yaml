@@ -57,7 +57,7 @@ providers:
     api_key_env: ""
     trains_on_free_data: true
     models:
-      openai: { id: openai, rpm: 10, rpd: 2000 }
+      openai: { id: openai, rpm: 3, rpd: 300 }
 
 # لو الأساسي والاحتياطي بتوع الموظف مش متاحين (مفيش مفتاح أو الحد خلص)،
 # الـ router بيجرّب دول بالترتيب. البيانات الحساسة بتتخطى أي مزوّد trains_on_free_data.

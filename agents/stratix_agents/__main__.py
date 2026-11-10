@@ -24,7 +24,7 @@ from . import config as config_mod
 from . import devteam, meeting, notify, report, sales, scout, site, sitedb
 from .mailer import Mailer
 from .router import Halted
-from .runtime import Company, from_env
+from .runtime import Company, from_env, within_working_hours
 
 
 def _mailer(env) -> Mailer | None:
@@ -146,6 +146,29 @@ def cmd_models(cfg: config_mod.Config) -> None:
                 print(f"{m.key:<22} {m.model_id:<42} {mark}")
 
 
+def cmd_probe(cfg: config_mod.Config) -> None:
+    """يجرّب كل مزوّد متاح بطلب صغير ويطبع الرد الخام (للتشخيص)."""
+    with httpx.Client(timeout=60) as http:
+        for p in cfg.providers.values():
+            if p.api_key_env and not os.environ.get(p.api_key_env):
+                print(f"{p.name}: مفيش مفتاح")
+                continue
+            headers = {"Authorization": f"Bearer {os.environ[p.api_key_env]}"} if p.api_key_env else {}
+            url = f"{p.base_url}/openai" if p.base_url.endswith("pollinations.ai") else f"{p.base_url}/chat/completions"
+            m = next(iter(p.models.values()))
+            for json_mode in (False, True):
+                body = {"model": m.model_id, "temperature": 0.2,
+                        "messages": [{"role": "system", "content": "رد بـ JSON فيه say."},
+                                     {"role": "user", "content": "قول أهلا"}]}
+                if json_mode:
+                    body["response_format"] = {"type": "json_object"}
+                try:
+                    r = http.post(url, json=body, headers=headers)
+                    print(f"{m.key} json={json_mode}: HTTP {r.status_code} {r.text[:400]!r}")
+                except httpx.HTTPError as exc:
+                    print(f"{m.key} json={json_mode}: {type(exc).__name__}")
+
+
 def cmd_morning(cfg: config_mod.Config) -> None:
     company = from_env()
     mailer = _mailer(company.env)
@@ -201,7 +224,7 @@ def cmd_inbox(cfg: config_mod.Config) -> None:
 
 COMMANDS = {
     "check": cmd_check, "seed": cmd_seed, "models": cmd_models,
-    "morning": cmd_morning, "evening": cmd_evening, "inbox": cmd_inbox,
+    "probe": cmd_probe, "morning": cmd_morning, "evening": cmd_evening, "inbox": cmd_inbox,
 }
 
 
@@ -209,6 +232,11 @@ def main(argv: list[str]) -> None:
     if len(argv) != 1 or argv[0] not in COMMANDS:
         sys.exit(__doc__)
     cfg = config_mod.load()
+    if argv[0] in ("morning", "evening", "inbox"):
+        ok, why = within_working_hours(cfg.rules)
+        if not ok:
+            print(f"برّا مواعيد العمل — مفيش شغل. {why}")
+            return
     try:
         COMMANDS[argv[0]](cfg)
     except Halted as exc:

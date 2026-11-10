@@ -8,10 +8,17 @@ company:
 
 targeting:
   city: بنها
-  city_osm_name_en: Banha
+  # الأسماء اللي ممكن المدينة تكون متسجلة بيها على OpenStreetMap
+  city_osm_names: [Banha, Benha, بنها]
   # أنواع الأماكن اللي الكشّاف بيدوّر عليها (OpenStreetMap tags)
   amenity: [restaurant, cafe, fast_food, pharmacy, clinic, dentist, doctors]
   shop: any
+
+# مواعيد العمل: برّاها الموظفين مابيشتغلوش خالص (الكود بيرفض أي تشغيل)
+working_hours:
+  timezone: Africa/Cairo
+  start: 8    # 8 الصبح
+  end: 17     # 5 العصر
 
 pricing:
   currency: جنيه
