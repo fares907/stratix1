@@ -3,19 +3,24 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HaltedBanner } from "@/components/KillSwitch";
+import { Avatar, Empty, PageHead, Stat } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Agent, Message } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
 
-const KIND_LABEL: Record<Message["kind"], string> = {
-  speech: "رأي",
-  objection: "اعتراض",
-  decision: "قرار",
-  activity: "شغل",
-  error: "مشكلة",
+const KIND: Record<Message["kind"], { label: string; cls: string }> = {
+  speech: { label: "رأي", cls: "" },
+  objection: { label: "اعتراض", cls: "warn" },
+  decision: { label: "قرار", cls: "signal" },
+  activity: { label: "شغل", cls: "ok" },
+  error: { label: "مشكلة", cls: "danger" },
 };
 
-const CONFIDENCE_LABEL = { high: "متأكد", medium: "متأكد لحد ما", low: "مش متأكد" };
+const CONFIDENCE = {
+  high: { label: "متأكد", cls: "ok" },
+  medium: { label: "متأكد لحد ما", cls: "" },
+  low: { label: "مش متأكد", cls: "warn" },
+};
 
 interface Meeting {
   id: number;
@@ -25,8 +30,12 @@ interface Meeting {
   started_at: string;
 }
 
+const MEETING_KIND: Record<string, string> = { morning: "اجتماع الصبح", evening: "اجتماع آخر اليوم", daily: "اجتماع" };
+
 const time = (iso: string) =>
-  new Date(iso).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" });
+  new Date(iso).toLocaleString("ar-EG", { weekday: "short", hour: "numeric", minute: "2-digit" });
+
+const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
 // غرفة الاجتماعات: كل كلمة قالها أي موظف، لايف، ومين رد على مين.
 export default function MeetingRoom() {
@@ -36,6 +45,9 @@ export default function MeetingRoom() {
   const agents = useLive<Agent>("agents", () => supabase().from("agents").select("*").order("department"));
   const meetings = useLive<Meeting>("meetings", () =>
     supabase().from("meetings").select("*").order("started_at", { ascending: false }).limit(30),
+  );
+  const pending = useLive<{ id: number }>("approvals", () =>
+    supabase().from("approvals").select("id").eq("status", "pending"),
   );
   const messages = useLive<Message>("messages", () => {
     let query = supabase().from("messages").select("*").order("created_at", { ascending: false }).limit(300);
@@ -53,16 +65,32 @@ export default function MeetingRoom() {
     refreshMessages();
   }, [agentFilter, meetingFilter, refreshMessages]);
 
+  const live = meetings.rows.find(m => m.status === "running");
+  const selected = meetings.rows.find(m => String(m.id) === meetingFilter);
+  const active = agents.rows.filter(a => a.status === "active").length;
+
   return (
     <>
       <HaltedBanner />
-      <h1>غرفة الاجتماعات</h1>
+      <PageHead
+        eyebrow="لايف"
+        title="غرفة الاجتماعات"
+        subtitle="كل كلمة قالها أي موظف، ومين رد على مين، وبيفكر في إيه."
+        actions={live ? <span className="chip signal"><span className="dot" /> فيه اجتماع شغّال دلوقتي</span> : undefined}
+      />
 
-      <div className="panel row">
-        <div style={{ flex: 1, minWidth: 180 }}>
-          <label htmlFor="agent">الموظف</label>
+      <div className="stats">
+        <Stat label="موظفين شغّالين" value={`${active} / ${agents.rows.length}`} />
+        <Stat label="كلام النهارده" value={messages.rows.filter(m => isToday(m.created_at)).length} />
+        <Stat label="اجتماعات النهارده" value={meetings.rows.filter(m => isToday(m.started_at)).length} />
+        <Stat label="مستنية موافقتك" value={pending.rows.length} />
+      </div>
+
+      <div className="panel row" style={{ alignItems: "flex-end" }}>
+        <div style={{ flex: "1 1 200px" }}>
+          <label htmlFor="agent" style={{ marginTop: 0 }}>الموظف</label>
           <select id="agent" value={agentFilter} onChange={e => setAgentFilter(e.target.value)}>
-            <option value="">الكل</option>
+            <option value="">كل الموظفين</option>
             {agents.rows.map(a => (
               <option key={a.id} value={a.id}>
                 {a.name} — {a.title}
@@ -70,75 +98,82 @@ export default function MeetingRoom() {
             ))}
           </select>
         </div>
-        <div style={{ flex: 1, minWidth: 180 }}>
-          <label htmlFor="meeting">الاجتماع</label>
+        <div style={{ flex: "1 1 200px" }}>
+          <label htmlFor="meeting" style={{ marginTop: 0 }}>الاجتماع</label>
           <select id="meeting" value={meetingFilter} onChange={e => setMeetingFilter(e.target.value)}>
             <option value="">كل النشاط</option>
             {meetings.rows.map(m => (
               <option key={m.id} value={m.id}>
-                {time(m.started_at)} — {m.status === "running" ? "شغّال دلوقتي" : "خلص"}
+                {MEETING_KIND[m.kind] ?? m.kind} — {time(m.started_at)}
+                {m.status === "running" ? " (شغّال)" : m.status === "failed" ? " (وقف)" : ""}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {meetingFilter && meetings.rows.find(m => String(m.id) === meetingFilter)?.summary && (
-        <div className="panel">
-          <h2>ملخص الاجتماع</h2>
-          <p style={{ whiteSpace: "pre-wrap" }}>
-            {meetings.rows.find(m => String(m.id) === meetingFilter)?.summary}
-          </p>
+      {selected?.summary && (
+        <div className="panel msg decision" style={{ display: "block" }}>
+          <h2>ملخص {MEETING_KIND[selected.kind] ?? "الاجتماع"}</h2>
+          <p className="msg-text">{selected.summary}</p>
         </div>
       )}
 
       <div className="panel">
         {messages.error && <p className="error">{messages.error}</p>}
-        {!messages.loading && messages.rows.length === 0 && <p className="muted">لسه مفيش كلام.</p>}
-        {messages.rows.map(m => {
-          const parent = m.reply_to ? messageById.get(m.reply_to) : undefined;
-          return (
-            <article key={m.id} className={`msg ${m.kind}`}>
-              <div className="row">
-                <strong>{who(m.agent_id)}</strong>
-                <span className="chip">{KIND_LABEL[m.kind]}</span>
-                {m.confidence && (
-                  <span className={`chip ${m.confidence === "low" ? "warn" : ""}`}>
-                    {CONFIDENCE_LABEL[m.confidence]}
-                  </span>
-                )}
-                {m.used_fallback && <span className="chip warn">موديل احتياطي</span>}
-                <span className="muted">{time(m.created_at)}</span>
-                {m.agent_id && (
-                  <Link
-                    href={`/chat?agent=${m.agent_id}&q=${encodeURIComponent(`بخصوص كلامك ده: «${m.content.slice(0, 120)}» — `)}`}
-                    className="muted"
-                  >
-                    اسأله
-                  </Link>
-                )}
-              </div>
-              {m.reply_to && (
-                <div className="reply">
-                  ↩ رد على {parent ? `${who(parent.agent_id)}: «${parent.content.slice(0, 80)}»` : `رسالة #${m.reply_to}`}
-                </div>
-              )}
-              <p style={{ margin: "4px 0", whiteSpace: "pre-wrap" }}>{m.content}</p>
-              {(m.reasoning || (m.unknowns && m.unknowns.length > 0) || m.model_key) && (
-                <details>
-                  <summary>بيفكر في إيه</summary>
-                  {m.reasoning && <p style={{ whiteSpace: "pre-wrap" }}>{m.reasoning}</p>}
-                  {m.unknowns && m.unknowns.length > 0 && (
-                    <p>
-                      مش متأكد من: {m.unknowns.join("، ")}
-                    </p>
+        {!messages.loading && messages.rows.length === 0 && (
+          <Empty icon="✦">لسه مفيش كلام. أول اجتماع بيبدأ الساعة 8 الصبح.</Empty>
+        )}
+        <div className="feed">
+          {messages.rows.map(m => {
+            const parent = m.reply_to ? messageById.get(m.reply_to) : undefined;
+            const agent = m.agent_id ? byId.get(m.agent_id) : undefined;
+            const kind = KIND[m.kind];
+            return (
+              <article key={m.id} className={`msg ${m.kind}`}>
+                <Avatar name={who(m.agent_id)} department={agent?.department} />
+                <div className="msg-body">
+                  <div className="msg-head">
+                    <strong>{who(m.agent_id)}</strong>
+                    {agent && <span className="faint">{agent.title}</span>}
+                    <span className={`chip ${kind.cls}`}>{kind.label}</span>
+                    {m.confidence && <span className={`chip ${CONFIDENCE[m.confidence].cls}`}>{CONFIDENCE[m.confidence].label}</span>}
+                    {m.used_fallback && <span className="chip warn">موديل احتياطي</span>}
+                    <span className="faint" style={{ marginInlineStart: "auto" }}>{time(m.created_at)}</span>
+                  </div>
+                  {m.reply_to && (
+                    <div className="reply">
+                      ↩ رد على {parent ? `${who(parent.agent_id)}: «${parent.content.slice(0, 90)}»` : `رسالة #${m.reply_to}`}
+                    </div>
                   )}
-                  {m.model_key && <p className="muted">الموديل: {m.model_key}</p>}
-                </details>
-              )}
-            </article>
-          );
-        })}
+                  <p className="msg-text">{m.content}</p>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    {(m.reasoning || (m.unknowns && m.unknowns.length > 0)) && (
+                      <details style={{ flex: "1 1 100%" }}>
+                        <summary>بيفكر في إيه</summary>
+                        <div>
+                          {m.reasoning && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{m.reasoning}</p>}
+                          {m.unknowns && m.unknowns.length > 0 && (
+                            <p className="muted" style={{ margin: "6px 0 0" }}>مش متأكد من: {m.unknowns.join("، ")}</p>
+                          )}
+                          {m.model_key && <p className="faint" style={{ margin: "6px 0 0" }} dir="ltr">{m.model_key}</p>}
+                        </div>
+                      </details>
+                    )}
+                    {m.agent_id && (
+                      <Link
+                        className="faint"
+                        href={`/chat?agent=${m.agent_id}&q=${encodeURIComponent(`بخصوص كلامك ده: «${m.content.slice(0, 120)}» — `)}`}
+                      >
+                        ← اسأله عن الكلام ده
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Lead } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -49,8 +50,8 @@ export default function LeadsPage() {
 
   return (
     <>
-      <h1>العملاء المحتملين ({leads.rows.length})</h1>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <PageHead eyebrow="بنها" title={`العملاء المحتملين (${leads.rows.length})`} subtitle="محلات ومطاعم مالهاش موقع، لقاها الكشّاف على الخريطة." />
+      <div className="segmented" style={{ marginBottom: 16 }}>
         <button className={!status ? "primary" : ""} onClick={() => setStatus("")}>
           الكل
         </button>

@@ -4,8 +4,8 @@
 //   فـ RLS بيمنع أي حد مش رئيس مجلس الإدارة.
 // - الموظف بيرد من اللي متسجل فعلًا: كلامه وأسبابه في الاجتماعات، الأفكار وقرارات المدير
 //   فيها، مهامه، آخر اجتماع، وآخر تقرير. لو السبب مش متسجل بيقول كده.
-// - الموديل: الأساسي ثم الاحتياطي (لو مفاتيحهم متحطة كـ secrets هنا)، وبعدهم
-//   الاحتياطي العام المجاني من غير مفتاح. البيانات الحساسة مابتروحش لمزوّد بيحتفظ بالبيانات.
+// - الموديل: الأساسي ثم الاحتياطي، وبعدهم Groq، وآخر حاجة المجاني اللي من غير مفتاح.
+//   المفاتيح من Supabase Vault. البيانات الحساسة مابتروحش لمزوّد بيحتفظ بالبيانات.
 // - زرار إيقاف الكل بيوقف الشات كمان.
 // - اللي رئيس مجلس الإدارة بيقوله بيتسجل، والموظف بياخده في الاجتماع الجاي.
 
@@ -19,7 +19,24 @@ const KEY_ENV: Record<string, string> = {
   github: "GITHUB_MODELS_TOKEN",
   pollinations: "",
 };
-const LAST_RESORT = ["pollinations:openai"];
+const LAST_RESORT = ["groq:big", "groq:small", "pollinations:openai"];
+
+// مفاتيح الموديلات متخزّنة مشفّرة في Supabase Vault؛ بنقراها بمفتاح service_role
+// اللي موجود جوه الـ edge function بس (عمره ما بيوصل للمتصفح).
+const keyCache = new Map<string, string | null>();
+async function modelKey(name: string): Promise<string | null> {
+  if (Deno.env.get(name)) return Deno.env.get(name)!;
+  if (keyCache.has(name)) return keyCache.get(name)!;
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/agent_secret`, {
+    method: "POST",
+    headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ secret_name: name }),
+  });
+  const value = res.ok ? ((await res.json()) as string | null) : null;
+  keyCache.set(name, value);
+  return value;
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -128,7 +145,7 @@ Deno.serve(async (req) => {
   const reasons: string[] = [];
   for (const [index, model] of chain.entries()) {
     const keyEnv = KEY_ENV[model.provider];
-    const apiKey = keyEnv ? Deno.env.get(keyEnv) : "";
+    const apiKey = keyEnv ? await modelKey(keyEnv) : "";
     if (keyEnv === undefined || (keyEnv && !apiKey) || !model.base_url) { reasons.push(`${model.key}: مفيش مفتاح`); continue; }
     if (agent.sensitive && model.trains_on_free_data) { reasons.push(`${model.key}: بيانات حساسة`); continue; }
 
@@ -170,7 +187,7 @@ Deno.serve(async (req) => {
   }
 
   const hint = agent.sensitive
-    ? " (الموظف ده شغال على بيانات عملاء وفلوس، فمابيستخدمش الموديل المجاني اللي من غير مفتاح. كلّمه بعد ما يتحط مفتاح Groq.)"
+    ? " (الموظف ده شغال على بيانات عملاء وفلوس، فمابيستخدمش الموديل المجاني اللي من غير مفتاح.)"
     : "";
   return fail(`${agent.name} مش قادر يرد دلوقتي — ${reasons.join("؛ ") || "مفيش موديل متاح"}${hint}`, 503);
 });

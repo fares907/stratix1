@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Lead } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -54,8 +55,8 @@ export default function MailPage() {
 
   return (
     <>
-      <h1>البريد والرسايل</h1>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <PageHead eyebrow="المبيعات" title="البريد والرسايل" subtitle="كل رسالة الموظفين بعتوها، وكل رد وصل، ورسايل الواتساب الجاهزة." />
+      <div className="segmented" style={{ marginBottom: 16 }}>
         <button className={tab === "all" ? "primary" : ""} onClick={() => setTab("all")}>الكل</button>
         <button className={tab === "in" ? "primary" : ""} onClick={() => setTab("in")}>ردود العملاء ({count("in")})</button>
         <button className={tab === "whatsapp" ? "primary" : ""} onClick={() => setTab("whatsapp")}>واتساب جاهزة ({count("whatsapp")})</button>

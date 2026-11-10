@@ -56,7 +56,7 @@ def test_router_uses_primary(cfg):
     def handler(req):
         seen.append(json.loads(req.content)["model"])
         return _reply("أهلا")
-    result = make_router(cfg, store, handler).complete("ceo", [], chain=["gemini:pro", "groq:llama70b"])
+    result = make_router(cfg, store, handler).complete("ceo", [], chain=["gemini:pro", "groq:big"])
     assert result.text == "أهلا" and not result.used_fallback
     assert seen == ["gemini-2.5-pro"]
     assert store.tables["llm_calls"][0]["status"] == "ok"
@@ -72,11 +72,11 @@ def test_router_falls_back_on_429_and_cools_down(cfg):
             return httpx.Response(429, headers={"retry-after": "120"})
         return _reply("احتياطي")
     router = make_router(cfg, store, handler)
-    chain = ["gemini:pro", "groq:llama70b"]
+    chain = ["gemini:pro", "groq:big"]
     assert router.complete("ceo", [], chain=chain).used_fallback
     router.complete("ceo", [], chain=chain)
     # تاني مرة مايحاولش في gemini لأنه موقوف 120 ثانية
-    assert seen == ["gemini-2.5-pro", "llama-3.3-70b-versatile", "llama-3.3-70b-versatile"]
+    assert seen == ["gemini-2.5-pro", "openai/gpt-oss-120b", "openai/gpt-oss-120b"]
 
 
 def test_router_respects_daily_limit(cfg):
@@ -84,7 +84,7 @@ def test_router_respects_daily_limit(cfg):
     router = make_router(cfg, store, lambda req: _reply())
     spec = cfg.model("gemini:pro")
     router.tracker.seed(spec.key, spec.rpd)
-    assert router.complete("ceo", [], chain=["gemini:pro", "groq:llama70b"]).used_fallback
+    assert router.complete("ceo", [], chain=["gemini:pro", "groq:big"]).used_fallback
 
 
 def test_router_with_no_keys_falls_back_to_keyless_provider(cfg):
@@ -92,26 +92,27 @@ def test_router_with_no_keys_falls_back_to_keyless_provider(cfg):
     def handler(req):
         seen.append((str(req.url), req.headers.get("authorization")))
         return _reply("أهلا")
-    result = make_router(cfg, MemoryStore(), handler, env={}).complete("ceo", [], chain=["gemini:pro", "groq:llama70b"])
+    result = make_router(cfg, MemoryStore(), handler, env={}).complete("ceo", [], chain=["gemini:pro", "cerebras:llama70b"])
     assert result.model_key == "pollinations:openai" and result.used_fallback
     assert seen == [("https://text.pollinations.ai/openai", None)]
 
 
-def test_router_uses_github_models_with_actions_token(cfg):
+def test_router_reaches_groq_through_the_gateway_without_a_local_key(cfg):
     seen = []
     def handler(req):
-        seen.append(str(req.url))
+        seen.append((str(req.url), req.headers.get("authorization")))
         return _reply()
-    result = make_router(cfg, MemoryStore(), handler, env={"GITHUB_TOKEN": "t"}).complete(
-        "support", [], chain=["groq:llama70b", "cerebras:llama70b"], sensitive=True)
-    assert result.model_key == "github:mini"
-    assert seen == ["https://models.github.ai/inference/chat/completions"]
+    router = ModelRouter(cfg, MemoryStore(), env={}, http=httpx.Client(transport=httpx.MockTransport(handler)),
+                         gateway=("https://gw.example/functions/v1/agents-gateway", lambda: "oidc-token"))
+    result = router.complete("finance", [], chain=["groq:big", "cerebras:llama70b"], sensitive=True)
+    assert result.model_key == "groq:big" and not result.used_fallback
+    assert seen == [("https://gw.example/functions/v1/agents-gateway/llm/groq/chat/completions", "Bearer oidc-token")]
 
 
 def test_sensitive_request_with_no_private_provider_raises(cfg):
     router = make_router(cfg, MemoryStore(), lambda req: _reply(), env={})
     with pytest.raises(AllModelsUnavailable) as err:
-        router.complete("support", [], chain=["groq:llama70b", "cerebras:llama70b"], sensitive=True)
+        router.complete("support", [], chain=["groq:big", "cerebras:llama70b"], sensitive=True)
     assert "حساسة" in err.value.reasons["pollinations:openai"]
 
 
@@ -121,9 +122,9 @@ def test_sensitive_request_never_reaches_training_provider(cfg):
         seen.append(json.loads(req.content)["model"])
         return _reply()
     make_router(cfg, MemoryStore(), handler).complete(
-        "support", [], chain=["gemini:flash", "groq:llama70b"], sensitive=True
+        "support", [], chain=["gemini:flash", "groq:big"], sensitive=True
     )
-    assert seen == ["llama-3.3-70b-versatile"]
+    assert seen == ["openai/gpt-oss-120b"]
 
 
 def test_kill_switch_stops_router(cfg):
@@ -152,7 +153,7 @@ def test_agent_records_speech_and_checks_status(cfg):
     out = agent.think("إيه الخطة؟", meeting_id=1)
     msg = store.tables["messages"][0]
     assert out["say"] == msg["content"] == "نبدأ ببنها"
-    assert msg["model_key"] == "gemini:pro"
+    assert msg["model_key"] == "groq:big"
 
     store.insert("agents", {"id": "ceo", "status": "paused"})
     with pytest.raises(AgentInactive):

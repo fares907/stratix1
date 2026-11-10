@@ -22,9 +22,11 @@ providers:
   groq:
     base_url: https://api.groq.com/openai/v1
     api_key_env: GROQ_API_KEY
+    via_gateway: true   # المفتاح في Supabase Vault (GROQ_API_KEY)
     models:
-      llama70b: { id: llama-3.3-70b-versatile, rpm: 30, rpd: 1000 }
-      llama8b:  { id: llama-3.1-8b-instant,    rpm: 30, rpd: 14400 }
+      # الأسماء دي اتأكدنا منها من قائمة Groq نفسها (نوفمبر 2026)
+      big:   { id: openai/gpt-oss-120b, rpm: 30, rpd: 1000 }
+      small: { id: openai/gpt-oss-20b,  rpm: 30, rpd: 1000 }
 
   cerebras:
     base_url: https://api.cerebras.ai/v1
@@ -41,24 +43,16 @@ providers:
       llama70b: { id: "meta-llama/llama-3.3-70b-instruct:free", rpm: 20, rpd: 50 }
       coder:    { id: "qwen/qwen3-coder:free",                  rpm: 20, rpd: 50 }
 
-  # GitHub Models: مجاني من جوه GitHub Actions بالـ GITHUB_TOKEN (من غير أي مفتاح منك)،
-  # وGitHub مابيستخدمش البيانات في التدريب.
-  github:
-    base_url: https://models.github.ai/inference
-    api_key_env: GITHUB_TOKEN
-    models:
-      mini: { id: openai/gpt-4.1-mini, rpm: 15, rpd: 150 }
-      big:  { id: openai/gpt-4.1,      rpm: 10, rpd: 50 }
-
-  # Pollinations: مجاني ومن غير مفتاح خالص. مش مضمون، وممكن يحتفظ بالبيانات،
-  # فمابيستخدموش غير الموظفين اللي مش sensitive.
+  # Pollinations: مجاني ومن غير مفتاح خالص، بس رد واحد كل 45 ثانية، وممكن يحتفظ
+  # بالبيانات، فهو آخر احتياطي للموظفين اللي مش sensitive بس.
   pollinations:
     base_url: https://text.pollinations.ai
     api_key_env: ""
     trains_on_free_data: true
     models:
-      openai: { id: openai, rpm: 3, rpd: 300 }
+      openai: { id: openai, rpm: 1, rpd: 300 }
 
+# مفتاح Groq متخزّن في Supabase Vault؛ الـ agents بيوصلوله عن طريق agents-gateway.
 # لو الأساسي والاحتياطي بتوع الموظف مش متاحين (مفيش مفتاح أو الحد خلص)،
 # الـ router بيجرّب دول بالترتيب. البيانات الحساسة بتتخطى أي مزوّد trains_on_free_data.
-last_resort: [github:mini, github:big, pollinations:openai]
+last_resort: [groq:big, groq:small, pollinations:openai]

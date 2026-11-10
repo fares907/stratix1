@@ -30,6 +30,7 @@ class ProviderSpec:
     api_key_env: str
     trains_on_free_data: bool
     models: dict[str, ModelSpec]
+    via_gateway: bool = False  # المفتاح في Supabase Vault، والطلب بيعدّي على agents-gateway
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,7 @@ def parse_providers(raw: dict) -> dict[str, ProviderSpec]:
             api_key_env=str(p.get("api_key_env") or ""),
             trains_on_free_data=bool(p.get("trains_on_free_data", False)),
             models=models,
+            via_gateway=bool(p.get("via_gateway", False)),
         )
     return providers
 
