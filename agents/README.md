@@ -31,7 +31,7 @@
 
 ## قواعد ثابتة في الكود (مش في الـ prompt بس)
 
-- **إيقاف الكل:** من اللوحة، أو اكتب `/stop` في تليجرام. أي طلب للموديل وأي إرسال وأي أداة بيقفوا. ولو قاعدة البيانات مش بترد، الكل بيقف.
+- **إيقاف الكل:** من اللوحة. أي طلب للموديل وأي إرسال وأي أداة بيقفوا. ولو قاعدة البيانات مش بترد، الكل بيقف.
 - **الرسايل** بتتبعت أوتوماتيك، إلا لو فيها **سعر برّا 2000–3000 جنيه، أو ميعاد تسليم، أو خصم أو ضمان**. ساعتها بتروح لصندوق موافقاتك.
 - **حد يومي** للإيميلات (15 في اليوم)، وفي آخر كل رسالة طريقة لإلغاء الاشتراك، واللي يلغي مابنكلموش تاني أبدًا.
 - **الصلاحيات:** أي موظف يحاول يستخدم أداة مش بتاعته الكود بيرفض. المالية بتقرا بس. فريق التطوير مايقدرش يعمل merge.
@@ -42,35 +42,22 @@
 
 المحلات اللي عندها رقم بس رسايلها بتبقى **جاهزة** في صفحة **البريد**، وجنبها زرار "افتح في واتساب" بيفتح المحادثة والرسالة مكتوبة. إرسال واتساب أوتوماتيك من غير WhatsApp Business API الرسمي بيعرّض رقمك للحظر.
 
-## التشغيل لأول مرة
+## إزاي كله متوصّل (مفيش مفاتيح مطلوبة منك)
 
-### 1. Supabase (قاعدة البيانات)
-1. اعمل مشروع مجاني على supabase.com.
-2. من **SQL Editor** شغّل ملفات `supabase/migrations/` بالترتيب (0001 ← 0005)، كل ملف مرة واحدة.
-3. من **Authentication → Users** اعمل حساب لنفسك، وبعدين في SQL Editor شغّل:
-   `insert into owners (user_id) select id from auth.users where email = 'إيميلك';`
+| الجزء | فين | إزاي بيتوصل من غير مفاتيح |
+|---|---|---|
+| لوحة التحكم | `https://stratix.website/hq` | الموقع بيبنيها ويعرضها مع كل deploy على Railway |
+| تسجيل الدخول والداتا | Supabase (`stratix-hq`) | Supabase Auth + RLS (رئيس مجلس الإدارة بس) |
+| الموظفين | GitHub Actions (`agents.yml`) | توكن هوية من GitHub ← edge function `agents-gateway` |
+| الموديلات | GitHub Models، وبعده مزوّد مجاني | `GITHUB_TOKEN` بتاع الـ workflow، أو من غير مفتاح |
+| الشات | edge function `agent-chat` | بجلسة رئيس مجلس الإدارة نفسها |
 
-### 2. المفاتيح (كلها مجانية)
-- **Gemini:** aistudio.google.com
-- **Groq:** console.groq.com
-- **Cerebras:** cloud.cerebras.ai
-- **OpenRouter:** openrouter.ai
-- **Gmail:** فعّل 2-Step Verification، وبعدين اعمل **App password** (يفضّل يكون إيميل مخصوص للشغل ده).
-- **تليجرام:** اعمل بوت من @BotFather عشان تاخد التوكن، وابعت للبوت رسالة، وبعدين اعرف رقم الشات بتاعك من `https://api.telegram.org/bot<TOKEN>/getUpdates`.
-- **قاعدة بيانات الموقع:** اعمل في TiDB مستخدم **قراية بس** (الأوامر في أول `stratix_agents/sitedb.py`).
+كود الـ edge functions موجود في `supabase/functions/`، وملفات قاعدة البيانات في `supabase/migrations/` (0001 ← 0006).
 
-### 3. GitHub Secrets
-من **Settings → Secrets and variables → Actions** ضيف:
-`SUPABASE_URL`، `SUPABASE_SERVICE_ROLE_KEY`، `GEMINI_API_KEY`، `GROQ_API_KEY`، `CEREBRAS_API_KEY`، `OPENROUTER_API_KEY`، `GMAIL_ADDRESS`، `GMAIL_APP_PASSWORD`، `TELEGRAM_BOT_TOKEN`، `TELEGRAM_CHAT_ID`، `SITE_DATABASE_URL`.
-
-### 4. لوحة التحكم
-1. ارفع فولدر `agents/dashboard` على Cloudflare Pages أو Vercel أو Railway، وخلّي الـ root directory هو `agents/dashboard`.
-2. حط المتغيرات اللي في `dashboard/.env.example`.
-3. اربط تليجرام باللوحة مرة واحدة:
-   `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<رابط اللوحة>/api/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>`
-
-### 5. أول تشغيل
-من **Actions → Agents → Run workflow** اختار `morning`. التشغيل المجدول نفسه بيشتغل بعد ما الشغل يتعمله merge على `main`.
+### حاجات اختيارية بتحسّن الشغل
+- **Gmail App Password** (`GMAIL_ADDRESS` و`GMAIL_APP_PASSWORD` في GitHub Secrets): من غيرهم الموظفين بيجهّزوا رسايل واتساب بس، ومش بيبعتوا إيميلات.
+- **مفاتيح Groq/Gemini/Cerebras/OpenRouter** في GitHub Secrets: موديلات أقوى وحدود أعلى. ولو اتحطت كـ secrets للـ edge function `agent-chat`، الشات هيقدر يكلّم الموظفين اللي شغالين على بيانات حساسة.
+- **تليجرام** (`TELEGRAM_BOT_TOKEN` و`TELEGRAM_CHAT_ID`): التقرير اليومي يوصلك على الموبايل.
 
 ## على جهازك (اختياري)
 
