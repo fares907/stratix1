@@ -62,6 +62,7 @@ class ModelRouter:
         http: httpx.Client | None = None,
         tracker: RateTracker | None = None,
         clock: Callable[[], float] = time.monotonic,
+        gateway: tuple[str, Callable[[], str]] | None = None,
     ):
         self.config = config
         self.store = store
@@ -69,12 +70,15 @@ class ModelRouter:
         self.http = http or httpx.Client(timeout=90)
         self.tracker = tracker or RateTracker()
         self._clock = clock
+        # (عنوان agents-gateway، دالة توكن OIDC): للمزوّدين اللي مفاتيحهم في Vault
+        self.gateway = gateway
         for key, count in store.usage_today().items():
             self.tracker.seed(key, count)
 
     def _skip_reason(self, spec: ModelSpec, sensitive: bool) -> str | None:
         provider = self.config.providers[spec.provider]
-        if provider.api_key_env and not self.env.get(provider.api_key_env):
+        has_key = not provider.api_key_env or self.env.get(provider.api_key_env)
+        if not has_key and not (provider.via_gateway and self.gateway):
             return f"مفيش مفتاح ({provider.api_key_env})"
         if sensitive and provider.trains_on_free_data:
             return "بيانات حساسة — المزوّد ده ممنوع"
@@ -114,12 +118,10 @@ class ModelRouter:
 
             self.tracker.record(spec)
             started = self._clock()
-            headers = {"Authorization": f"Bearer {self.env[provider.api_key_env]}"} if provider.api_key_env else {}
+            url, headers = self._endpoint(provider)
             try:
                 response = self.http.post(
-                    f"{provider.base_url}/chat/completions"
-                    if not provider.base_url.endswith("pollinations.ai")
-                    else f"{provider.base_url}/openai",
+                    url,
                     json=body,
                     headers=headers,
                 )
@@ -158,6 +160,16 @@ class ModelRouter:
             return result
 
         raise AllModelsUnavailable(reasons)
+
+    def _endpoint(self, provider) -> tuple[str, dict[str, str]]:
+        path = "/openai" if provider.base_url.endswith("pollinations.ai") else "/chat/completions"
+        if not provider.api_key_env:
+            return provider.base_url + path, {}
+        key = self.env.get(provider.api_key_env)
+        if key:
+            return provider.base_url + path, {"Authorization": f"Bearer {key}"}
+        base, token_fn = self.gateway  # via_gateway (اتأكدنا في _skip_reason)
+        return f"{base}/llm/{provider.name}/chat/completions", {"Authorization": f"Bearer {token_fn()}"}
 
     def _log(
         self,

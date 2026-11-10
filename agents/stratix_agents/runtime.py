@@ -62,7 +62,9 @@ def from_env() -> Company:
     if url and key:
         store = SupabaseStore(url, key)
     elif gateway and os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
-        store = SupabaseStore(gateway, token_fn=GitHubOIDC())
+        token_fn = GitHubOIDC()
+        store = SupabaseStore(gateway, token_fn=token_fn)
+        return Company(cfg, store, ModelRouter(cfg, store, gateway=(gateway, token_fn)))
     else:
         sys.exit("لازم SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY، أو SUPABASE_GATEWAY_URL من جوه GitHub Actions")
     return Company(cfg, store, ModelRouter(cfg, store))

@@ -14,8 +14,8 @@ agents:
     name: نادر
     title: المدير التنفيذي
     department: management
-    primary: gemini:pro
-    fallback: groq:llama70b
+    primary: groq:big
+    fallback: gemini:pro
     tools: [read_all, assign_task, request_approval, write_report]
     duties:
       - يدير الاجتماع اليومي ويطلع بقرار واضح
@@ -26,7 +26,7 @@ agents:
     name: سلمى
     title: الناقدة والمراجِعة
     department: management
-    primary: gemini:flash
+    primary: groq:big
     fallback: openrouter:llama70b
     tools: [read_all]
     duties:
@@ -38,7 +38,7 @@ agents:
     name: كريم
     title: الكشّاف
     department: sales
-    primary: groq:llama8b
+    primary: groq:small
     fallback: cerebras:llama8b
     tools: [osm_search, write_leads]
     duties:
@@ -48,7 +48,7 @@ agents:
     name: هاني
     title: مؤهِّل العملاء
     department: sales
-    primary: groq:llama8b
+    primary: groq:small
     fallback: cerebras:llama8b
     tools: [read_leads, web_check, update_leads]
     duties:
@@ -58,8 +58,8 @@ agents:
     name: ليلى
     title: كاتبة الرسايل
     department: sales
-    primary: gemini:flash
-    fallback: groq:llama70b
+    primary: groq:big
+    fallback: gemini:flash
     tools: [read_leads, draft_message]
     duties:
       - تكتب رسالة مخصصة بالعامية المصرية لكل محل
@@ -68,7 +68,7 @@ agents:
     name: عمر
     title: مسؤول الإرسال والمتابعة
     department: sales
-    primary: groq:llama70b
+    primary: groq:big
     fallback: cerebras:llama70b
     tools: [read_leads, send_message, draft_message]
     sensitive: true
@@ -79,7 +79,7 @@ agents:
     name: منى
     title: خدمة العملاء
     department: sales
-    primary: groq:llama70b
+    primary: groq:big
     fallback: cerebras:llama70b
     tools: [read_inbox, send_message, request_approval]
     sensitive: true
@@ -91,7 +91,7 @@ agents:
     name: مصطفى
     title: مدير المشاريع
     department: operations
-    primary: groq:llama70b
+    primary: groq:big
     fallback: cerebras:llama70b
     tools: [read_site_db, assign_task]
     sensitive: true
@@ -102,7 +102,7 @@ agents:
     name: طارق
     title: المدير المالي
     department: operations
-    primary: groq:llama70b
+    primary: groq:big
     fallback: cerebras:llama70b
     tools: [read_site_db]
     sensitive: true
@@ -114,7 +114,7 @@ agents:
     name: يوسف
     title: مراقب الموقع
     department: site
-    primary: groq:llama8b
+    primary: groq:small
     fallback: cerebras:llama8b
     tools: [web_check]
     duties:
@@ -124,8 +124,8 @@ agents:
     name: زياد
     title: مسؤول السايبر سيكيوريتي
     department: site
-    primary: gemini:flash
-    fallback: groq:llama70b
+    primary: groq:big
+    fallback: gemini:flash
     tools: [web_check, read_repo, read_site_db]
     duties:
       - يراقب الـ headers والـ SSL وثغرات المكتبات ومحاولات دخول الأدمن
@@ -134,7 +134,7 @@ agents:
     name: نور
     title: محللة الزوار
     department: site
-    primary: groq:llama8b
+    primary: groq:small
     fallback: cerebras:llama8b
     tools: [read_site_db]
     duties:
@@ -144,7 +144,7 @@ agents:
     name: رامي
     title: مسؤول الاشتراكات والبنية
     department: site
-    primary: groq:llama8b
+    primary: groq:small
     fallback: cerebras:llama8b
     tools: [read_infra]
     duties:
@@ -155,7 +155,7 @@ agents:
     name: أحمد
     title: المطوّر
     department: dev
-    primary: gemini:pro
+    primary: groq:big
     fallback: openrouter:coder
     tools: [read_repo, open_pull_request]
     duties:
@@ -165,8 +165,8 @@ agents:
     name: رنا
     title: مراجعة الكود والاختبارات
     department: dev
-    primary: gemini:flash
-    fallback: groq:llama70b
+    primary: groq:big
+    fallback: gemini:flash
     tools: [read_repo, comment_pull_request]
     duties:
       - تراجع كل PR وتتأكد إن الاختبارات عدّت
