@@ -82,7 +82,7 @@ function ChatRoom() {
     <>
       <h1>كلّم الموظفين</h1>
       <div className="row" style={{ alignItems: "stretch", flexWrap: "wrap" }}>
-        <aside className="panel" style={{ flex: "1 1 200px", maxWidth: 280 }}>
+        <aside className="panel agent-list" style={{ flex: "1 1 200px", maxWidth: 280 }}>
           {agents.rows.map(a => (
             <button
               key={a.id}
@@ -96,7 +96,7 @@ function ChatRoom() {
           ))}
         </aside>
 
-        <section className="panel" style={{ flex: "3 1 320px", display: "flex", flexDirection: "column", minHeight: 480 }}>
+        <section className="panel chat-window" style={{ flex: "3 1 320px", display: "flex", flexDirection: "column", minHeight: 480 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
             <strong>{agent ? `${agent.name} — ${agent.title}` : agentId}</strong>
             {agent?.status === "paused" && <span className="chip warn">موقوف مؤقتًا</span>}

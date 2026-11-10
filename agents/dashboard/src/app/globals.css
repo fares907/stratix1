@@ -105,3 +105,25 @@ details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
 .bar { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--accent); }
 .bar > span.full { background: var(--danger); }
+
+/* ── الموبايل ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .shell { padding: 12px; }
+  .topbar { gap: 8px; }
+  /* القائمة سطر واحد بيتسحب بالعرض بدل 4 سطور */
+  .topbar nav {
+    order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .topbar nav::-webkit-scrollbar { display: none; }
+  .topbar nav a { white-space: nowrap; flex: 0 0 auto; }
+  /* قائمة الموظفين في الشات: صف بيتسحب بالعرض فوق المحادثة */
+  .agent-list {
+    display: flex; gap: 6px; overflow-x: auto; max-width: none !important;
+    flex: 1 1 100% !important; padding: 8px;
+  }
+  .agent-list button { flex: 0 0 auto; width: auto !important; margin: 0 !important; white-space: nowrap; }
+  .chat-window { min-height: 70vh !important; }
+  h1 { font-size: 1.15rem; }
+  .panel { padding: 12px; }
+}
