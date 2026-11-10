@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Agent } from "@/lib/types";
@@ -59,7 +60,25 @@ export default function IdeasPage() {
               </div>
               <p style={{ margin: "6px 0" }}>💡 {p.idea}</p>
               {p.ceo_reason && <p className="muted">المدير: {p.ceo_reason}</p>}
-              <div className="muted">{new Date(p.created_at).toLocaleString("ar-EG")}</div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">{new Date(p.created_at).toLocaleString("ar-EG")}</span>
+                <span className="row">
+                  <Link
+                    className="btn"
+                    href={`/chat?agent=ceo&q=${encodeURIComponent(
+                      `ليه ${p.status === "approved" ? "وافقت على" : p.status === "rejected" ? "رفضت" : "لسه ماقررتش في"} فكرة ${names.get(p.agent_id) ?? p.agent_id} (#${p.id}): «${p.idea.slice(0, 120)}»؟`,
+                    )}`}
+                  >
+                    اسأل المدير
+                  </Link>
+                  <Link
+                    className="btn"
+                    href={`/chat?agent=${p.agent_id}&q=${encodeURIComponent(`احكيلي أكتر عن فكرتك: «${p.idea.slice(0, 120)}»`)}`}
+                  >
+                    اسأل صاحب الفكرة
+                  </Link>
+                </span>
+              </div>
             </div>
           ))}
         </section>

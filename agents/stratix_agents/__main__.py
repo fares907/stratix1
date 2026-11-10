@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import traceback
@@ -114,12 +115,16 @@ def cmd_seed(cfg: config_mod.Config) -> None:
         {
             "key": m.key, "provider": p.name, "model_id": m.model_id,
             "rpm": m.rpm, "rpd": m.rpd, "trains_on_free_data": p.trains_on_free_data,
+            "base_url": p.base_url,
         }
         for p in cfg.providers.values()
         for m in p.models.values()
     ]
     store.upsert("model_catalog", catalog, on_conflict="key")
     print(f"قائمة الموديلات: {len(catalog)}")
+    # التواريخ (renews_on) بتتحول نص عشان JSON
+    rules = json.loads(json.dumps(cfg.rules, default=str))
+    store.upsert("company_settings", [{"key": "rules", "value": rules}], on_conflict="key")
 
 
 def cmd_models(cfg: config_mod.Config) -> None:

@@ -66,11 +66,15 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
             if agent.spec.id in ("ceo", "critic"):
                 continue
             my_tasks = [t["title"] for t in open_tasks if t.get("agent_id") == agent.spec.id]
+            owner_said = [c["content"] for c in store.select("chats", agent_id=agent.spec.id)
+                          if c.get("role") == "owner"][-3:]
             prompt = (
                 f"المدير قال: {opening['say']}\n\n"
                 f"الأرقام الحقيقية عن شغلك (ماتغيّرهاش وماتزودش عليها):\n"
                 f"{facts.get(agent.spec.id) or facts.get(agent.spec.department) or 'مفيش بيانات عن شغلك لسه.'}\n"
-                f"مهامك المفتوحة: {my_tasks or 'مفيش'}\n\n"
+                f"مهامك المفتوحة: {my_tasks or 'مفيش'}\n"
+                + (f"رئيس مجلس الإدارة قالك مؤخرًا في الشات (خده في اعتبارك): {owner_said}\n" if owner_said else "")
+                + "\n"
                 "اعرض شغلك في 3 سطور بالكتير: عملت إيه، فيه مشكلة إيه، ومحتاج إيه."
                 " لو مفيش بيانات قول كده بصراحة.\n"
                 "ولو عندك فكرة واحدة واقعية تخلي الشركة أحسن (في حدود القوانين والأدوات اللي عندك)"

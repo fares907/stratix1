@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HaltedBanner } from "@/components/KillSwitch";
 import { supabase } from "@/lib/supabase";
@@ -108,6 +109,14 @@ export default function MeetingRoom() {
                 )}
                 {m.used_fallback && <span className="chip warn">موديل احتياطي</span>}
                 <span className="muted">{time(m.created_at)}</span>
+                {m.agent_id && (
+                  <Link
+                    href={`/chat?agent=${m.agent_id}&q=${encodeURIComponent(`بخصوص كلامك ده: «${m.content.slice(0, 120)}» — `)}`}
+                    className="muted"
+                  >
+                    اسأله
+                  </Link>
+                )}
               </div>
               {m.reply_to && (
                 <div className="reply">
