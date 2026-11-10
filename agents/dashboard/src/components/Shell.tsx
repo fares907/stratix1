@@ -8,9 +8,12 @@ import { supabase } from "@/lib/supabase";
 
 const LINKS = [
   { href: "/", label: "غرفة الاجتماعات" },
-  { href: "/team", label: "الموظفين" },
+  { href: "/ideas", label: "الأفكار والقرارات" },
+  { href: "/reports", label: "التقارير" },
   { href: "/approvals", label: "الموافقات" },
+  { href: "/mail", label: "البريد" },
   { href: "/leads", label: "العملاء المحتملين" },
+  { href: "/team", label: "الموظفين" },
   { href: "/usage", label: "استهلاك الموديلات" },
 ];
 

@@ -124,6 +124,7 @@ def parse_reply(completion: Completion) -> dict:
     confidence = data.get("confidence")
     unknowns = data.get("unknowns") or []
     return {
+        **data,  # أي حقول زيادة طلبناها (ask، tasks، ...)
         "say": str(data.get("say", "")).strip(),
         "reasoning": str(data.get("reasoning", "")).strip(),
         "confidence": confidence if confidence in ("high", "medium", "low") else "low",

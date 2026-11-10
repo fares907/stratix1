@@ -1,32 +1,92 @@
 """أوامر التشغيل:
 
-  python -m stratix_agents check    يتأكد إن ملفات config سليمة
-  python -m stratix_agents seed     ينسخ الفريق من team.yaml لـ Supabase (الجداد بس)
-  python -m stratix_agents models   يسأل كل مزوّد عن الموديلات المتاحة فعلًا
-  python -m stratix_agents scout    يشغّل الكشّاف
+  python -m stratix_agents check     يتأكد إن ملفات config سليمة
+  python -m stratix_agents seed      ينسخ الفريق وقائمة الموديلات لـ Supabase
+  python -m stratix_agents models    يسأل كل مزوّد عن الموديلات المتاحة فعلًا
+  python -m stratix_agents morning   يوم الشغل: كشّاف ← فحص الموقع ← اجتماع ← رسايل ← GitHub
+  python -m stratix_agents evening   اجتماع آخر اليوم ← التقرير اليومي ← تليجرام
+  python -m stratix_agents inbox     يقرا الردود وينفّذ الموافقات (كل ساعتين)
+
+كل خطوة مستقلة: لو واحدة وقعت، الباقي بيكمل، والخطأ بيتسجل في غرفة الاجتماعات.
 """
 
 from __future__ import annotations
 
 import os
 import sys
+import traceback
+from pathlib import Path
 
 import httpx
 
 from . import config as config_mod
-from . import scout
-from .agent import Agent
-from .router import Halted, ModelRouter
-from .store import SupabaseStore
+from . import devteam, meeting, notify, report, sales, scout, site, sitedb
+from .mailer import Mailer
+from .router import Halted
+from .runtime import Company, from_env
 
 
-def _store() -> SupabaseStore:
-    url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        sys.exit("لازم SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY في البيئة")
-    return SupabaseStore(url, key)
+def _mailer(env) -> Mailer | None:
+    address, password = env.get("GMAIL_ADDRESS"), env.get("GMAIL_APP_PASSWORD")
+    return Mailer(address, password.replace(" ", "")) if address and password else None
 
 
+def _step(company: Company, name: str, fn, *args):
+    """خطوة واحدة؛ الفشل يتسجل ومايوقفش اليوم كله (إلا زرار الإيقاف)."""
+    try:
+        result = fn(*args)
+        print(f"✓ {name}: {result if result is not None else 'تمام'}")
+        return result
+    except Halted:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"✗ {name}: {exc}")
+        traceback.print_exc()
+        try:
+            company.store.insert("messages", {"agent_id": None, "kind": "error",
+                                              "content": f"خطوة {name} وقعت: {type(exc).__name__}: {exc}"[:2000]})
+        except Exception:  # noqa: BLE001
+            pass
+        return None
+
+
+def _site_db_facts(company: Company) -> dict[str, str]:
+    url = company.env.get("SITE_DATABASE_URL")
+    if not url:
+        missing = "قاعدة بيانات الموقع مش متوصلة (SITE_DATABASE_URL)، فمفيش أرقام."
+        return {"finance": missing, "projects": missing, "analytics": missing}
+    conn = sitedb.connect(url)
+    try:
+        return {
+            "finance": sitedb.finance_facts(conn),
+            "projects": sitedb.projects_facts(conn),
+            "analytics": sitedb.analytics_facts(conn),
+        }
+    finally:
+        conn.close()
+
+
+def _github(company: Company) -> devteam.GitHub | None:
+    token = company.env.get("AGENTS_GITHUB_TOKEN") or company.env.get("GITHUB_TOKEN")
+    repo = company.env.get("GITHUB_REPOSITORY")
+    return devteam.GitHub(token, repo) if token and repo else None
+
+
+def _notify_new_approvals(company: Company) -> None:
+    tg = notify.from_env(company.env)
+    if tg is None:
+        return
+    from datetime import datetime, timezone
+
+    for approval in company.store.select("approvals", status="pending"):
+        if not approval.get("notified_at"):
+            tg.approval(approval)
+            company.store.update(
+                "approvals", {"notified_at": datetime.now(timezone.utc).isoformat()}, id=approval["id"]
+            )
+
+
+# ── الأوامر ──────────────────────────────────────────────
 def cmd_check(cfg: config_mod.Config) -> None:
     print(f"تمام: {len(cfg.agents)} موظف، {len(cfg.providers)} مزوّد")
     for a in cfg.agents.values():
@@ -34,7 +94,8 @@ def cmd_check(cfg: config_mod.Config) -> None:
 
 
 def cmd_seed(cfg: config_mod.Config) -> None:
-    store = _store()
+    company = from_env()
+    store = company.store
     existing = {row["id"] for row in store.select("agents")}
     new_rows = [
         {
@@ -80,13 +141,63 @@ def cmd_models(cfg: config_mod.Config) -> None:
                 print(f"{m.key:<22} {m.model_id:<42} {mark}")
 
 
-def cmd_scout(cfg: config_mod.Config) -> None:
-    store = _store()
-    agent = Agent(cfg.agents["scout"], cfg, ModelRouter(cfg, store), store)
-    print(f"محلات جديدة: {scout.run(agent)}")
+def cmd_morning(cfg: config_mod.Config) -> None:
+    company = from_env()
+    mailer = _mailer(company.env)
+    audit = Path(company.env.get("SITE_AUDIT_JSON", "audit.json"))
+
+    scout_agent = company.agent("scout")
+    if scout_agent:
+        _step(company, "الكشّاف", scout.run, scout_agent)
+    _step(company, "التأهيل", sales.qualify, company)
+    checks = _step(company, "فحص الموقع", site.run, company, audit)
+    extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
+    if checks:
+        extra.update({a: checks.for_agent(a) for a in ("uptime", "security", "infra")})
+    facts = report.build_facts(company, extra)
+    _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
+    _step(company, "الرسايل", sales.outreach, company, mailer)
+    if mailer:
+        _step(company, "الوارد", sales.inbox, company, mailer)
+    _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
+
+    gh = _github(company)
+    if gh and checks:
+        _step(company, "Issues", devteam.file_issues, company, gh, checks.problems)
+    if gh:
+        _step(company, "مراجعة PRs", devteam.review_pulls, company, gh)
+    _step(company, "إشعارات", _notify_new_approvals, company)
 
 
-COMMANDS = {"check": cmd_check, "seed": cmd_seed, "models": cmd_models, "scout": cmd_scout}
+def cmd_evening(cfg: config_mod.Config) -> None:
+    company = from_env()
+    mailer = _mailer(company.env)
+    if mailer:
+        _step(company, "الوارد", sales.inbox, company, mailer)
+    _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
+    extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
+    facts = report.build_facts(company, extra)
+    mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
+    daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
+    tg = notify.from_env(company.env)
+    if tg and daily:
+        tg.send(daily["headline"] + "\n\nالتقرير كامل في لوحة التحكم ← التقارير")
+    _step(company, "إشعارات", _notify_new_approvals, company)
+
+
+def cmd_inbox(cfg: config_mod.Config) -> None:
+    company = from_env()
+    mailer = _mailer(company.env)
+    if mailer:
+        _step(company, "الوارد", sales.inbox, company, mailer)
+    _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
+    _step(company, "إشعارات", _notify_new_approvals, company)
+
+
+COMMANDS = {
+    "check": cmd_check, "seed": cmd_seed, "models": cmd_models,
+    "morning": cmd_morning, "evening": cmd_evening, "inbox": cmd_inbox,
+}
 
 
 def main(argv: list[str]) -> None:

@@ -43,6 +43,25 @@ class AgentSpec:
     tools: tuple[str, ...]
     duties: tuple[str, ...] = ()
     sensitive: bool = False
+    instructions: str = ""
+    status: str = "active"
+
+    @classmethod
+    def from_row(cls, row: dict) -> "AgentSpec":
+        """موظف من جدول agents (اللي اتعيّن أو اتعدّل من اللوحة)."""
+        return cls(
+            id=row["id"],
+            name=row["name"],
+            title=row["title"],
+            department=row["department"],
+            primary=row["primary_model"],
+            fallback=row["fallback_model"],
+            tools=tuple(row.get("tools") or ()),
+            duties=tuple(row.get("duties") or ()),
+            sensitive=bool(row.get("sensitive")),
+            instructions=row.get("instructions") or "",
+            status=row.get("status") or "active",
+        )
 
 
 @dataclass(frozen=True)

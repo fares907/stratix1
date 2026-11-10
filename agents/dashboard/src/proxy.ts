@@ -38,5 +38,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // /api/telegram ليه حمايته الخاصة (secret token + chat id)
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/telegram).*)"],
 };
