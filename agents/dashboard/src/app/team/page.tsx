@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { PageHead, Person } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { DEPARTMENTS, STATUS_LABEL, TOOLS, type Agent, type AgentStatus, type ModelInfo } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -49,9 +50,11 @@ export default function TeamPage() {
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1>الموظفين ({agents.rows.filter(a => a.status !== "fired").length})</h1>
-        <div className="row">
+      <PageHead
+        eyebrow="الفريق"
+        title={`الموظفين (${agents.rows.filter(a => a.status !== "fired").length})`}
+        subtitle="عيّن، أقيل، أوقف مؤقتًا، أو غيّر الموديل والتعليمات."
+        actions={<>
           <label className="row" style={{ margin: 0 }}>
             <input
               type="checkbox"
@@ -70,8 +73,8 @@ export default function TeamPage() {
           >
             + تعيين موظف
           </button>
-        </div>
-      </div>
+        </>}
+      />
       {agents.error && <p className="error">{agents.error}</p>}
 
       {editing && (
@@ -88,23 +91,22 @@ export default function TeamPage() {
 
       {groups.map(({ dep, members }) =>
         members.length === 0 ? null : (
-          <section key={dep}>
-            <h2>{DEPARTMENTS[dep]}</h2>
+          <section key={dep} style={{ marginBottom: 22 }}>
+            <h2 className="row"><span className="dot" style={{ color: `var(--dep-${dep})` }} /> {DEPARTMENTS[dep]} <span className="faint">({members.length})</span></h2>
             <div className="grid">
               {members.map(a => (
                 <div key={a.id} className="panel">
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <strong>{a.name}</strong>
+                  <div className="row between" style={{ alignItems: "flex-start" }}>
+                    <Person name={a.name} title={a.title} department={a.department} size="lg" />
                     <span className={`chip ${a.status === "active" ? "ok" : a.status === "fired" ? "danger" : "warn"}`}>
-                      {STATUS_LABEL[a.status]}
+                      <span className="dot" /> {STATUS_LABEL[a.status]}
                     </span>
                   </div>
-                  <div className="muted">{a.title}</div>
-                  <p className="muted" style={{ margin: "6px 0" }}>
-                    الأساسي: {a.primary_model}
-                    <br />
-                    الاحتياطي: {a.fallback_model}
-                  </p>
+                  <div className="row" style={{ margin: "12px 0" }}>
+                    <span className="chip" dir="ltr">{a.primary_model}</span>
+                    <span className="faint">احتياطي</span>
+                    <span className="chip" dir="ltr">{a.fallback_model}</span>
+                  </div>
                   <div className="row">
                     <button onClick={() => { setIsNew(false); setEditing(a); }}>تعديل</button>
                     {a.status === "active" && <button onClick={() => setStatus(a, "paused")}>إيقاف مؤقت</button>}

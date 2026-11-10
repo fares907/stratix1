@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { Empty, PageHead, Person } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Agent } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -80,47 +81,49 @@ function ChatRoom() {
 
   return (
     <>
-      <h1>كلّم الموظفين</h1>
-      <div className="row" style={{ alignItems: "stretch", flexWrap: "wrap" }}>
-        <aside className="panel agent-list" style={{ flex: "1 1 200px", maxWidth: 280 }}>
+      <PageHead
+        eyebrow="كلام مباشر"
+        title="كلّم الموظفين"
+        subtitle="اسأل أي موظف عن شغله أو قراراته، واديله توجيهات بياخدها في الاجتماع الجاي."
+      />
+      <div className="chat">
+        <aside className="panel agent-list">
           {agents.rows.map(a => (
-            <button
-              key={a.id}
-              onClick={() => setAgentId(a.id)}
-              className={a.id === agentId ? "primary" : ""}
-              style={{ display: "block", width: "100%", textAlign: "start", marginBottom: 6 }}
-            >
-              {a.name}
-              <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>{a.title}</div>
+            <button key={a.id} onClick={() => setAgentId(a.id)} className={a.id === agentId ? "primary" : ""}>
+              <Person name={a.name} title={a.title} department={a.department} size="sm" />
             </button>
           ))}
         </aside>
 
-        <section className="panel chat-window" style={{ flex: "3 1 320px", display: "flex", flexDirection: "column", minHeight: 480 }}>
-          <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-            <strong>{agent ? `${agent.name} — ${agent.title}` : agentId}</strong>
+        <section className="panel chat-window">
+          <div className="chat-head">
+            {agent ? <Person name={agent.name} title={agent.title} department={agent.department} /> : <strong>{agentId}</strong>}
             {agent?.status === "paused" && <span className="chip warn">موقوف مؤقتًا</span>}
           </div>
-          <div style={{ flex: 1, overflowY: "auto", maxHeight: "60vh" }}>
+          <div className="chat-scroll">
             {chats.rows.length === 0 && !pending && (
-              <p className="muted">
-                اسأله عن أي حاجة: «ليه وافقت على فكرة نور؟»، «إيه أكبر مشكلة عندك؟». وأي توجيه تقوله بياخده في
-                اعتباره في الاجتماع الجاي.
-              </p>
+              <Empty icon="✦">
+                اسأله عن أي حاجة: «ليه وافقت على الفكرة دي؟»، «إيه أكبر مشكلة عندك؟».
+                <br />
+                وأي توجيه تقوله بياخده في اعتباره في الاجتماع الجاي.
+              </Empty>
             )}
             {chats.rows.map(c => (
-              <Bubble key={c.id} mine={c.role === "owner"} text={c.content} meta={c.role === "agent" ? c.model_key : null} />
+              <div key={c.id} className={`bubble ${c.role === "owner" ? "mine" : "theirs"}`}>
+                {c.content}
+                {c.role === "agent" && c.model_key && <div className="meta" dir="ltr">{c.model_key}</div>}
+              </div>
             ))}
             {pending && (
               <>
-                <Bubble mine text={pending} meta={null} />
-                <p className="muted">{agent?.name ?? "الموظف"} بيكتب…</p>
+                <div className="bubble mine">{pending}</div>
+                <div className="typing">{agent?.name ?? "الموظف"} بيكتب…</div>
               </>
             )}
             <div ref={bottom} />
           </div>
-          {error && <p className="error">{error}</p>}
-          <form onSubmit={send} className="row" style={{ marginTop: 8 }}>
+          {error && <p className="error" style={{ margin: "0 16px 8px" }}>{error}</p>}
+          <form onSubmit={send} className="chat-input">
             <textarea
               value={draft}
               onChange={e => setDraft(e.target.value)}
@@ -130,8 +133,8 @@ function ChatRoom() {
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder="اكتب رسالتك…"
-              style={{ flex: 1, minHeight: 60 }}
+              placeholder={`اكتب لـ${agent?.name ?? "الموظف"}…`}
+              rows={1}
             />
             <button className="primary" type="submit" disabled={sending || !draft.trim()}>
               ابعت
@@ -140,25 +143,5 @@ function ChatRoom() {
         </section>
       </div>
     </>
-  );
-}
-
-function Bubble({ mine, text, meta }: { mine: boolean; text: string; meta: string | null }) {
-  return (
-    <div style={{ display: "flex", justifyContent: mine ? "flex-start" : "flex-end", marginBottom: 8 }}>
-      <div
-        style={{
-          maxWidth: "80%",
-          padding: "8px 12px",
-          borderRadius: 12,
-          background: mine ? "var(--accent)" : "var(--chip)",
-          color: mine ? "#fff" : "var(--text)",
-          whiteSpace: "pre-wrap",
-        }}
-      >
-        {text}
-        {meta && <div style={{ fontSize: "0.7rem", opacity: 0.7, marginTop: 4 }} dir="ltr">{meta}</div>}
-      </div>
-    </div>
   );
 }

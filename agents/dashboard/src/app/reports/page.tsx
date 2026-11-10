@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useLive } from "@/lib/useLive";
 
@@ -14,11 +15,11 @@ interface DailyReport {
 // تحويل بسيط للـ markdown اللي التقرير بيتكتب بيه (عناوين وقوائم بس)
 function Markdown({ text }: { text: string }) {
   return (
-    <div>
+    <div className="report">
       {text.split("\n").map((line, i) => {
         if (line.startsWith("# ")) return <h1 key={i}>{line.slice(2)}</h1>;
         if (line.startsWith("## ")) return <h2 key={i} style={{ marginTop: 16 }}>{line.slice(3)}</h2>;
-        if (line.startsWith("- ")) return <div key={i} style={{ paddingInlineStart: 12 }}>• {line.slice(2)}</div>;
+        if (line.startsWith("- ")) return <div key={i} className="li">{line.slice(2)}</div>;
         if (!line.trim()) return <div key={i} style={{ height: 6 }} />;
         return <p key={i} style={{ margin: "4px 0", whiteSpace: "pre-wrap" }}>{line.replace(/^_|_$/g, "")}</p>;
       })}
@@ -35,7 +36,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      <h1>التقارير اليومية</h1>
+      <PageHead eyebrow="كل يوم الساعة 4" title="التقارير اليومية" subtitle="الأرقام الحقيقية من قاعدة البيانات، والرسايل، والقرارات، واللي محتاج موافقتك." />
       {reports.error && <p className="error">{reports.error}</p>}
       {!reports.loading && reports.rows.length === 0 && (
         <p className="panel muted">لسه مفيش تقارير. أول تقرير بيطلع بعد اجتماع آخر اليوم.</p>
@@ -49,7 +50,7 @@ export default function ReportsPage() {
       </div>
       {current && (
         <div className="panel">
-          <p className="chip">{current.headline}</p>
+          <p className="chip signal" style={{ whiteSpace: "normal" }}>{current.headline}</p>
           <Markdown text={current.body} />
         </div>
       )}

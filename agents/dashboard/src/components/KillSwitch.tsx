@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "./ui";
 import { supabase } from "@/lib/supabase";
 import { useLive } from "@/lib/useLive";
 
@@ -37,12 +38,12 @@ export function KillSwitch() {
   if (error) return <span className="chip danger">حالة الشركة مش معروفة</span>;
 
   return halted ? (
-    <button className="primary" onClick={toggle} disabled={busy} title={rows[0]?.halted_reason ?? ""}>
-      ▶ تشغيل الكل
+    <button className="primary kill" onClick={toggle} disabled={busy} title={rows[0]?.halted_reason ?? ""}>
+      <Icon name="play" size={16} /> تشغيل<span className="hide-mobile"> الكل</span>
     </button>
   ) : (
-    <button className="danger" onClick={toggle} disabled={busy}>
-      ■ إيقاف الكل
+    <button className="danger kill" onClick={toggle} disabled={busy}>
+      <Icon name="stop" size={16} /> إيقاف<span className="hide-mobile"> الكل</span>
     </button>
   );
 }
@@ -54,7 +55,8 @@ export function HaltedBanner() {
   if (!rows[0]?.halted) return null;
   return (
     <div className="halted-banner">
-      الشركة واقفة دلوقتي{rows[0].halted_reason ? `: ${rows[0].halted_reason}` : ""}
+      <Icon name="stop" /> الشركة واقفة دلوقتي — مفيش أي موظف بيشتغل
+      {rows[0].halted_reason ? ` (${rows[0].halted_reason})` : ""}
     </div>
   );
 }

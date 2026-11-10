@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Agent } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -45,7 +46,7 @@ export default function IdeasPage() {
 
   return (
     <>
-      <h1>الأفكار والقرارات</h1>
+      <PageHead eyebrow="من الاجتماعات" title="الأفكار والقرارات" subtitle="كل فكرة اقترحها موظف، وقرار المدير التنفيذي فيها وسببه، والمهام اللي اتوزعت." />
       <div className="grid">
         <section>
           <h2>أفكار الموظفين</h2>

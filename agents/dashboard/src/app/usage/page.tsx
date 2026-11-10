@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHead, Stat } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { ModelInfo } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -39,8 +40,8 @@ export default function UsagePage() {
 
   return (
     <>
-      <h1>استهلاك الموديلات النهارده</h1>
-      <div className="grid" style={{ marginBottom: 12 }}>
+      <PageHead eyebrow="النهارده" title="استهلاك الموديلات" subtitle="الموظفين استخدموا الذكاء الاصطناعي كام مرة، مقارنة بالحد المجاني اليومي." />
+      <div className="stats">
         <Stat label="طلبات" value={counted.length} />
         <Stat label="اتحوّلت للاحتياطي" value={fallbacks} />
         <Stat label="المزوّد رفض (429)" value={limited} />
@@ -69,14 +70,5 @@ export default function UsagePage() {
         <p className="muted">الحدود دي تقديرية ومكتوبة في providers.yaml؛ المزوّدين بيغيّروها. لو مزوّد رفض بدري، الحد الحقيقي أقل.</p>
       </div>
     </>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="panel">
-      <div className="muted">{label}</div>
-      <div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{value}</div>
-    </div>
   );
 }

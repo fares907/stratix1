@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Agent, Approval } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -26,8 +27,8 @@ export default function ApprovalsPage() {
 
   return (
     <>
-      <h1>الموافقات</h1>
-      <div className="row" style={{ marginBottom: 12 }}>
+      <PageHead eyebrow="قرارك" title="الموافقات" subtitle="أي حاجة فيها سعر برّا الحدود أو ميعاد أو وعد بتستناك هنا. اللي توافق عليه بس هو اللي بيتنفّذ." />
+      <div className="segmented" style={{ marginBottom: 16 }}>
         <button className={tab === "pending" ? "primary" : ""} onClick={() => setTab("pending")}>
           مستنية ({approvals.rows.filter(a => a.status === "pending").length})
         </button>
