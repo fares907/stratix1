@@ -8,7 +8,8 @@ company:
 
 targeting:
   city: بنها
-  city_osm_name_en: Banha
+  # الأسماء اللي ممكن المدينة تكون متسجلة بيها على OpenStreetMap
+  city_osm_names: [Banha, Benha, بنها]
   # أنواع الأماكن اللي الكشّاف بيدوّر عليها (OpenStreetMap tags)
   amenity: [restaurant, cafe, fast_food, pharmacy, clinic, dentist, doctors]
   shop: any
@@ -23,6 +24,7 @@ pricing:
 
 outreach:
   daily_limit: 15
+  # الموظفين بيشتغلوا من 8 الصبح لـ 5 العصر بتوقيت القاهرة (المواعيد في .github/workflows/agents.yml)
   needs_approval: false   # الرسايل بتطلع أوتوماتيك
   unsubscribe_text: لو مش حابب نتواصل معاك تاني، رد بكلمة "إلغاء" ومش هنبعتلك تاني.
 

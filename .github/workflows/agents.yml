@@ -2,9 +2,10 @@ name: Agents
 
 # فريق STRATIX من الـ AI agents (فولدر agents/).
 # - أي تعديل في agents/ لازم الاختبارات تعدّي.
-# - الصبح (9:17 القاهرة): كشّاف ← فحص الموقع ← اجتماع ← رسايل ← GitHub
-# - كل ساعتين: يقرا الردود وينفّذ الموافقات
-# - آخر اليوم (6:43 القاهرة): اجتماع ← التقرير اليومي ← تليجرام
+# مواعيد الشغل: من 8 الصبح لـ 5 العصر بتوقيت القاهرة (عشان نفضل جوه الحدود المجانية)
+# - 8:07 الصبح: كشّاف ← فحص الموقع ← اجتماع الصبح ← رسايل ← GitHub
+# - 9 و11 و1 و3: يقرا الردود وينفّذ الموافقات
+# - 4:43 العصر: اجتماع آخر اليوم ← التقرير اليومي
 # المواعيد بتوقيت UTC (القاهرة +2 في الشتا و+3 في الصيف)، وGitHub ممكن يأخرها شوية.
 # الموظفين بيدخلوا Supabase من غير أي مفتاح هنا: GitHub بيدّيهم توكن هوية (OIDC)
 # والـ edge function "agents-gateway" بتتأكد إنه من الـ workflow ده على main.
@@ -16,15 +17,15 @@ on:
   pull_request:
     paths: ["agents/**", ".github/workflows/agents.yml"]
   schedule:
-    - cron: "17 7 * * *"   # morning
-    - cron: "43 16 * * *"  # evening
-    - cron: "5 9-21/2 * * *" # inbox
+    - cron: "7 6 * * *"      # morning — 8:07 القاهرة
+    - cron: "43 14 * * *"    # evening — 4:43 العصر
+    - cron: "7 7-13/2 * * *" # inbox   — 9، 11، 1، 3
   workflow_dispatch:
     inputs:
       run:
         description: "أنهي تشغيل"
         type: choice
-        options: [morning, evening, inbox]
+        options: [morning, evening, inbox, probe]
         default: morning
 
 permissions:
@@ -117,8 +118,8 @@ jobs:
           INPUT: ${{ inputs.run }}
         run: |
           case "$SCHEDULE" in
-            "17 7 * * *") RUN=morning ;;
-            "43 16 * * *") RUN=evening ;;
+            "7 6 * * *") RUN=morning ;;
+            "43 14 * * *") RUN=evening ;;
             "") RUN="${INPUT:-morning}" ;;
             *) RUN=inbox ;;
           esac

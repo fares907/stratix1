@@ -191,9 +191,32 @@ def test_guard(text, ok):
 
 
 # ── scout ────────────────────────────────────────────────
-def test_scout_query_targets_city():
-    q = build_query("Banha", ["restaurant", "cafe"], include_shops=True)
-    assert '"name:en"="Banha"' in q and "restaurant|cafe" in q and '["shop"]' in q
+def test_scout_query_targets_every_city_name():
+    q = build_query(["Banha", "Benha", "بنها"], ["restaurant", "cafe"], include_shops=True)
+    assert '"name:en"~"^(Banha|Benha|بنها)$"' in q and '"name"~"^(Banha|Benha|بنها)$"' in q
+    assert "restaurant|cafe" in q and '["shop"]' in q
+
+
+def test_scout_tries_other_servers_when_busy():
+    from stratix_agents.scout import fetch
+    seen, waits = [], []
+    def handler(req):
+        seen.append(req.url.host)
+        if req.url.host == "overpass.private.coffee":
+            return httpx.Response(200, json={"elements": [{"type": "node", "id": 1}]})
+        return httpx.Response(502, text="busy")
+    out = fetch("q", httpx.Client(transport=httpx.MockTransport(handler)), sleep=waits.append)
+    assert out == [{"type": "node", "id": 1}] and waits == []
+    assert seen == ["overpass-api.de", "overpass.kumi.systems", "overpass.private.coffee"]
+
+
+def test_scout_gives_up_with_a_clear_error():
+    from stratix_agents.scout import fetch
+    waits = []
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(504)))
+    with pytest.raises(RuntimeError, match="مزحومة"):
+        fetch("q", client, sleep=waits.append)
+    assert waits == [20, 40]
 
 
 def test_scout_keeps_only_places_without_website_but_with_contact():
