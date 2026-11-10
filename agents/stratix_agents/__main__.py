@@ -49,6 +49,17 @@ def cmd_seed(cfg: config_mod.Config) -> None:
     store.upsert("agents", new_rows, on_conflict="id")
     print(f"اتضاف {len(new_rows)} موظف جديد، و{len(existing)} كانوا موجودين ماتلمسوش")
 
+    catalog = [
+        {
+            "key": m.key, "provider": p.name, "model_id": m.model_id,
+            "rpm": m.rpm, "rpd": m.rpd, "trains_on_free_data": p.trains_on_free_data,
+        }
+        for p in cfg.providers.values()
+        for m in p.models.values()
+    ]
+    store.upsert("model_catalog", catalog, on_conflict="key")
+    print(f"قائمة الموديلات: {len(catalog)}")
+
 
 def cmd_models(cfg: config_mod.Config) -> None:
     with httpx.Client(timeout=30) as http:
