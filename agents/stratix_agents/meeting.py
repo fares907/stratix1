@@ -141,6 +141,8 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
             " — قرار في كل فكرة 💡، ووافق بس على اللي يفيد الشركة فعلًا وفي حدود القوانين.\n"
             '"tasks": [{"agent_id": كود الموظف, "title": المهمة, "details": تفاصيل}] (من دول: '
             f"{list(names)})\n"
+            '"feedback": [{"agent_id": كود الموظف, "note": ملاحظة صريحة على أداءه وإيه المطلوب منه}] '
+            "(لو رئيس مجلس الإدارة اشتكى من موظف، لازم تدّيله ملاحظة واضحة وتعيد توزيع شغله في tasks).\n"
             '"needs_approval": [{"summary": إيه, "reason": ليه محتاج رئيس مجلس الإدارة}] '
             "(أي حاجة فيها فلوس برّا القوانين أو وعد أو قرار كبير).\n"
             "و\"say\" يبقى ملخص القرار في 5 سطور.",
@@ -164,6 +166,18 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
                     "agent_id": "ceo", "meeting_id": mid, "reply_to": by_id[pid].get("message_id"),
                     "kind": "decision", "content": f"{word} فكرة {names.get(by_id[pid]['agent_id'])}: {reason}",
                 })
+        # ملاحظات المدير لكل موظف: بتتسجل كمهمة مفتوحة، فالموظف بيشوفها ويرد عليها في الاجتماع الجاي
+        for item in decision.get("feedback") if isinstance(decision.get("feedback"), list) else []:
+            if isinstance(item, dict) and item.get("agent_id") in names and item.get("note"):
+                note = str(item["note"])[:1500]
+                store.insert("tasks", {
+                    "agent_id": item["agent_id"], "meeting_id": mid,
+                    "title": f"ملاحظة من المدير التنفيذي: {note[:250]}", "details": note, "status": "todo",
+                })
+                store.insert("messages", {
+                    "agent_id": "ceo", "meeting_id": mid, "kind": "decision",
+                    "content": f"ملاحظة لـ {names[item['agent_id']]}: {note}",
+                })
         for task in decision.get("tasks") if isinstance(decision.get("tasks"), list) else []:
             if isinstance(task, dict) and task.get("agent_id") in names and task.get("title"):
                 store.insert(
@@ -173,6 +187,7 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
                         "meeting_id": mid,
                         "title": str(task["title"])[:300],
                         "details": str(task.get("details") or "")[:2000],
+                        "status": "todo",
                     },
                 )
         for item in decision.get("needs_approval") if isinstance(decision.get("needs_approval"), list) else []:

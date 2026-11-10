@@ -288,3 +288,14 @@ def test_ceo_meeting_follows_chairman_chat_directives():
     opening, decision = llm.prompts[0], llm.prompts[-1]
     assert "ركزوا بكرة على العيادات" in opening and "ركزوا بكرة على العيادات" in decision
     assert any("خلي الرسايل أقصر" in p for p in llm.prompts[1:-1])  # الكاتبة شافت توجيهها
+
+
+def test_ceo_feedback_reaches_the_employee():
+    llm = ScriptedLLM([("اقفل الاجتماع", say("القرار", feedback=[{"agent_id": "writer", "note": "الرسايل طويلة، قصّريها"}]))])
+    company = make_company(llm)
+    meeting.run(company, {})
+    task = company.store.select("tasks", agent_id="writer")[0]
+    assert "قصّريها" in task["title"] and task["status"] == "todo"
+    # الاجتماع الجاي: الكاتبة بتشوف الملاحظة في مهامها المفتوحة
+    meeting.run(company, {})
+    assert any("قصّريها" in p and "مهامك المفتوحة" in p for p in llm.prompts)
