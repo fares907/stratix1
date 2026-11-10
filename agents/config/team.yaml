@@ -1,0 +1,172 @@
+# فريق STRATIX — 15 موظف
+#
+# ده "التعيين الأول" بس: أمر `python -m stratix_agents seed` بينسخه لجدول agents
+# في Supabase، وبعد كده لوحة التحكم هي المرجع (تعيين، إقالة، ترقية، إيقاف).
+#
+# primary / fallback: مفتاح من config/providers.yaml بالشكل provider:model.
+# tools: الأدوات المسموح بيها بس — أي أداة مش مكتوبة هنا الكود بيرفضها.
+# sensitive: true يعني بيشتغل على بيانات عملاء أو فلوس، فمابيروحش لمزوّد
+#   بيستخدم البيانات في التدريب (Gemini المجاني).
+
+agents:
+  # ── الإدارة ─────────────────────────────────────────────
+  - id: ceo
+    name: نادر
+    title: المدير التنفيذي
+    department: management
+    primary: gemini:pro
+    fallback: groq:llama70b
+    tools: [read_all, assign_task, request_approval, write_report]
+    duties:
+      - يدير الاجتماع اليومي ويطلع بقرار واضح
+      - يوزع المهام على الأقسام
+      - يكتب التقرير اليومي لرئيس مجلس الإدارة
+
+  - id: critic
+    name: سلمى
+    title: الناقدة والمراجِعة
+    department: management
+    primary: gemini:flash
+    fallback: openrouter:llama70b
+    tools: [read_all]
+    duties:
+      - تعترض على كل اقتراح وتطلّع ثغراته
+      - تتأكد إن مفيش معلومة متألفة أو وعد مش مسموح بيه
+
+  # ── المبيعات ───────────────────────────────────────────
+  - id: scout
+    name: كريم
+    title: الكشّاف
+    department: sales
+    primary: groq:llama8b
+    fallback: cerebras:llama8b
+    tools: [osm_search, write_leads]
+    duties:
+      - يدوّر على الخريطة على محلات ومطاعم في بنها مالهاش موقع
+
+  - id: qualifier
+    name: هاني
+    title: مؤهِّل العملاء
+    department: sales
+    primary: groq:llama8b
+    fallback: cerebras:llama8b
+    tools: [read_leads, web_check, update_leads]
+    duties:
+      - يتأكد إن المحل فعلًا مالوش موقع ويرتب الأولوية
+
+  - id: writer
+    name: ليلى
+    title: كاتبة الرسايل
+    department: sales
+    primary: gemini:flash
+    fallback: groq:llama70b
+    tools: [read_leads, draft_message]
+    duties:
+      - تكتب رسالة مخصصة بالعامية المصرية لكل محل
+
+  - id: outreach
+    name: عمر
+    title: مسؤول الإرسال والمتابعة
+    department: sales
+    primary: groq:llama70b
+    fallback: cerebras:llama70b
+    tools: [read_leads, send_message, draft_message]
+    sensitive: true
+    duties:
+      - يبعت الرسايل في حدود العدد اليومي ويتابع اللي مردّش
+
+  - id: support
+    name: منى
+    title: خدمة العملاء
+    department: sales
+    primary: groq:llama70b
+    fallback: cerebras:llama70b
+    tools: [read_inbox, send_message, request_approval]
+    sensitive: true
+    duties:
+      - ترد على العملاء وتحوّل أي حاجة خارج القوانين للموافقة
+
+  # ── العمليات ───────────────────────────────────────────
+  - id: projects
+    name: مصطفى
+    title: مدير المشاريع
+    department: operations
+    primary: groq:llama70b
+    fallback: cerebras:llama70b
+    tools: [read_site_db, assign_task]
+    sensitive: true
+    duties:
+      - يتابع مشاريع العملاء ومواعيد التسليم
+
+  - id: finance
+    name: طارق
+    title: المدير المالي
+    department: operations
+    primary: groq:llama70b
+    fallback: cerebras:llama70b
+    tools: [read_site_db]
+    sensitive: true
+    duties:
+      - يحلل الدخل والفواتير والتحصيل (قراءة بس، مالوش وصول لفلوس)
+
+  # ── الموقع والأمان ─────────────────────────────────────
+  - id: uptime
+    name: يوسف
+    title: مراقب الموقع
+    department: site
+    primary: groq:llama8b
+    fallback: cerebras:llama8b
+    tools: [web_check]
+    duties:
+      - يفحص الموقع (شغال؟ SSL؟ السرعة؟) ويعمل فحص شامل كل 3 أيام
+
+  - id: security
+    name: زياد
+    title: مسؤول السايبر سيكيوريتي
+    department: site
+    primary: gemini:flash
+    fallback: groq:llama70b
+    tools: [web_check, read_repo, read_site_db]
+    duties:
+      - يراقب الـ headers والـ SSL وثغرات المكتبات ومحاولات دخول الأدمن
+
+  - id: analytics
+    name: نور
+    title: محللة الزوار
+    department: site
+    primary: groq:llama8b
+    fallback: cerebras:llama8b
+    tools: [read_site_db]
+    duties:
+      - تحلل مين بيدخل الموقع ومنين وإيه اللي بيحوّل لحجز
+
+  - id: infra
+    name: رامي
+    title: مسؤول الاشتراكات والبنية
+    department: site
+    primary: groq:llama8b
+    fallback: cerebras:llama8b
+    tools: [read_infra]
+    duties:
+      - يتابع اشتراكات Railway والدومين وقاعدة البيانات ويبلغ قبل الانتهاء
+
+  # ── التطوير ────────────────────────────────────────────
+  - id: developer
+    name: أحمد
+    title: المطوّر
+    department: dev
+    primary: gemini:pro
+    fallback: openrouter:coder
+    tools: [read_repo, open_pull_request]
+    duties:
+      - يصلح مشاكل الموقع في branch منفصل ويفتح Pull Request
+
+  - id: reviewer
+    name: رنا
+    title: مراجعة الكود والاختبارات
+    department: dev
+    primary: gemini:flash
+    fallback: groq:llama70b
+    tools: [read_repo, comment_pull_request]
+    duties:
+      - تراجع كل PR وتتأكد إن الاختبارات عدّت

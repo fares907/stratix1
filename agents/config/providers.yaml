@@ -1,0 +1,42 @@
+# المزوّدين — كلهم بواجهة OpenAI-compatible.
+#
+# الحدود هنا تقديرية: المزوّدين بيغيروا حدود الخطط المجانية من غير إنذار.
+# الـ router بيلتزم بالأرقام دي، ولو المزوّد رجّع 429 بيوقف استخدامه للمدة اللي
+# بيقولها (Retry-After) ويتحول للاحتياطي. عدّل الأرقام لما تعرف الحقيقية.
+#
+# أسماء الموديلات لازم تتأكد منها: `python -m stratix_agents models`
+# بيسأل كل مزوّد عن الموديلات المتاحة فعلًا ويقولك أنهي اسم مش موجود.
+#
+# trains_on_free_data: المزوّد ممكن يستخدم البيانات في تحسين منتجاته على
+# الخطة المجانية — الـ agents اللي sensitive مابتستخدموش.
+
+providers:
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    api_key_env: GEMINI_API_KEY
+    trains_on_free_data: true
+    models:
+      pro:   { id: gemini-2.5-pro,   rpm: 5,  rpd: 100 }
+      flash: { id: gemini-2.5-flash, rpm: 10, rpd: 250 }
+
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    models:
+      llama70b: { id: llama-3.3-70b-versatile, rpm: 30, rpd: 1000 }
+      llama8b:  { id: llama-3.1-8b-instant,    rpm: 30, rpd: 14400 }
+
+  cerebras:
+    base_url: https://api.cerebras.ai/v1
+    api_key_env: CEREBRAS_API_KEY
+    models:
+      llama70b: { id: llama-3.3-70b, rpm: 30, rpd: 14400 }
+      llama8b:  { id: llama3.1-8b,   rpm: 30, rpd: 14400 }
+
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    trains_on_free_data: true
+    models:
+      llama70b: { id: "meta-llama/llama-3.3-70b-instruct:free", rpm: 20, rpd: 50 }
+      coder:    { id: "qwen/qwen3-coder:free",                  rpm: 20, rpd: 50 }
