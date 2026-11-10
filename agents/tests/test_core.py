@@ -87,11 +87,32 @@ def test_router_respects_daily_limit(cfg):
     assert router.complete("ceo", [], chain=["gemini:pro", "groq:llama70b"]).used_fallback
 
 
-def test_router_skips_missing_key_and_reports_all_reasons(cfg):
+def test_router_with_no_keys_falls_back_to_keyless_provider(cfg):
+    seen = []
+    def handler(req):
+        seen.append((str(req.url), req.headers.get("authorization")))
+        return _reply("أهلا")
+    result = make_router(cfg, MemoryStore(), handler, env={}).complete("ceo", [], chain=["gemini:pro", "groq:llama70b"])
+    assert result.model_key == "pollinations:openai" and result.used_fallback
+    assert seen == [("https://text.pollinations.ai/openai", None)]
+
+
+def test_router_uses_github_models_with_actions_token(cfg):
+    seen = []
+    def handler(req):
+        seen.append(str(req.url))
+        return _reply()
+    result = make_router(cfg, MemoryStore(), handler, env={"GITHUB_TOKEN": "t"}).complete(
+        "support", [], chain=["groq:llama70b", "cerebras:llama70b"], sensitive=True)
+    assert result.model_key == "github:mini"
+    assert seen == ["https://models.github.ai/inference/chat/completions"]
+
+
+def test_sensitive_request_with_no_private_provider_raises(cfg):
     router = make_router(cfg, MemoryStore(), lambda req: _reply(), env={})
     with pytest.raises(AllModelsUnavailable) as err:
-        router.complete("ceo", [], chain=["gemini:pro", "groq:llama70b"])
-    assert set(err.value.reasons) == {"gemini:pro", "groq:llama70b"}
+        router.complete("support", [], chain=["groq:llama70b", "cerebras:llama70b"], sensitive=True)
+    assert "حساسة" in err.value.reasons["pollinations:openai"]
 
 
 def test_sensitive_request_never_reaches_training_provider(cfg):

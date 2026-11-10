@@ -10,7 +10,7 @@ from . import config as config_mod
 from .agent import Agent
 from .config import AgentSpec, Config
 from .router import ModelRouter
-from .store import Store, SupabaseStore
+from .store import GitHubOIDC, Store, SupabaseStore
 
 
 @dataclass
@@ -43,9 +43,13 @@ class Company:
 
 
 def from_env() -> Company:
+    gateway = os.environ.get("SUPABASE_GATEWAY_URL")
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
-        sys.exit("لازم SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY في البيئة")
     cfg = config_mod.load()
-    store = SupabaseStore(url, key)
+    if url and key:
+        store = SupabaseStore(url, key)
+    elif gateway and os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
+        store = SupabaseStore(gateway, token_fn=GitHubOIDC())
+    else:
+        sys.exit("لازم SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY، أو SUPABASE_GATEWAY_URL من جوه GitHub Actions")
     return Company(cfg, store, ModelRouter(cfg, store))

@@ -57,16 +57,21 @@ function ChatRoom() {
     setError(null);
     setPending(text);
     setDraft("");
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent_id: agentId, message: text }),
+    // الشات بيروح لـ edge function في Supabase بجلسة رئيس مجلس الإدارة نفسها
+    const { data, error: fnError } = await supabase().functions.invoke("agent-chat", {
+      body: { agent_id: agentId, message: text },
     });
-    const data = await res.json().catch(() => ({}));
     setSending(false);
     setPending(null);
-    if (!res.ok) {
-      setError(data.error ?? "حصلت مشكلة");
+    if (fnError || !data?.reply) {
+      let message = "حصلت مشكلة";
+      try {
+        const body = await (fnError as { context?: Response } | null)?.context?.json();
+        message = body?.error ?? message;
+      } catch {
+        /* الرد مش JSON */
+      }
+      setError(message);
       setDraft(text);
       return;
     }

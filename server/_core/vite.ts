@@ -5,6 +5,7 @@ import { type Server } from "http";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
+import { serveHq } from "./hq";
 import { servePrecompressed } from "./precompressed";
 
 export async function setupVite(app: Express, server: Server) {
@@ -70,6 +71,9 @@ export function serveStatic(app: Express) {
     }
     next();
   });
+
+  // The agents dashboard, before the site's own files and SPA fallback.
+  serveHq(app, distPath);
 
   const precompressed = servePrecompressed(distPath);
   app.use(precompressed);

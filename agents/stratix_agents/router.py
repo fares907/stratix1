@@ -74,7 +74,7 @@ class ModelRouter:
 
     def _skip_reason(self, spec: ModelSpec, sensitive: bool) -> str | None:
         provider = self.config.providers[spec.provider]
-        if not self.env.get(provider.api_key_env):
+        if provider.api_key_env and not self.env.get(provider.api_key_env):
             return f"مفيش مفتاح ({provider.api_key_env})"
         if sensitive and provider.trains_on_free_data:
             return "بيانات حساسة — المزوّد ده ممنوع"
@@ -94,6 +94,8 @@ class ModelRouter:
             raise Halted("الشركة واقفة بأمر رئيس مجلس الإدارة")
 
         reasons: dict[str, str] = {}
+        # الأساسي والاحتياطي الأول، وبعدهم الاحتياطي العام لو الاتنين مش متاحين
+        chain = list(dict.fromkeys([*chain, *self.config.last_resort]))
         for index, key in enumerate(chain):
             spec = self.config.model(key)
             skip = self._skip_reason(spec, sensitive)
@@ -112,13 +114,14 @@ class ModelRouter:
 
             self.tracker.record(spec)
             started = self._clock()
+            headers = {"Authorization": f"Bearer {self.env[provider.api_key_env]}"} if provider.api_key_env else {}
             try:
                 response = self.http.post(
-                    f"{provider.base_url}/chat/completions",
+                    f"{provider.base_url}/chat/completions"
+                    if not provider.base_url.endswith("pollinations.ai")
+                    else f"{provider.base_url}/openai",
                     json=body,
-                    headers={
-                        "Authorization": f"Bearer {self.env[provider.api_key_env]}"
-                    },
+                    headers=headers,
                 )
             except httpx.HTTPError as exc:
                 reasons[key] = f"خطأ شبكة: {type(exc).__name__}"

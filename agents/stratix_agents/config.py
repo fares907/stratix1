@@ -69,6 +69,7 @@ class Config:
     providers: dict[str, ProviderSpec]
     agents: dict[str, AgentSpec]
     rules: dict = field(default_factory=dict)
+    last_resort: tuple[str, ...] = ()
 
     def model(self, key: str) -> ModelSpec:
         provider, _, alias = key.partition(":")
@@ -99,7 +100,7 @@ def parse_providers(raw: dict) -> dict[str, ProviderSpec]:
         providers[name] = ProviderSpec(
             name=name,
             base_url=str(p["base_url"]).rstrip("/"),
-            api_key_env=str(p["api_key_env"]),
+            api_key_env=str(p.get("api_key_env") or ""),
             trains_on_free_data=bool(p.get("trains_on_free_data", False)),
             models=models,
         )
@@ -141,16 +142,20 @@ def validate(cfg: Config) -> None:
             raise ConfigError(
                 f"{agent.id}: الاحتياطي لازم يكون من مزوّد تاني عشان لو الأول وقع"
             )
+    for key in cfg.last_resort:
+        cfg.model(key)
     pricing = cfg.rules.get("pricing") or {}
     if pricing and int(pricing["min"]) > int(pricing["max"]):
         raise ConfigError("pricing.min أكبر من pricing.max")
 
 
 def load(config_dir: Path = CONFIG_DIR) -> Config:
+    raw_providers = _load_yaml(config_dir / "providers.yaml")
     cfg = Config(
-        providers=parse_providers(_load_yaml(config_dir / "providers.yaml")),
+        providers=parse_providers(raw_providers),
         agents=parse_agents(_load_yaml(config_dir / "team.yaml")),
         rules=_load_yaml(config_dir / "rules.yaml"),
+        last_resort=tuple(raw_providers.get("last_resort") or ()),
     )
     validate(cfg)
     return cfg

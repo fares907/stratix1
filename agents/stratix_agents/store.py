@@ -72,13 +72,50 @@ class MemoryStore:
         return counts
 
 
+class GitHubOIDC:
+    """توكن هوية من GitHub Actions (OIDC): بيثبت إن الطلب جاي من الـ workflow بتاعنا
+    على main، من غير ما نحط أي مفتاح سري في GitHub. التوكن عمره دقايق، فبنجدده."""
+
+    def __init__(self, audience: str = "stratix-hq", http: httpx.Client | None = None):
+        import os
+        import time
+
+        self._time = time.time
+        self.url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+        self.request_token = os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+        self.audience = audience
+        self.http = http or httpx.Client(timeout=20)
+        self._token, self._fetched = "", 0.0
+
+    def __call__(self) -> str:
+        if not self._token or self._time() - self._fetched > 120:
+            r = self.http.get(self.url, params={"audience": self.audience},
+                              headers={"Authorization": f"Bearer {self.request_token}"})
+            r.raise_for_status()
+            self._token, self._fetched = r.json()["value"], self._time()
+        return self._token
+
+
 class SupabaseStore:
-    def __init__(self, url: str, service_key: str, http: httpx.Client | None = None):
+    """بيكلم Supabase REST بطريقة من اتنين:
+    - service_key: مفتاح service_role مباشرة (لو موجود).
+    - token_fn: توكن GitHub OIDC عن طريق الـ edge function "agents-gateway"،
+      وهي اللي عندها المفتاح وبتتأكد إن الطلب من الـ workflow بتاعنا."""
+
+    def __init__(self, url: str, service_key: str | None = None, http: httpx.Client | None = None,
+                 token_fn=None):
         self.base = url.rstrip("/") + "/rest/v1"
         self.http = http or httpx.Client(timeout=30)
-        self.headers = {
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
+        self.service_key = service_key
+        self.token_fn = token_fn
+
+    @property
+    def headers(self) -> dict[str, str]:
+        if self.token_fn is not None:
+            return {"Authorization": f"Bearer {self.token_fn()}", "Content-Type": "application/json"}
+        return {
+            "apikey": self.service_key or "",
+            "Authorization": f"Bearer {self.service_key}",
             "Content-Type": "application/json",
         }
 
