@@ -145,8 +145,7 @@ export default function MeetingRoom() {
                     {agent && <span className="faint">{agent.title}</span>}
                     <span className={`chip ${kind.cls}`}>{kind.label}</span>
                     {m.confidence && <span className={`chip ${CONFIDENCE[m.confidence].cls}`}>{CONFIDENCE[m.confidence].label}</span>}
-                    {m.used_fallback && <span className="chip warn">موديل احتياطي</span>}
-                    <span className="faint" style={{ marginInlineStart: "auto" }}>{time(m.created_at)}</span>
+                                        <span className="faint" style={{ marginInlineStart: "auto" }}>{time(m.created_at)}</span>
                   </div>
                   {m.reply_to && (
                     <div className="reply">
@@ -163,7 +162,7 @@ export default function MeetingRoom() {
                           {m.unknowns && m.unknowns.length > 0 && (
                             <p className="muted" style={{ margin: "6px 0 0" }}>مش متأكد من: {m.unknowns.join("، ")}</p>
                           )}
-                          {m.model_key && <p className="faint" style={{ margin: "6px 0 0" }} dir="ltr">{m.model_key}</p>}
+                          
                         </div>
                       </details>
                     )}

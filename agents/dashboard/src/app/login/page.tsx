@@ -30,8 +30,8 @@ export default function LoginPage() {
     <div className="login-wrap">
       <div className="panel login-card">
         <Brand />
-        <h1 style={{ fontSize: "1.35rem" }}>أهلًا يا ريس 👋</h1>
-        <p className="muted" style={{ marginTop: 4 }}>ادخل عشان تشوف الفريق بيعمل إيه النهارده.</p>
+        <h1 style={{ fontSize: "1.35rem" }} dir="ltr">Hello STRATIX</h1>
+        <p className="muted" style={{ marginTop: 4 }}>سجّل دخولك عشان تدير فريقك.</p>
         <form onSubmit={submit}>
           <label htmlFor="email">الإيميل</label>
           <input id="email" name="email" type="email" dir="ltr" autoComplete="username" required />

@@ -139,8 +139,7 @@ function ChatRoom() {
                   <div className="meta">
                     <button type="button" className="faint" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => sayAloud(c.content)}>
                       🔊 اسمعه
-                    </button>{" "}
-                    {c.model_key && <span dir="ltr">{c.model_key}</span>}
+                    </button>
                   </div>
                 )}
               </div>

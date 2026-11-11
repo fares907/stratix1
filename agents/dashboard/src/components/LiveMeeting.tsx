@@ -61,8 +61,9 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
   const [listenState, setListenState] = useState<ListenerState>("off");
   const [heard, setHeard] = useState("");
   const [hold, setHold] = useState(false);
-  const [silence, setSilence] = useState(2.5);
+  const [silence, setSilence] = useState(3.5);
   const [dictating, setDictating] = useState<ListenerState>("off");
+  const [level, setLevel] = useState(0);
   const speaker = useRef<Speaker | null>(null);
   const listener = useRef<Listener | null>(null);
   const dictation = useRef<Dictation | null>(null);
@@ -147,6 +148,13 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
       return () => clearTimeout(t);
     }
   }, [inCall, meeting, busy, speaking, listenState]);
+
+  // مؤشر الصوت: تشوف إن المايك سامعك
+  useEffect(() => {
+    if (!inCall) return;
+    const t = setInterval(() => setLevel(listener.current?.level ?? 0), 120);
+    return () => clearInterval(t);
+  }, [inCall]);
 
   useEffect(() => {
     if (!meeting) return;
@@ -233,6 +241,9 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
         <div className={`call call-${callPhase}`}>
           <div className="call-orb" aria-hidden />
           <p className="call-label">{CALL_LABEL[callPhase]}</p>
+          {(callPhase === "listening" || callPhase === "hearing") && (
+            <div className="mic-level" aria-hidden><span style={{ width: `${Math.round(level * 100)}%` }} /></div>
+          )}
           {heard && <p className="call-heard">«{heard}»</p>}
           <div className="row" style={{ justifyContent: "center" }}>
             {speaking ? (
@@ -254,10 +265,10 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
             <label>
               أبعت بعد ما أسكت
               <select value={silence} onChange={e => setSilence(Number(e.target.value))} style={{ width: "auto" }}>
-                <option value={1.5}>ثانية ونص</option>
                 <option value={2.5}>ثانيتين ونص</option>
-                <option value={4}>4 ثواني</option>
-                <option value={6}>6 ثواني</option>
+                <option value={3.5}>3 ثواني ونص</option>
+                <option value={5}>5 ثواني</option>
+                <option value={8}>8 ثواني</option>
               </select>
             </label>
             <span className="muted">وتقدر تقول «استنى» أو «لحظة» وأنا هفضل سامعك.</span>
