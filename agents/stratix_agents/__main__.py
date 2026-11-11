@@ -52,24 +52,14 @@ def _step(company: Company, name: str, fn, *args):
 
 
 def _site_db_facts(company: Company) -> dict[str, str]:
-    url = company.env.get("SITE_DATABASE_URL")
-    if url:
-        conn = sitedb.connect(url)
-        try:
-            return {
-                "finance": sitedb.finance_facts(conn),
-                "projects": sitedb.projects_facts(conn),
-                "analytics": sitedb.analytics_facts(conn),
-            }
-        finally:
-            conn.close()
-    if company.env.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
-        # من غير أي مفتاح: الموقع نفسه بيدّي الأرقام لتوكن GitHub الخاص بالـ workflow ده بس
-        from .store import GitHubOIDC
+    """بيانات الموقع من /api/agents/facts (بتوكن GitHub، من غير أي باسورد).
+    كل موظف بياخد بس الأقسام اللي عنده صلاحيتها: طارق الحسابات، منى الحجوزات والطلبات، ..."""
+    if not company.env.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
+        return {}
+    from .store import GitHubOIDC
 
-        return sitedb.fetch_site_facts(GitHubOIDC(audience="stratix-site")())
-    missing = "أرقام الموقع مش متاحة في التشغيل ده."
-    return {"finance": missing, "projects": missing, "analytics": missing}
+    sections = sitedb.fetch_site_facts(GitHubOIDC(audience="stratix-site")())
+    return sitedb.facts_for_agents(sections, company.roster())
 
 
 def _save_facts(company: Company, facts: dict[str, str]) -> None:

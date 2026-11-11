@@ -260,4 +260,18 @@ def test_site_facts_become_readable_sentences_for_the_finance_agent():
     facts = fetch_site_facts("tok", httpx.Client(transport=httpx.MockTransport(handler)))
     assert seen == ["Bearer tok"]
     assert "دخل 5,000 جنيه" in facts["finance"] and "صافي 3,800 جنيه" in facts["finance"]
-    assert "لسه مادفعش 2" in facts["finance"] and "إجمالي 7" in facts["projects"]
+    assert "لسه مادفعش 2" in facts["finance"] and "إجمالي 7" in facts["bookings"]
+
+
+def test_each_agent_sees_only_the_sections_it_is_allowed(cfg):
+    from stratix_agents.agent import Agent
+    from stratix_agents.sitedb import facts_for_agents
+    sections = {"finance": "FIN", "bookings": "BOOK", "contacts": "CONT", "stats": "STAT"}
+    roster = {a.id: Agent(a, cfg, None, None) for a in cfg.agents.values()}
+    out = facts_for_agents(sections, roster)
+    assert out["finance"] == "FIN"                                   # طارق: الحسابات بس
+    assert "BOOK" in out["support"] and "CONT" in out["support"]     # منى: الحجوزات والطلبات
+    assert "FIN" not in out["support"]                               # ومش الحسابات
+    assert out["projects"] == "BOOK" and out["analytics"] == "STAT"
+    assert all(k in out["ceo"] for k in ("FIN", "BOOK", "CONT", "STAT"))  # المدير: الكل
+    assert "writer" not in out and "scout" not in out                # الباقي: ولا حاجة

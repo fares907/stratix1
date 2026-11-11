@@ -53,3 +53,13 @@ describe("agents facts endpoint", () => {
     expect(isAgentsWorkflow({ ...GOOD, workflow_ref: "fares907/stratix1/.github/workflows/ci.yml@refs/heads/main" })).toBe(false);
   });
 });
+
+describe("what the agents may see", () => {
+  it("never includes phone numbers, emails or payment references", async () => {
+    const { collectAgentsFacts } = await import("./agentsFacts");
+    const source = collectAgentsFacts.toString();
+    for (const field of ["phone", "clientEmail", "paymentReference", "clientHash", "requestKey"]) {
+      expect(source).not.toContain(field);
+    }
+  });
+});

@@ -121,8 +121,30 @@ def _egp(value) -> str:
     return f"{float(value or 0):,.0f} جنيه"
 
 
-def format_site_facts(data: dict) -> dict[str, str]:
-    """بيحوّل أرقام الموقع لجمل يقراها طارق ومصطفى ونور في الاجتماع (الأرقام زي ما هي)."""
+# أقسام بيانات الموقع، وكل قسم ليه صلاحية لازم تكون عند الموظف عشان يشوفه
+SECTION_TOOLS = {
+    "finance": "view_finance",    # دفتر الحسابات والفواتير والتحصيل
+    "bookings": "view_bookings",  # الحجوزات ومراحل المشاريع
+    "contacts": "view_contacts",  # طلبات التواصل من الشات والموقع
+    "stats": "view_stats",        # إحصائيات إجمالية بس
+}
+
+_STAGE = {"received": "استلام", "design": "تصميم", "development": "برمجة", "review": "مراجعة", "delivered": "اتسلّم"}
+_PAY = {"paid": "مدفوع", "unpaid": "مش مدفوع", "awaiting_review": "تحويل مستني مراجعة"}
+_STATUS = {"new": "جديد", "contacted": "اتكلمنا معاه", "closed": "مقفول"}
+_TOPIC = {"new_site": "عايز موقع جديد", "existing_issue": "مشكلة في موقع", "other": "حاجة تانية"}
+
+
+def _date(ms) -> str:
+    from datetime import datetime, timezone
+    try:
+        return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+    except (TypeError, ValueError):
+        return "؟"
+
+
+def site_sections(data: dict) -> dict[str, str]:
+    """بيحوّل بيانات الموقع لأقسام نصية (الأرقام زي ما هي)، قسم لكل صلاحية."""
     ledger = data.get("ledger") or {}
     month, year = ledger.get("thisMonth") or {}, ledger.get("thisYear") or {}
     inv = data.get("invoices") or {}
@@ -130,6 +152,7 @@ def format_site_facts(data: dict) -> dict[str, str]:
     contacts = data.get("contacts") or {}
     pay = book.get("byPaymentStatus") or {}
     status = book.get("byStatus") or {}
+
     finance = (
         f"دفتر حسابات الشركة (من الموقع): الشهر ده دخل {_egp(month.get('income'))}، مصاريف {_egp(month.get('expense'))}، "
         f"صافي {_egp(month.get('net'))}. السنة دي: دخل {_egp(year.get('income'))}، مصاريف {_egp(year.get('expense'))}، "
@@ -138,15 +161,52 @@ def format_site_facts(data: dict) -> dict[str, str]:
         f" ({inv.get('total', 0)} فاتورة في الإجمالي).\n"
         f"الحجوزات حسب الدفع: مدفوع {pay.get('paid', 0)}، مستني مراجعة تحويل {pay.get('awaiting_review', 0)}، لسه مادفعش {pay.get('unpaid', 0)}."
     )
-    projects = (
+    unpaid = [b for b in data.get("recentBookings") or [] if b.get("paymentStatus") != "paid" and b.get("amountDue")]
+    if unpaid:
+        finance += "\nفلوس لسه ماتحصّلتش (آخر الحجوزات): " + "، ".join(
+            f"{b.get('publicId')} ({float(b['amountDue']):,.0f} {b.get('currency', 'EGP')}، {_PAY.get(b.get('paymentStatus'), '؟')})"
+            for b in unpaid[:10])
+
+    recent = data.get("recentBookings") or []
+    bookings = (
         f"الحجوزات: إجمالي {book.get('total', 0)} — جديد {status.get('new', 0)}، اتكلمنا معاه {status.get('contacted', 0)}، "
-        f"مقفول {status.get('closed', 0)}."
+        f"مقفول {status.get('closed', 0)}.\n"
+        + ("آخر الحجوزات:\n" + "\n".join(
+            f"- {b.get('publicId')} | {b.get('name')} | {_date(b.get('createdAt'))} | {_STATUS.get(b.get('status'), b.get('status'))}"
+            f" | المرحلة: {_STAGE.get(b.get('stage'), b.get('stage'))} | {(b.get('details') or '')[:120]}"
+            for b in recent[:12]) if recent else "مفيش حجوزات لسه.")
     )
-    analytics = (
-        f"طلبات تواصل من الموقع: إجمالي {contacts.get('total', 0)} (جديد {(contacts.get('byStatus') or {}).get('new', 0)}). "
-        f"حجوزات: {book.get('total', 0)}. الموقع مابيسجّلش عدد الزوار، فمعدل التحويل مش معروف."
+    recent_c = data.get("recentContacts") or []
+    contacts_text = (
+        f"طلبات التواصل: إجمالي {contacts.get('total', 0)} (جديد {(contacts.get('byStatus') or {}).get('new', 0)}).\n"
+        + ("آخر الطلبات:\n" + "\n".join(
+            f"- {_date(c.get('createdAt'))} | {_TOPIC.get(c.get('topic'), c.get('topic'))} | {_STATUS.get(c.get('status'), c.get('status'))}"
+            f" | {(c.get('note') or '')[:120]}"
+            for c in recent_c[:12]) if recent_c else "مفيش طلبات لسه.")
     )
-    return {"finance": finance, "projects": projects, "analytics": analytics}
+    stats = (
+        f"إحصائيات: حجوزات {book.get('total', 0)}، طلبات تواصل {contacts.get('total', 0)}. "
+        "الموقع مابيسجّلش عدد الزوار، فمعدل التحويل مش معروف."
+    )
+    return {"finance": finance, "bookings": bookings, "contacts": contacts_text, "stats": stats}
+
+
+def facts_for_agents(sections: dict[str, str], roster: dict) -> dict[str, str]:
+    """كل موظف بياخد الأقسام اللي عنده صلاحيتها بس (زي صلاحيات الموظفين في أي شركة).
+    المدير التنفيذي (read_all) بياخد ملخص كل حاجة."""
+    out: dict[str, str] = {}
+    for agent_id, agent in roster.items():
+        tools = set(agent.spec.tools)
+        allowed = [name for name, tool in SECTION_TOOLS.items() if tool in tools or "read_all" in tools]
+        if allowed:
+            out[agent_id] = "\n".join(sections[name] for name in allowed if sections.get(name))
+    return out
+
+
+def format_site_facts(data: dict) -> dict[str, str]:
+    """للتوافق: الأقسام بأسماء المالية والمشاريع والزوار."""
+    sec = site_sections(data)
+    return {"finance": sec["finance"], "projects": sec["bookings"], "analytics": sec["stats"]}
 
 
 def fetch_site_facts(token: str, http=None, url: str = SITE_FACTS_URL) -> dict[str, str]:
@@ -155,4 +215,4 @@ def fetch_site_facts(token: str, http=None, url: str = SITE_FACTS_URL) -> dict[s
     client = http or httpx.Client(timeout=30)
     r = client.get(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "stratix-agents/0.1"})
     r.raise_for_status()
-    return format_site_facts(r.json())
+    return site_sections(r.json())
