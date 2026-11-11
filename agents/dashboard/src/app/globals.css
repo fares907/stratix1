@@ -262,3 +262,16 @@ details > div { margin-top: 8px; padding: 10px 12px; border-radius: 10px; backgr
 
 /* بطاقات الرسايل في البريد والعملاء: عمود واحد مش صف */
 .panel.msg, td .msg { display: block; }
+
+/* المايك والصوت */
+button.mic { min-width: 48px; font-size: 1.15rem; padding: 10px 12px; }
+button.mic.on { background: var(--danger); border-color: transparent; color: white; animation: micpulse 1.2s ease-in-out infinite; }
+@keyframes micpulse { 0%, 100% { box-shadow: 0 0 0 0 oklch(0.66 0.22 25 / 55%); } 50% { box-shadow: 0 0 0 10px oklch(0.66 0.22 25 / 0%); } }
+.voice-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.voice-bar label { margin: 0; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.listening-hint { color: var(--danger); font-size: 0.9rem; }
+
+/* التقرير وهو بيتحول PDF: خلفية بيضا وكلام غامق عشان يتطبع واضح */
+.pdf-export { background: #fff !important; color: #111 !important; padding: 28px !important; width: 794px; }
+.pdf-export * { color: #111 !important; border-color: #ddd !important; background: transparent !important; box-shadow: none !important; }
+.pdf-export h1, .pdf-export h2, .pdf-export h3 { color: #3b1d8f !important; }

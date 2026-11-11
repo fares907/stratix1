@@ -30,10 +30,16 @@ export function hqContentSecurityPolicy(supabaseUrl = process.env.HQ_SUPABASE_UR
   ].join("; ");
 }
 
+// Same lockdown as the public site, except the microphone: the chairman talks
+// to the team by voice in the dashboard (speech-to-text runs in the browser).
+export const HQ_PERMISSIONS_POLICY =
+  "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()";
+
 export function createHqHeaders(): RequestHandler {
   const policy = hqContentSecurityPolicy();
   return (_req, res, next) => {
     res.setHeader("Content-Security-Policy", policy);
+    res.setHeader("Permissions-Policy", HQ_PERMISSIONS_POLICY);
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
     next();
   };

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MicButton } from "@/components/MicButton";
+import { canSpeak, speak, stopSpeaking, useDictation, voiceFor } from "@/lib/speech";
 import { supabase } from "@/lib/supabase";
+import type { Message } from "@/lib/types";
+import { useLive } from "@/lib/useLive";
 
 export interface LiveMeetingRow {
   id: number;
@@ -41,6 +45,73 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
   const [error, setError] = useState("");
   const [, tick] = useState(0);
   const closing = useRef(false);
+
+  // ── الصوت: وضع المكالمة (تتكلم وهما يردوا بصوت) ──
+  const [callMode, setCallMode] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
+  const meetingId = meeting?.id ?? 0;
+  const msgs = useLive<Message>("messages", () =>
+    supabase().from("messages").select("*").eq("meeting_id", meetingId).order("id"),
+  );
+  const { refresh: refreshMsgs } = msgs;
+  useEffect(() => {
+    refreshMsgs();
+  }, [meetingId, refreshMsgs]);
+  const spokenUpTo = useRef<number | null>(null);
+  const queue = useRef<Message[]>([]);
+  const playing = useRef(false);
+
+  const dictation = useDictation(
+    t => setText(t),
+    t => {
+      if (callMode && meeting && t.trim()) run("say", { action: "say", meeting_id: meeting.id, text: t });
+    },
+  );
+
+  async function playQueue() {
+    if (playing.current) return;
+    playing.current = true;
+    setSpeaking(true);
+    while (queue.current.length) {
+      const m = queue.current.shift()!;
+      await speak(m.content, voiceFor(m.agent_id));
+    }
+    playing.current = false;
+    setSpeaking(false);
+  }
+
+  // أي رد جديد من الفريق في الاجتماع ده يتقري بصوت (من غير ما يعيد الكلام القديم)
+  useEffect(() => {
+    const rows = msgs.rows.filter(m => m.meeting_id === meetingId);
+    const last = rows.length ? rows[rows.length - 1].id : 0;
+    if (spokenUpTo.current === null) {
+      spokenUpTo.current = last;
+      return;
+    }
+    const fresh = rows.filter(m => m.id > (spokenUpTo.current ?? 0) && m.author !== "chairman" && m.agent_id);
+    spokenUpTo.current = Math.max(spokenUpTo.current, last);
+    if (voiceOn && canSpeak() && fresh.length) {
+      queue.current.push(...fresh);
+      playQueue();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msgs.rows, meetingId, voiceOn]);
+
+  useEffect(() => {
+    spokenUpTo.current = null;
+  }, [meetingId]);
+
+  // في وضع المكالمة: لما الفريق يخلص كلام والرد يوصل، المايك يفتح تاني لوحده
+  useEffect(() => {
+    if (callMode && meeting && !busy && !speaking && !dictation.listening) {
+      const t = setTimeout(() => dictation.start(), 600);
+      return () => clearTimeout(t);
+    }
+    if ((busy || speaking) && dictation.listening) dictation.stop();
+  }, [callMode, meeting, busy, speaking, dictation]);
+
+  useEffect(() => () => { stopSpeaking(); }, []);
 
   useEffect(() => {
     if (!meeting) return;
@@ -117,7 +188,7 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="اتكلم مع الفريق كله بصفتك رئيس مجلس الإدارة…"
+          placeholder="اكتب أو دوس على المايك واتكلم مع الفريق كله بصفتك رئيس مجلس الإدارة…"
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey && text.trim() && !busy) {
               e.preventDefault();
@@ -125,10 +196,39 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
             }
           }}
         />
-        <button className="primary" disabled={!text.trim() || Boolean(busy)} onClick={() => run("say", { action: "say", meeting_id: meeting.id, text })}>
+        <MicButton
+          listening={dictation.listening}
+          supported={dictation.supported}
+          disabled={Boolean(busy)}
+          onStart={() => { stopSpeaking(); dictation.start(text); }}
+          onStop={dictation.stop}
+        />
+        <button className="primary" disabled={!text.trim() || Boolean(busy)} onClick={() => { dictation.stop(); run("say", { action: "say", meeting_id: meeting.id, text }); }}>
           {busy === "say" ? "الفريق بيرد…" : "قول"}
         </button>
       </div>
+      <div className="voice-bar">
+        {dictation.supported && (
+          <button
+            className={callMode ? "primary" : ""}
+            onClick={() => {
+              if (callMode) { setCallMode(false); dictation.stop(); } else { setCallMode(true); setVoiceOn(true); }
+            }}
+          >
+            {callMode ? "📞 قفّل المكالمة الصوتية" : "📞 كلّمهم بصوتك (مكالمة)"}
+          </button>
+        )}
+        {canSpeak() && (
+          <label>
+            <input type="checkbox" checked={voiceOn} onChange={e => { setVoiceOn(e.target.checked); if (!e.target.checked) { queue.current = []; stopSpeaking(); } }} />
+            ردودهم بصوت
+          </label>
+        )}
+        {speaking && <button onClick={() => { queue.current = []; stopSpeaking(); }}>🔇 اسكّتهم</button>}
+        {dictation.listening && <span className="listening-hint">● بسمعك… اتكلم{callMode ? " وأول ما تسكت هبعت كلامك" : ""}</span>}
+        {!dictation.supported && <span className="muted">التسجيل الصوتي محتاج متصفح كروم.</span>}
+      </div>
+      {dictation.error && <p className="error">{dictation.error}</p>}
       {busy === "say" && <p className="muted">نادر بيسمعك وبيطلب رأي اللي يخصهم الكلام… الردود بتظهر تحت أول بأول.</p>}
       {busy === "close" && <p className="muted">نادر بيكتب الملخص والقرارات ويوزّع المهام…</p>}
       {error && <p className="error">{error}</p>}

@@ -96,6 +96,53 @@ def check_uptime(report: Report, url: str, http: httpx.Client) -> None:
         report.add("uptime", "critical", f"مشكلة في SSL: {exc}")
 
 
+# ملفات لو اتفتحت للناس تبقى كارثة (أسرار، كود، نسخ احتياطية)
+SENSITIVE_PATHS = ("/.env", "/.git/config", "/.git/HEAD", "/package.json", "/server/_core/index.ts",
+                   "/backup.sql", "/.DS_Store", "/drizzle.config.ts")
+
+
+def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
+    """فحص أمان أعمق: ملفات حساسة مكشوفة، تحويل HTTP لـ HTTPS، وإن السيرفر مش بيفضح نسخته."""
+    base = url.rstrip("/")
+    exposed = []
+    for path in SENSITIVE_PATHS:
+        try:
+            r = http.get(base + path, follow_redirects=False)
+        except httpx.HTTPError:
+            continue
+        body = r.text[:400].lower() if r.status_code == 200 else ""
+        # الموقع SPA: أي مسار مش موجود بيرجّع صفحة الموقع العادية (HTML)، ودي مش تسريب
+        if r.status_code == 200 and "<html" not in body and "<!doctype" not in body:
+            exposed.append(path)
+    if exposed:
+        report.add("security", "critical", "ملفات حساسة مفتوحة للناس: " + "، ".join(exposed))
+    else:
+        report.add("security", "ok", f"مفيش ملفات حساسة مكشوفة (جربت {len(SENSITIVE_PATHS)} مسار زي .env و .git)")
+
+    host = urlparse(url).hostname or ""
+    try:
+        r = http.get(f"http://{host}/", follow_redirects=False)
+        location = r.headers.get("location", "")
+        if r.status_code in (301, 302, 307, 308) and location.startswith("https://"):
+            report.add("security", "ok", "أي حد يفتح الموقع بـ http بيتحوّل لـ https أوتوماتيك")
+        else:
+            report.add("security", "warn", f"فتح الموقع بـ http مابيحوّلش لـ https (HTTP {r.status_code})")
+    except httpx.HTTPError:
+        pass
+
+    try:
+        r = http.get(url)
+        leaks = [f"{k}: {r.headers[k]}" for k in ("x-powered-by", "server") if k in r.headers and any(ch.isdigit() for ch in r.headers[k])]
+        if "x-powered-by" in r.headers:
+            leaks.append(f"x-powered-by: {r.headers['x-powered-by']}")
+        if leaks:
+            report.add("security", "warn", "السيرفر بيقول نوعه/نسخته للناس: " + "، ".join(dict.fromkeys(leaks)))
+        else:
+            report.add("security", "ok", "السيرفر مش بيكشف نوعه ولا نسخته")
+    except httpx.HTTPError:
+        pass
+
+
 def check_audit(report: Report, audit_json: Path) -> None:
     """بيقرا ناتج `pnpm audit --json` اللي الـ workflow بيشغّله على الموقع."""
     if not audit_json.exists():
@@ -160,6 +207,7 @@ def run(company, audit_json: Path | None = None, http: httpx.Client | None = Non
     full = force_full or last is None or (datetime.now(timezone.utc) - last).days >= FULL_CHECK_DAYS
 
     check_uptime(report, url, client)
+    check_exposure(report, url, client)
     check_infra(report, domain, company.rule("subscriptions", default=[]) or [], client)
     if full and audit_json is not None:
         check_audit(report, audit_json)

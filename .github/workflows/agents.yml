@@ -26,7 +26,7 @@ on:
       run:
         description: "أنهي تشغيل"
         type: choice
-        options: [morning, evening, inbox, probe]
+        options: [morning, evening, inbox, sales, probe]
         default: morning
 
 permissions:

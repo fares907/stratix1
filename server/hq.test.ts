@@ -39,6 +39,9 @@ describe("agents dashboard at /hq", () => {
     expect(policy).toContain("frame-ancestors 'none'");
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     expect(res.headers.get("cache-control")).toBe("no-cache");
+    // the chairman talks to the team by voice, so only the dashboard may use the mic
+    expect(res.headers.get("permissions-policy")).toContain("microphone=(self)");
+    expect(res.headers.get("permissions-policy")).toContain("camera=()");
   });
 
   it("caches hashed assets for good", async () => {
@@ -57,6 +60,7 @@ describe("agents dashboard at /hq", () => {
     expect(await res.text()).toBe("site");
     expect(res.headers.get("content-security-policy")).not.toContain("unsafe-inline' ; connect");
     expect(res.headers.get("content-security-policy")).toContain("script-src 'self';");
+    expect(res.headers.get("permissions-policy")).toContain("microphone=()");
   });
 
   it("only widens connect-src to the configured Supabase origin", () => {
