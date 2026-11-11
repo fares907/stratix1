@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HaltedBanner } from "@/components/KillSwitch";
+import { LiveMeeting } from "@/components/LiveMeeting";
 import { Avatar, Empty, PageHead, Stat } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Agent, Message } from "@/lib/types";
@@ -28,9 +29,11 @@ interface Meeting {
   status: string;
   summary: string | null;
   started_at: string;
+  topic: string | null;
+  ends_at: string | null;
 }
 
-const MEETING_KIND: Record<string, string> = { morning: "اجتماع الصبح", evening: "اجتماع آخر اليوم", daily: "اجتماع" };
+const MEETING_KIND: Record<string, string> = { morning: "اجتماع الصبح", evening: "اجتماع آخر اليوم", daily: "اجتماع", live: "اجتماع لايف مع رئيس مجلس الإدارة" };
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("ar-EG", { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -58,7 +61,8 @@ export default function MeetingRoom() {
 
   const byId = useMemo(() => new Map(agents.rows.map(a => [a.id, a])), [agents.rows]);
   const messageById = useMemo(() => new Map(messages.rows.map(m => [m.id, m])), [messages.rows]);
-  const who = (id: string | null) => (id ? byId.get(id)?.name ?? id : "النظام");
+  const who = (id: string | null, author?: string | null) =>
+    author === "chairman" ? "رئيس مجلس الإدارة" : id ? byId.get(id)?.name ?? id : "النظام";
 
   const { refresh: refreshMessages } = messages;
   useEffect(() => {
@@ -66,6 +70,7 @@ export default function MeetingRoom() {
   }, [agentFilter, meetingFilter, refreshMessages]);
 
   const live = meetings.rows.find(m => m.status === "running");
+  const liveMeeting = meetings.rows.find(m => m.status === "running" && m.kind === "live");
   const selected = meetings.rows.find(m => String(m.id) === meetingFilter);
   const active = agents.rows.filter(a => a.status === "active").length;
 
@@ -86,6 +91,8 @@ export default function MeetingRoom() {
         <Stat label="مستنية موافقتك" value={pending.rows.length} />
       </div>
 
+      <LiveMeeting meeting={liveMeeting} onStarted={id => { setMeetingFilter(String(id)); meetings.refresh(); }} />
+
       <div className="panel row" style={{ alignItems: "flex-end" }}>
         <div style={{ flex: "1 1 200px" }}>
           <label htmlFor="agent" style={{ marginTop: 0 }}>الموظف</label>
@@ -104,7 +111,7 @@ export default function MeetingRoom() {
             <option value="">كل النشاط</option>
             {meetings.rows.map(m => (
               <option key={m.id} value={m.id}>
-                {MEETING_KIND[m.kind] ?? m.kind} — {time(m.started_at)}
+                {m.kind === "live" && m.topic ? `لايف: ${m.topic}` : MEETING_KIND[m.kind] ?? m.kind} — {time(m.started_at)}
                 {m.status === "running" ? " (شغّال)" : m.status === "failed" ? " (وقف)" : ""}
               </option>
             ))}
@@ -131,10 +138,10 @@ export default function MeetingRoom() {
             const kind = KIND[m.kind];
             return (
               <article key={m.id} className={`msg ${m.kind}`}>
-                <Avatar name={who(m.agent_id)} department={agent?.department} />
+                <Avatar name={who(m.agent_id, m.author)} department={agent?.department} />
                 <div className="msg-body">
                   <div className="msg-head">
-                    <strong>{who(m.agent_id)}</strong>
+                    <strong>{who(m.agent_id, m.author)}</strong>
                     {agent && <span className="faint">{agent.title}</span>}
                     <span className={`chip ${kind.cls}`}>{kind.label}</span>
                     {m.confidence && <span className={`chip ${CONFIDENCE[m.confidence].cls}`}>{CONFIDENCE[m.confidence].label}</span>}
@@ -143,7 +150,7 @@ export default function MeetingRoom() {
                   </div>
                   {m.reply_to && (
                     <div className="reply">
-                      ↩ رد على {parent ? `${who(parent.agent_id)}: «${parent.content.slice(0, 90)}»` : `رسالة #${m.reply_to}`}
+                      ↩ رد على {parent ? `${who(parent.agent_id, parent.author)}: «${parent.content.slice(0, 90)}»` : `رسالة #${m.reply_to}`}
                     </div>
                   )}
                   <p className="msg-text">{m.content}</p>

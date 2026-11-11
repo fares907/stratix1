@@ -19,6 +19,7 @@ export interface Message {
   agent_id: string | null;
   meeting_id: number | null;
   reply_to: number | null;
+  author?: string | null; // "chairman" لو رئيس مجلس الإدارة هو اللي اتكلم
   kind: "speech" | "objection" | "decision" | "activity" | "error";
   content: string;
   reasoning: string | null;
