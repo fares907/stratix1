@@ -101,6 +101,9 @@ export class Speaker {
   private audio: HTMLAudioElement | null = null;
   private signal = { stopped: false };
   playing = false;
+  private running = false;
+  /** طول ما ده بيرجع true (رئيس مجلس الإدارة بيتكلم) الفريق يستنى ومايقاطعهوش */
+  waitWhile: () => boolean = () => false;
   onChange: (playing: boolean) => void = () => {};
 
   /** الرسايل اللي كانت موجودة قبل ما المكالمة تبدأ مابتتقريش */
@@ -130,11 +133,15 @@ export class Speaker {
   }
 
   private async run() {
-    if (this.playing) return;
+    if (this.running) return;
+    this.running = true;
     this.signal = { stopped: false };
     const signal = this.signal;
-    this.setPlaying(true);
     while (this.queue.length && !signal.stopped) {
+      // مانقاطعش حد بيتكلم: نستنى لحد ما يخلص كلامه
+      while (this.waitWhile() && !signal.stopped) await new Promise(r => setTimeout(r, 200));
+      if (signal.stopped || !this.queue.length) break;
+      if (!this.playing) this.setPlaying(true);
       const item = this.queue.shift()!;
       const v = voiceOf(item.agentId);
       const blob = await groqSpeech(item.text, v.groq);
@@ -153,7 +160,9 @@ export class Speaker {
         await deviceSpeak(item.text, v.female, signal);
       }
     }
+    this.running = false;
     if (this.signal === signal) this.setPlaying(false);
+    if (this.queue.length && !this.signal.stopped) void this.run();
   }
 }
 
@@ -204,6 +213,7 @@ export class Listener {
   private startedAt = 0;
   private pending = "";
   private sendNow = false;
+  private onVisible: (() => void) | null = null;
 
   async open() {
     if (this.stream) return;
@@ -218,6 +228,11 @@ export class Listener {
       this.stream = null;
       if (this.recorder) { this.pause(); void this.listen(); }
     }));
+    // الموبايل بيوقّف الصوت لما الشاشة تقفل أو تروح لتطبيق تاني؛ لما ترجع نشغّله تاني
+    if (!this.onVisible) {
+      this.onVisible = () => { if (document.visibilityState === "visible") void this.ctx?.resume().catch(() => {}); };
+      document.addEventListener("visibilitychange", this.onVisible);
+    }
     const source = this.ctx.createMediaStreamSource(this.stream);
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 1024;
