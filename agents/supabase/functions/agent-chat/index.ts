@@ -241,6 +241,18 @@ Deno.serve(async (req) => {
     for (const w of A) if (B.has(w)) inter++;
     return inter / Math.min(A.size, B.size);
   };
+  // لو الطلب أكبر من المسموح للموديل (413) بنختصر الذاكرة والمحادثة القديمة ونحاول تاني بنفس الموديل
+  const baseSystem = system.slice(0, system.length - memory.length);
+  let shrink = 0;
+  const compact = () => {
+    shrink++;
+    const memLimit = shrink === 1 ? 3000 : 1200;
+    const keep = shrink === 1 ? 8 : 4;
+    const recent = past.slice(-keep).map((m) => ({ ...m, content: m.content.slice(0, 500) }));
+    messages.splice(0, messages.length,
+      { role: "system", content: baseSystem + memory.slice(0, memLimit) + ceoProtocol },
+      ...recent, { role: "user", content: message });
+  };
   let retried = false;
   for (let index = 0; index < chain.length; index++) {
     const model = chain[index];
@@ -282,6 +294,7 @@ Deno.serve(async (req) => {
       is_fallback: index > 0, status, latency_ms: Date.now() - started,
       prompt_tokens: usage.prompt_tokens ?? 0, completion_tokens: usage.completion_tokens ?? 0,
     });
+    if (status === "http_413" && shrink < 2) { compact(); index--; continue; }
     if (status !== "ok") { reasons.push(`${model.key}: ${status}`); continue; }
 
     let visible = reply;
