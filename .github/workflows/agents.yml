@@ -142,9 +142,16 @@ jobs:
           cache-dependency-path: agents/requirements.txt
       - if: steps.pick.outputs.ready == 'true'
         run: pip install -r requirements.txt
+      # الـ PDF بيتطبع بـ Chrome الموجود على سيرفر GitHub. لو مش موجود، التقرير بيطلع عادي من غير PDF
+      # (واللوحة بتعمله) — عمر الخطوة دي ما توقّف الاجتماع أو التقرير.
       - name: Browser for the PDF report
         if: steps.pick.outputs.ready == 'true' && (steps.pick.outputs.run == 'evening' || steps.pick.outputs.run == 'report')
-        run: python -m playwright install --with-deps chromium
+        continue-on-error: true
+        run: |
+          for b in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$b" >/dev/null; then echo "CHROMIUM_PATH=$(command -v "$b")" >> "$GITHUB_ENV"; echo "using $b"; exit 0; fi
+          done
+          echo "no browser on this runner; the dashboard will build the PDF"
       - if: steps.pick.outputs.ready == 'true'
         run: python -m stratix_agents seed
       - if: steps.pick.outputs.ready == 'true'
