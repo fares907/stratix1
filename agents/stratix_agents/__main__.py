@@ -21,7 +21,7 @@ from pathlib import Path
 import httpx
 
 from . import config as config_mod
-from . import devteam, meeting, notify, report, sales, scout, site, sitedb
+from . import devteam, meeting, notify, report, sales, scout, site, sitedb, work
 from .mailer import Mailer
 from .router import Halted
 from .runtime import Company, from_env, within_working_hours
@@ -197,6 +197,7 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     facts = report.build_facts(company, extra)
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
     _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
+    _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
     _step(company, "الرسايل", sales.outreach, company, mailer)
     if mailer:
         _step(company, "الوارد", sales.inbox, company, mailer)
@@ -218,6 +219,7 @@ def cmd_evening(cfg: config_mod.Config) -> None:
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     facts = report.build_facts(company, extra)
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
+    _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
     mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
     daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
     tg = notify.from_env(company.env)

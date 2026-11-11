@@ -310,3 +310,19 @@ def test_chairman_facts_reach_the_whole_team():
     opening = llm.prompts[0]
     assert "500 جنيه" in opening and "قالها لـطارق" in opening        # نادر عرف
     assert sum("500 جنيه" in p for p in llm.prompts) >= 13           # وكل الفريق في الجولة الأولى
+
+
+
+def test_requested_report_is_actually_written_and_reaches_the_daily_report():
+    from stratix_agents import work
+    llm = ScriptedLLM([("مهمة مطلوب تسلّمها", say("تقرير الحسابات: الدخل 5000 جنيه والصافي 3800 جنيه."))])
+    company = make_company(llm)
+    task = company.store.insert("tasks", {"agent_id": "finance", "title": "ابعت تقرير الحسابات", "status": "todo",
+                                          "details": "بطلب من رئيس مجلس الإدارة"})
+    assert work.do_open_tasks(company, {"finance": "دخل 5,000 جنيه، صافي 3,800 جنيه"}) == 1
+    done = company.store.select("tasks", id=task["id"])[0]
+    assert done["status"] == "done" and "3800" in done["result"]
+    assert any("دخل 5,000" in p for p in llm.prompts)          # اشتغل من الأرقام الحقيقية
+    row = report.write_daily(company, {}, None)
+    assert "المهام اللي خلصت النهارده" in row["body"] and "تقرير الحسابات" in row["body"]
+    assert work.do_open_tasks(company, {}) == 0                # مابيتعملش مرتين

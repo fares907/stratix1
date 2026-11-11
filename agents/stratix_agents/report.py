@@ -101,6 +101,14 @@ def write_daily(company: Company, facts: dict[str, str], meeting_id: int | None)
     if meeting and meeting.get("summary"):
         lines += ["", "## قرار الاجتماع", meeting["summary"]]
 
+    finished = [t for t in store.select("tasks") if t.get("status") == "done" and t.get("result")
+                and (t.get("completed_at") or "").startswith(_today())]
+    if finished:
+        names = {a["id"]: a.get("name", a["id"]) for a in store.select("agents")}
+        lines += ["", "## المهام اللي خلصت النهارده"]
+        for t in finished:
+            lines += [f"### {names.get(t['agent_id'], t['agent_id'])}: {t['title']}", t["result"][:1500]]
+
     tasks = [t for t in store.select("tasks") if meeting_id and t.get("meeting_id") == meeting_id]
     if tasks:
         lines += ["", "## المهام اللي اتوزعت"]
