@@ -33,7 +33,7 @@ function Markdown({ text }: { text: string }) {
 
 export default function ReportsPage() {
   const reports = useLive<DailyReport>("daily_reports", () =>
-    supabase().from("daily_reports").select("*").order("report_date", { ascending: false }).limit(60),
+    supabase().from("daily_reports").select("id, report_date, headline, body, data").order("report_date", { ascending: false }).limit(60),
   );
   const [selected, setSelected] = useState<number | null>(null);
   const current = reports.rows.find(r => r.id === selected) ?? reports.rows[0];
@@ -46,6 +46,18 @@ export default function ReportsPage() {
     setExporting(true);
     setExportError("");
     try {
+      // الملف الأصلي (نص حقيقي بمحرّك طباعة المتصفح) لو اتعمل؛ غير كده بنصوّر المستند
+      const { data: row } = await supabase().from("daily_reports").select("pdf").eq("id", current.id).maybeSingle();
+      if (row?.pdf) {
+        const bytes = Uint8Array.from(atob(row.pdf), c => c.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+        const a = Object.assign(document.createElement("a"), { href: url, download: `STRATIX-report-${current.report_date}.pdf` });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        return;
+      }
       await downloadPdf(sheet.current, `STRATIX-report-${current.report_date}`);
     } catch {
       setExportError("ماقدرتش أعمل الـ PDF، جرّب تاني");

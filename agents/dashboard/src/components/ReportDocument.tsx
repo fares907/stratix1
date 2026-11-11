@@ -28,7 +28,7 @@ const IDEA = {
 } as Record<string, { label: string; cls: string }>;
 
 const longDate = (iso: string) =>
-  new Date(`${iso}T12:00:00`).toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  new Date(`${iso}T12:00:00`).toLocaleDateString("ar-EG-u-nu-latn", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (

@@ -402,4 +402,39 @@ describe("declaring a payment", () => {
     expect(result.alreadyPaid).toBe(false);
     expect(declareSpy).toHaveBeenCalledWith({ publicId: "STRX-PAID", reference: "TX-42" });
   });
+
+  // declare answers the same "is this id + phone real?" question as lookup, so it
+  // must spend the same attempt budget instead of being a side door around it.
+  it("is rate-limited per visitor like the lookup", async () => {
+    vi.resetModules();
+    const db = await import("./db");
+    vi.spyOn(db, "getBookingForPayment").mockResolvedValue(null as never);
+    const { declarePayment } = await import("./payment");
+    const req = { ip: "203.0.113.9", get: () => undefined, headers: {} } as never;
+    const outcomes: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const err = await declarePayment({ publicId: "STRX-NOPE", phone: "+201001112222", reference: "TX-1" }, req).catch(e => e);
+      outcomes.push(err.code);
+    }
+    expect(outcomes.slice(0, 10).every(c => c === "NOT_FOUND")).toBe(true);
+    expect(outcomes.slice(10).every(c => c === "TOO_MANY_REQUESTS")).toBe(true);
+  });
+
+  it("does not email the owners twice for the same transfer reference", async () => {
+    vi.resetModules();
+    const db = await import("./db");
+    vi.spyOn(db, "getBookingForPayment").mockResolvedValue({
+      ...paidBooking,
+      paymentStatus: "awaiting_review",
+      paymentReference: "TX-42",
+    } as never);
+    const declareSpy = vi.spyOn(db, "declareBookingPayment").mockResolvedValue(undefined);
+    const email = await import("./email");
+    const emailSpy = vi.spyOn(email, "sendPaymentDeclaredEmail");
+    const { declarePayment } = await import("./payment");
+    const result = await declarePayment({ publicId: "STRX-PAID", phone: "+201001112222", reference: "TX-42" });
+    expect(result.accepted).toBe(true);
+    expect(declareSpy).not.toHaveBeenCalled();
+    expect(emailSpy).not.toHaveBeenCalled();
+  });
 });

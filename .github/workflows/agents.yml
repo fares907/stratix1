@@ -26,7 +26,7 @@ on:
       run:
         description: "أنهي تشغيل"
         type: choice
-        options: [morning, evening, inbox, sales, probe]
+        options: [morning, evening, inbox, sales, report, probe]
         default: morning
 
 permissions:
@@ -142,6 +142,9 @@ jobs:
           cache-dependency-path: agents/requirements.txt
       - if: steps.pick.outputs.ready == 'true'
         run: pip install -r requirements.txt
+      - name: Browser for the PDF report
+        if: steps.pick.outputs.ready == 'true' && (steps.pick.outputs.run == 'evening' || steps.pick.outputs.run == 'report')
+        run: python -m playwright install --with-deps chromium
       - if: steps.pick.outputs.ready == 'true'
         run: python -m stratix_agents seed
       - if: steps.pick.outputs.ready == 'true'

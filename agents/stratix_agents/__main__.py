@@ -7,6 +7,7 @@
   python -m stratix_agents evening   اجتماع آخر اليوم ← التقرير اليومي ← تليجرام
   python -m stratix_agents inbox     يدوّر على عملاء ويبعتلهم، ويقرا الردود وينفّذ الموافقات (كل ساعتين)
   python -m stratix_agents sales     نفس inbox (للتشغيل اليدوي)
+  python -m stratix_agents report    يعيد كتابة تقرير النهارده وملف الـ PDF
 
 كل خطوة مستقلة: لو واحدة وقعت، الباقي بيكمل، والخطأ بيتسجل في غرفة الاجتماعات.
 """
@@ -22,7 +23,7 @@ from pathlib import Path
 import httpx
 
 from . import config as config_mod
-from . import devteam, meeting, notify, report, sales, scout, site, sitedb, work
+from . import devteam, meeting, notify, pdfreport, report, sales, scout, site, sitedb, work
 from .mailer import Mailer
 from .router import Halted
 from .runtime import Company, from_env, within_working_hours
@@ -226,6 +227,8 @@ def cmd_evening(cfg: config_mod.Config) -> None:
     _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
     mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
     daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
+    if daily:
+        _step(company, "PDF التقرير", pdfreport.attach, company, daily)
     tg = notify.from_env(company.env)
     if tg and daily:
         tg.send(daily["headline"] + "\n\nالتقرير كامل في لوحة التحكم ← التقارير")
@@ -247,10 +250,20 @@ def cmd_inbox(cfg: config_mod.Config) -> None:
     _step(company, "إشعارات", _notify_new_approvals, company)
 
 
+def cmd_report(cfg: config_mod.Config) -> None:
+    """يعيد كتابة تقرير النهارده وملف الـ PDF بتاعه من غير اجتماع (للتشغيل اليدوي)."""
+    company = from_env()
+    extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
+    facts = report.build_facts(company, extra)
+    daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, None)
+    if daily:
+        _step(company, "PDF التقرير", pdfreport.attach, company, daily)
+
+
 COMMANDS = {
     "check": cmd_check, "seed": cmd_seed, "models": cmd_models,
     "probe": cmd_probe, "morning": cmd_morning, "evening": cmd_evening, "inbox": cmd_inbox,
-    "sales": cmd_inbox,
+    "sales": cmd_inbox, "report": cmd_report,
 }
 
 
