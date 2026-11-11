@@ -18,6 +18,7 @@ function Markdown({ text }: { text: string }) {
     <div className="report">
       {text.split("\n").map((line, i) => {
         if (line.startsWith("# ")) return <h1 key={i}>{line.slice(2)}</h1>;
+        if (line.startsWith("### ")) return <h3 key={i} style={{ margin: "14px 0 4px", fontSize: "0.95rem", color: "var(--signal-bright)" }}>{line.slice(4)}</h3>;
         if (line.startsWith("## ")) return <h2 key={i} style={{ marginTop: 16 }}>{line.slice(3)}</h2>;
         if (line.startsWith("- ")) return <div key={i} className="li">{line.slice(2)}</div>;
         if (!line.trim()) return <div key={i} style={{ height: 6 }} />;

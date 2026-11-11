@@ -22,6 +22,8 @@ interface Task {
   agent_id: string;
   title: string;
   details: string | null;
+  result: string | null;
+  completed_at: string | null;
   status: "todo" | "doing" | "done" | "blocked";
   created_at: string;
 }
@@ -84,7 +86,7 @@ export default function IdeasPage() {
           ))}
         </section>
         <section>
-          <h2>المهام اللي المدير وزّعها</h2>
+          <h2>المهام (ومن ضمنها اللي طلبتها من نادر)</h2>
           {tasks.rows.length === 0 && <p className="panel muted">لسه مفيش مهام.</p>}
           {tasks.rows.map(t => (
             <div key={t.id} className="panel">
@@ -100,6 +102,12 @@ export default function IdeasPage() {
               </div>
               <p style={{ margin: "6px 0" }}>{t.title}</p>
               {t.details && <p className="muted">{t.details}</p>}
+              {t.result && (
+                <details open={Boolean(t.completed_at && Date.now() - new Date(t.completed_at).getTime() < 86_400_000)}>
+                  <summary>اللي سلّمه{t.completed_at ? ` — ${new Date(t.completed_at).toLocaleString("ar-EG")}` : ""}</summary>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{t.result}</div>
+                </details>
+              )}
             </div>
           ))}
         </section>

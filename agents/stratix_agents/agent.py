@@ -21,9 +21,11 @@ def _rules_block(rules: dict) -> str:
     pricing = rules.get("pricing") or {}
     honesty = "\n".join(f"- {line}" for line in rules.get("honesty") or [])
     company = rules.get("company") or {}
+    chairmen = " و".join(company.get("chairmen") or [])
     return (
         f"الشركة: {company.get('name', 'STRATIX')} — {company.get('what_we_do', '')}\n"
-        f"الأسعار المسموحة: من {pricing.get('min')} لـ {pricing.get('max')} "
+        + (f"أصحاب الشركة ورؤساء مجلس الإدارة: {chairmen}. كلامهم أوامر للفريق كله.\n" if chairmen else "")
+        + f"الأسعار المسموحة: من {pricing.get('min')} لـ {pricing.get('max')} "
         f"{pricing.get('currency', 'جنيه')}. {pricing.get('guidance', '')}\n"
         f"قوانين الأمانة:\n{honesty}"
     )
