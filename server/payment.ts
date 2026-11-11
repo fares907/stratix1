@@ -90,7 +90,10 @@ function getPaymentMethods() {
 export type PaymentLookupInput = z.infer<typeof paymentLookupSchema>;
 export type PaymentDeclareInput = z.infer<typeof paymentDeclareSchema>;
 
-export async function lookupPayment(input: PaymentLookupInput, req?: TrpcContext["req"]) {
+// Both public payment endpoints answer "is this order id + phone real?", so they
+// share one budget: otherwise `declare` would be an unthrottled side door around
+// the lookup limits (and a way to flood the owners' inbox).
+function spendLookupAttempt(req?: TrpcContext["req"]) {
   const visitor = req ? clientIp(req) : null;
   if ((visitor && lookupPerVisitor.isLimited(visitor)) || isLookupRateLimited()) {
     throw new TRPCError({
@@ -100,6 +103,10 @@ export async function lookupPayment(input: PaymentLookupInput, req?: TrpcContext
   }
   recordLookup();
   if (visitor) lookupPerVisitor.record(visitor);
+}
+
+export async function lookupPayment(input: PaymentLookupInput, req?: TrpcContext["req"]) {
+  spendLookupAttempt(req);
 
   const booking = await getBookingForPayment(input);
   // Deliberately identical whether the order id is wrong, the phone is wrong, or
@@ -123,7 +130,8 @@ export async function lookupPayment(input: PaymentLookupInput, req?: TrpcContext
   } as const;
 }
 
-export async function declarePayment(input: PaymentDeclareInput) {
+export async function declarePayment(input: PaymentDeclareInput, req?: TrpcContext["req"]) {
+  spendLookupAttempt(req);
   const booking = await getBookingForPayment({ publicId: input.publicId, phone: input.phone });
   if (!booking) {
     throw new TRPCError({ code: "NOT_FOUND", message: NOT_FOUND_MESSAGE });
@@ -140,6 +148,12 @@ export async function declarePayment(input: PaymentDeclareInput) {
   // email or reopen a payment they already verified.
   if (booking.paymentStatus === "paid") {
     return { accepted: true, alreadyPaid: true } as const;
+  }
+
+  // Re-sending the same transfer reference is a double click, not news: the
+  // owners were already emailed about it.
+  if (booking.paymentStatus === "awaiting_review" && booking.paymentReference === input.reference) {
+    return { accepted: true, alreadyPaid: false } as const;
   }
 
   await declareBookingPayment({ publicId: booking.publicId, reference: input.reference });

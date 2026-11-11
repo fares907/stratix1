@@ -361,3 +361,18 @@ def test_security_finds_exposed_env_and_ignores_spa_fallback():
     crit = [f.text for f in report.findings if f.severity == "critical"]
     assert crit and ".env" in crit[0] and ".git" not in crit[0]
     assert any("HTTPS" in f.text and f.severity == "ok" for f in report.findings)
+
+
+def test_pdf_report_html_is_safe_and_keeps_latin_words_in_order():
+    from stratix_agents.pdfreport import build_html
+    data = {
+        "date": "2026-11-11", "summary": "ملخص <script>alert(1)</script>",
+        "kpis": [{"label": "عملاء", "value": 4, "hint": "", "tone": "ok"}],
+        "sales": {"rows": [["إجمالي", 4]]},
+        "site": [{"area": "الأمان", "status": "ok", "status_label": "سليم", "text": "اشتراك Railway ساري"}],
+        "ideas": [], "tasks_done": [], "approvals": [], "highlights": [], "risks": [], "recommendations": [],
+    }
+    html = build_html(data)
+    assert "<script>" not in html and "&lt;<bdi dir='ltr'>script</bdi>&gt;" in html
+    assert "<bdi dir='ltr'>Railway</bdi>" in html and "class='pill ok'" in html and "class='kpi ok'" in html
+    assert "الأربعاء، 11 نوفمبر 2026" in html

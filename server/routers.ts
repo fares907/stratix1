@@ -57,7 +57,7 @@ export const appRouter = router({
 
     declare: publicProcedure
       .input(paymentDeclareSchema)
-      .mutation(({ input }) => declarePayment(input)),
+      .mutation(({ ctx, input }) => declarePayment(input, ctx.req)),
   }),
 
   tracking: router({
@@ -86,7 +86,7 @@ export const appRouter = router({
     stats: adminSessionProcedure.query(() => getBookingStats()),
 
     updateStatus: adminSessionProcedure
-      .input(z.object({ publicId: z.string(), status: z.enum(["new", "contacted", "closed"]) }))
+      .input(z.object({ publicId: z.string().min(1).max(32), status: z.enum(["new", "contacted", "closed"]) }))
       .mutation(({ input }) => updateBookingStatus(input)),
 
     // Quoting a project is what makes its payment page usable — until an amount

@@ -91,7 +91,7 @@ def check_uptime(report: Report, url: str, http: httpx.Client) -> None:
     try:
         days = cert_days_left(host)
         sev = "critical" if days < 7 else "warn" if days < 20 else "ok"
-        report.add("uptime", sev, f"شهادة SSL سارية لمدة {days} يومًا")
+        report.add("uptime", sev, f"شهادة SSL سارية لمدة {days_ar(days)}")
     except (OSError, ssl.SSLError) as exc:
         report.add("uptime", "critical", f"خلل في شهادة SSL: {exc}")
 
@@ -117,7 +117,7 @@ def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
     if exposed:
         report.add("security", "critical", "ملفات حساسة متاحة للعامة: " + "، ".join(exposed))
     else:
-        report.add("security", "ok", f"لا توجد ملفات حساسة مكشوفة (فُحص {len(SENSITIVE_PATHS)} مسارًا مثل .env و.git)")
+        report.add("security", "ok", f"لا توجد ملفات حساسة مكشوفة (فُحصت {len(SENSITIVE_PATHS)} مسارات حساسة)")
 
     host = urlparse(url).hostname or ""
     try:
@@ -141,6 +141,16 @@ def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
             report.add("security", "ok", "الخادم لا يكشف نوعه ولا إصداره")
     except httpx.HTTPError:
         pass
+
+
+def days_ar(n: int) -> str:
+    """تمييز العدد بالعربي الصحيح: يوم واحد، يومين، 3 أيام، 11 يومًا."""
+    n = abs(int(n))
+    if n == 1:
+        return "يوم واحد"
+    if n == 2:
+        return "يومين"
+    return f"{n} أيام" if 3 <= n <= 10 else f"{n} يومًا"
 
 
 def check_audit(report: Report, audit_json: Path) -> None:
@@ -173,7 +183,7 @@ def check_infra(report: Report, domain: str, subscriptions: list[dict], http: ht
             report.add("infra", "warn", "تعذّر معرفة تاريخ انتهاء النطاق")
         else:
             sev = "critical" if days < 14 else "warn" if days < 45 else "ok"
-            report.add("infra", sev, f"النطاق {domain} ساري لمدة {days} يومًا")
+            report.add("infra", sev, f"النطاق {domain} ساري لمدة {days_ar(days)}")
     except (httpx.HTTPError, ValueError) as exc:
         report.add("infra", "warn", f"تعذّر فحص النطاق ({type(exc).__name__})")
     for sub in subscriptions:
@@ -184,11 +194,11 @@ def check_infra(report: Report, domain: str, subscriptions: list[dict], http: ht
         left = (renews_date - today).days
         what = f"{sub.get('name')} ({sub.get('note', '')})".strip()
         if left < 0:
-            report.add("infra", "critical", f"اشتراك {what} تجاوز موعد تجديده بـ {-left} يومًا — يُرجى التأكد من السداد وتحديث التاريخ")
+            report.add("infra", "critical", f"اشتراك {what} تجاوز موعد تجديده منذ {days_ar(-left)} — يُرجى التأكد من السداد وتحديث التاريخ")
         elif left <= int(sub.get("remind_days", 7)):
-            report.add("infra", "warn", f"اشتراك {what} مستحق السداد خلال {left} يومًا")
+            report.add("infra", "warn", f"اشتراك {what} مستحق السداد خلال {days_ar(left)}")
         else:
-            report.add("infra", "ok", f"اشتراك {what} ساري لمدة {left} يومًا")
+            report.add("infra", "ok", f"اشتراك {what} ساري لمدة {days_ar(left)}")
 
 
 def last_full_check(store) -> datetime | None:
