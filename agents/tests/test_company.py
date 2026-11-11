@@ -38,7 +38,7 @@ class ScriptedLLM:
 def make_company(llm) -> Company:
     cfg = config_mod.load()
     store = MemoryStore()
-    router = ModelRouter(cfg, store, env=ENV, http=httpx.Client(transport=httpx.MockTransport(llm)))
+    router = ModelRouter(cfg, store, env=ENV, http=httpx.Client(transport=httpx.MockTransport(llm)), sleep=lambda s: None)
     return Company(cfg, store, router, env={})
 
 
