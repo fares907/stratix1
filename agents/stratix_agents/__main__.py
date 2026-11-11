@@ -267,14 +267,40 @@ COMMANDS = {
 }
 
 
+def held_today(meetings: list[dict], kind: str, zone: str = "Africa/Cairo") -> bool:
+    """فيه اجتماع من النوع ده خلص النهارده (بتوقيت القاهرة)؟"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo(zone)
+    today = datetime.now(tz).date()
+    for m in meetings:
+        if m.get("kind") != kind or m.get("status") != "done" or not m.get("started_at"):
+            continue
+        started = datetime.fromisoformat(str(m["started_at"]).replace("Z", "+00:00"))
+        if started.astimezone(tz).date() == today:
+            return True
+    return False
+
+
 def main(argv: list[str]) -> None:
     if len(argv) != 1 or argv[0] not in COMMANDS:
         sys.exit(__doc__)
     cfg = config_mod.load()
     if argv[0] in ("morning", "evening", "inbox", "sales"):
         ok, why = within_working_hours(cfg.rules)
+        # اجتماع آخر اليوم والتقرير ليهم سماح ساعتين لو GitHub أخّر الميعاد (بيتعمل مرة واحدة بس في اليوم)
+        if not ok and argv[0] == "evening":
+            from datetime import datetime, timedelta, timezone
+            ok, _ = within_working_hours(cfg.rules, datetime.now(timezone.utc) - timedelta(hours=2))
         if not ok:
             print(f"برّا مواعيد العمل — مفيش شغل. {why}")
+            return
+    # GitHub ساعات بيأخّر المواعيد، فبنحط أكتر من ميعاد احتياطي؛ اللي يوصل الأول يعمل الاجتماع والباقي يسيبه
+    if argv[0] in ("morning", "evening"):
+        zone = (cfg.rules.get("working_hours") or {}).get("timezone", "Africa/Cairo")
+        if held_today(from_env().store.select("meetings", kind=argv[0], status="done"), argv[0], zone):
+            print(f"اجتماع {argv[0]} اتعمل النهارده خلاص.")
             return
     try:
         COMMANDS[argv[0]](cfg)

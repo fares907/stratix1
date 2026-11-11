@@ -377,3 +377,15 @@ def test_pdf_report_html_is_safe_and_keeps_latin_words_in_order():
     assert "<bdi dir='ltr'>Railway</bdi>" in html and "class='pill ok'" in html and "class='kpi ok'" in html
     assert "الأربعاء، 11 نوفمبر 2026" in html
     assert "✅" not in build_html({**data, "summary": "تم ✅"})
+
+
+def test_held_today_only_counts_done_meetings_of_that_kind_today():
+    from datetime import datetime, timedelta, timezone
+    from stratix_agents.__main__ import held_today
+
+    now = datetime.now(timezone.utc).isoformat()
+    old = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    assert held_today([{"kind": "evening", "status": "done", "started_at": now}], "evening")
+    assert not held_today([{"kind": "evening", "status": "failed", "started_at": now}], "evening")
+    assert not held_today([{"kind": "morning", "status": "done", "started_at": now}], "evening")
+    assert not held_today([{"kind": "evening", "status": "done", "started_at": old}], "evening")
