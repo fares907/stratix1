@@ -319,3 +319,18 @@ def test_router_retries_without_json_mode_on_groq_400(cfg):
     out = make_router(cfg, MemoryStore(), handler, env={"GROQ_API_KEY": "k"}).complete(
         "ceo", [], chain=["groq:small"], json_mode=True)
     assert out.text == "نص عادي" and bodies == [True, False]
+
+
+def test_router_waits_for_groq_instead_of_weak_keyless_fallback(cfg):
+    hosts, waits = [], []
+    def handler(req):
+        hosts.append(req.url.host)
+        if req.url.host == "api.groq.com" and hosts.count("api.groq.com") <= 2:
+            return httpx.Response(429, headers={"retry-after": "5"})
+        return _reply("قرار كامل")
+    t = [0.0]
+    router = ModelRouter(cfg, MemoryStore(), env={"GROQ_API_KEY": "k"}, tracker=RateTracker(lambda: t[0]),
+                         http=httpx.Client(transport=httpx.MockTransport(handler)),
+                         sleep=lambda s: (waits.append(s), t.__setitem__(0, t[0] + s)))
+    out = router.complete("ceo", [], chain=["groq:big"])
+    assert out.model_key.startswith("groq:") and "text.pollinations.ai" not in hosts and waits == [6.0]

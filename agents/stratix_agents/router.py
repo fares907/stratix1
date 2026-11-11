@@ -99,7 +99,8 @@ class ModelRouter:
         # لو المزوّد قال "استنى ثواني" (كل الفريق بيسأل في نفس الوقت)، نستنى ونجرّب تاني (لحد 3 مرات)
         for attempt in range(4):
             try:
-                return self._complete_once(agent_id, messages, chain, sensitive, temperature, json_mode)
+                # في المحاولات الأولى مانروحش للمزوّد الضعيف (من غير مفتاح) لو Groq هيفضى بعد ثواني
+                return self._complete_once(agent_id, messages, chain, sensitive, temperature, json_mode, patient=attempt < 3)
             except AllModelsUnavailable:
                 wait = self._short_cooldown()
                 if wait is None or attempt == 3:
@@ -111,7 +112,7 @@ class ModelRouter:
         waits = [w for w in self.tracker.cooldowns() if 0 < w <= limit]
         return (min(waits) + 1) if waits else None
 
-    def _complete_once(self, agent_id, messages, chain, sensitive, temperature, json_mode) -> Completion:
+    def _complete_once(self, agent_id, messages, chain, sensitive, temperature, json_mode, patient=False) -> Completion:
         if self.store.is_halted():
             raise Halted("الشركة واقفة بأمر رئيس مجلس الإدارة")
 
@@ -121,6 +122,8 @@ class ModelRouter:
         for index, key in enumerate(chain):
             spec = self.config.model(key)
             skip = self._skip_reason(spec, sensitive)
+            if not skip and patient and not self.config.providers[spec.provider].api_key_env and self._short_cooldown():
+                skip = "مستنيين الموديل الأقوى يفضى (ثواني)"
             if skip:
                 reasons[key] = skip
                 continue

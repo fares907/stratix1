@@ -110,12 +110,30 @@ class Agent:
         )
 
 
+def _extract_json(text: str) -> dict:
+    """الموديل أحيانًا بيلف الـ JSON بـ ```json أو بكلام قبله وبعده؛ بنطلّع أول object سليم."""
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except ValueError:
+        pass
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(text):
+        if ch == "{":
+            try:
+                data, _ = decoder.raw_decode(text, i)
+            except ValueError:
+                continue
+            if isinstance(data, dict):
+                return data
+    raise ValueError("مفيش JSON")
+
+
 def parse_reply(completion: Completion) -> dict:
     """لو الموديل مارجّعش JSON سليم، بنسجل كلامه زي ما هو بثقة low."""
     try:
-        data = json.loads(completion.text)
-        if not isinstance(data, dict):
-            raise ValueError
+        data = _extract_json(completion.text)
     except ValueError:
         return {
             "say": completion.text.strip(),
