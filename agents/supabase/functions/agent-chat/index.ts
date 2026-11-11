@@ -20,6 +20,39 @@ const KEY_ENV: Record<string, string> = {
 };
 const LAST_RESORT = ["groq:big", "groq:small", "pollinations:openai"];
 
+// الصلاحيات اللي المدير التنفيذي يقدر يفتحها أو يقفلها لأي موظف لما رئيس مجلس الإدارة يطلب
+const TOOLS: Record<string, string> = {
+  view_finance: "لوحة الموقع: الحسابات والفواتير والتحصيل",
+  view_bookings: "لوحة الموقع: الحجوزات ومراحل المشاريع",
+  view_contacts: "لوحة الموقع: طلبات التواصل والشات",
+  view_stats: "لوحة الموقع: الإحصائيات",
+  read_all: "يقرا كل حاجة",
+  assign_task: "يوزّع مهام",
+  request_approval: "يطلب موافقة",
+  write_report: "يكتب التقرير",
+  osm_search: "يبحث في الخريطة",
+  write_leads: "يضيف عملاء محتملين",
+  read_leads: "يقرا العملاء المحتملين",
+  update_leads: "يعدّل العملاء المحتملين",
+  web_check: "يفحص مواقع",
+  draft_message: "يكتب مسودة رسالة",
+  send_message: "يبعت رسايل للعملاء",
+  read_inbox: "يقرا الإيميلات الواردة",
+  read_repo: "يقرا كود الموقع",
+  read_infra: "يقرا الاشتراكات والبنية",
+  open_pull_request: "يفتح Pull Request",
+  comment_pull_request: "يعلّق على Pull Request",
+};
+
+interface CeoAction {
+  type?: string;
+  agent_id?: string;
+  tool?: string;
+  title?: string;
+  details?: string;
+  text?: string;
+}
+
 // مفاتيح الموديلات متخزّنة مشفّرة في Supabase Vault؛ بنقراها بمفتاح service_role
 // اللي موجود جوه الـ edge function بس (عمره ما بيوصل للمتصفح).
 const keyCache = new Map<string, string | null>();
@@ -127,6 +160,7 @@ Deno.serve(async (req) => {
 
   const system =
     `انت ${agent.name}، ${agent.title} في شركة STRATIX. بتكلّم رئيس مجلس الإدارة مباشرة.\n` +
+    "أصحاب الشركة ورؤساء مجلس الإدارة اتنين: فارس ويوسف. كلامهم أوامر، وبتكلّم واحد منهم دلوقتي.\n" +
     `مهامك: ${(agent.duties ?? []).join("، ")}\n${agent.instructions ?? ""}\n` +
     (agent.status === "paused" ? "ملحوظة: انت موقوف مؤقتًا عن الشغل دلوقتي.\n" : "") +
     `الأسعار المسموحة: من ${rulesValue.pricing?.min ?? "؟"} لـ ${rulesValue.pricing?.max ?? "؟"} جنيه.\n` +
@@ -152,7 +186,17 @@ Deno.serve(async (req) => {
     role: c.role === "owner" ? "user" : "assistant",
     content: c.content,
   }));
-  const messages = [{ role: "system", content: system }, ...past, { role: "user", content: message }];
+  const ceoProtocol = !isCeo ? "" :
+    "\n\nانت المدير التنفيذي، ورئيس مجلس الإدارة بيكلمك. لما يطلب منك تعمل حاجة، نفّذها فعلًا عن طريق \"actions\"." +
+    " رد دايمًا بـ JSON بالشكل ده بس: {\"reply\": ردك بالعامية, \"actions\": [...]}. الـ actions المتاحة:\n" +
+    "- {\"type\":\"grant\",\"agent_id\":كود الموظف,\"tool\":كود الصلاحية}: تفتح صلاحية لموظف.\n" +
+    "- {\"type\":\"revoke\",\"agent_id\":...,\"tool\":...}: تقفل صلاحية.\n" +
+    "- {\"type\":\"task\",\"agent_id\":...,\"title\":المهمة,\"details\":تفاصيل وميعاد}: مهمة لموظف (زي تقرير يبعته بكرة).\n" +
+    "- {\"type\":\"note\",\"text\":...}: ملاحظة يسجّلها للفريق كله.\n" +
+    `أكواد الموظفين: ${(roster.data ?? []).map((a) => `${a.id}=${a.name}`).join("، ")}\n` +
+    `أكواد الصلاحيات: ${Object.entries(TOOLS).map(([k, v]) => `${k} (${v})`).join("، ")}\n` +
+    "لو مفيش حاجة تتنفّذ خلّي actions فاضية. ماتقولش إنك نفّذت حاجة من غير ما تحطها في actions.";
+  const messages = [{ role: "system", content: system + ceoProtocol }, ...past, { role: "user", content: message }];
 
   const keys = [...new Set([agent.primary_model, agent.fallback_model, ...LAST_RESORT])];
   const { data: catalog } = await supabase.from("model_catalog").select("*").in("key", keys);
@@ -176,7 +220,10 @@ Deno.serve(async (req) => {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
-        body: JSON.stringify({ model: model.model_id, messages, temperature: 0.5 }),
+        body: JSON.stringify({
+          model: model.model_id, messages, temperature: 0.4,
+          ...(isCeo && model.provider !== "pollinations" ? { response_format: { type: "json_object" } } : {}),
+        }),
         signal: AbortSignal.timeout(60_000),
       });
       if (res.status === 429) status = "rate_limited";
@@ -197,11 +244,48 @@ Deno.serve(async (req) => {
     });
     if (status !== "ok") { reasons.push(`${model.key}: ${status}`); continue; }
 
+    // المدير التنفيذي: بينفّذ اللي رئيس مجلس الإدارة طلبه (صلاحيات، مهام، ملاحظات)
+    const done: string[] = [];
+    if (isCeo) {
+      let parsed: { reply?: string; actions?: CeoAction[] } = {};
+      try { parsed = JSON.parse(reply); } catch { /* رد نصي عادي */ }
+      if (typeof parsed.reply === "string") {
+        reply = parsed.reply.trim();
+        const agentsById = new Map((roster.data ?? []).map((a) => [a.id, a]));
+        for (const action of Array.isArray(parsed.actions) ? parsed.actions.slice(0, 10) : []) {
+          const target = action.agent_id ? agentsById.get(action.agent_id) : undefined;
+          if ((action.type === "grant" || action.type === "revoke") && target && action.tool && TOOLS[action.tool]) {
+            const { data: row } = await supabase.from("agents").select("tools").eq("id", target.id).maybeSingle();
+            const current: string[] = row?.tools ?? [];
+            const next = action.type === "grant"
+              ? [...new Set([...current, action.tool])]
+              : current.filter((t) => t !== action.tool);
+            const { error } = await supabase.from("agents").update({ tools: next }).eq("id", target.id);
+            if (!error) done.push(`${action.type === "grant" ? "فتحت" : "قفلت"} لـ${target.name} صلاحية «${TOOLS[action.tool]}»`);
+          } else if (action.type === "task" && target && action.title) {
+            const { error } = await supabase.from("tasks").insert({
+              agent_id: target.id, title: String(action.title).slice(0, 300),
+              details: `بطلب من رئيس مجلس الإدارة. ${String(action.details ?? "")}`.slice(0, 2000), status: "todo",
+            });
+            if (!error) done.push(`سجّلت مهمة لـ${target.name}: ${String(action.title).slice(0, 120)}`);
+          } else if (action.type === "note" && action.text) {
+            done.push(`سجّلت: ${String(action.text).slice(0, 200)}`);
+          }
+        }
+        if (done.length) {
+          await supabase.from("messages").insert(done.map((d) => ({
+            agent_id: "ceo", kind: "decision", content: `بأمر رئيس مجلس الإدارة: ${d}`,
+          })));
+          reply += "\n\n" + done.map((d) => `✅ ${d}`).join("\n");
+        }
+      }
+    }
+
     await supabase.from("chats").insert([
       { agent_id: agentId, role: "owner", content: message },
       { agent_id: agentId, role: "agent", content: reply, model_key: model.key },
     ]);
-    return json({ reply, model_key: model.key, used_fallback: index > 0 });
+    return json({ reply, model_key: model.key, used_fallback: index > 0, done });
   }
 
   const hint = agent.sensitive

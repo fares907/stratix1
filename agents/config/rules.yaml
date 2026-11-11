@@ -5,6 +5,8 @@ company:
   name: STRATIX
   website: https://stratix.website
   what_we_do: تصميم وبرمجة مواقع للشركات والمحلات والمطاعم في مصر
+  # أصحاب الشركة ورؤساء مجلس الإدارة: كلامهم أوامر للفريق كله
+  chairmen: [فارس, يوسف]
 
 targeting:
   city: بنها
