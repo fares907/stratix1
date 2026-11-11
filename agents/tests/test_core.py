@@ -360,4 +360,4 @@ def test_security_finds_exposed_env_and_ignores_spa_fallback():
     check_exposure(report, "https://stratix.website", httpx.Client(transport=httpx.MockTransport(handler)))
     crit = [f.text for f in report.findings if f.severity == "critical"]
     assert crit and ".env" in crit[0] and ".git" not in crit[0]
-    assert any("https" in f.text and f.severity == "ok" for f in report.findings)
+    assert any("HTTPS" in f.text and f.severity == "ok" for f in report.findings)

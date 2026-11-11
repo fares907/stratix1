@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from .router import AllModelsUnavailable
@@ -58,79 +59,175 @@ def build_facts(company: Company, extra: dict[str, str]) -> dict[str, str]:
     return facts
 
 
+AR_STATUS = {"ok": "سليم", "warn": "يحتاج متابعة", "critical": "عاجل"}
+AREA = {"uptime": "تشغيل الموقع", "security": "الأمان", "infra": "البنية والاشتراكات"}
+
+
+def _numbers_in(text: str) -> set[str]:
+    return set(re.findall(r"\d+(?:[.,]\d+)?", text or ""))
+
+
+def _honest(text: str, source: str) -> bool:
+    """أي رقم في كلام المدير لازم يكون موجود في البيانات الحقيقية، غير كده الفقرة بتترفض."""
+    allowed = _numbers_in(source) | {str(i) for i in range(11)}
+    return _numbers_in(text) <= allowed
+
+
+def _editorial(company: Company, source: str) -> dict:
+    """المدير التنفيذي بيكتب الملخص والتحليل بالفصحى من الأرقام الحقيقية بس."""
+    ceo = company.agent("ceo")
+    if not ceo:
+        return {}
+    try:
+        note = ceo.think(
+            "أنت تكتب التقرير اليومي الرسمي لشركة STRATIX موجّهًا إلى رئيسَي مجلس الإدارة."
+            " اكتب باللغة العربية الفصحى وبأسلوب تقارير الشركات المهني، دون أي عامية، ودون رموز أو إيموجي."
+            " لا تذكر أي رقم غير موجود حرفيًا في البيانات أدناه، ولا تختلق أحداثًا.\n\n"
+            f"البيانات الحقيقية لليوم:\n{source}\n\n"
+            'أجب بـ JSON يحتوي: "say" = ملخص تنفيذي في فقرة واحدة (3-4 جمل)،'
+            ' "highlights" = قائمة بأهم 3 إنجازات أو وقائع، "risks" = قائمة بالمخاطر أو المشكلات (قد تكون فارغة)،'
+            ' "recommendations" = قائمة بـ 2-4 توصيات عملية لرئيس مجلس الإدارة،'
+            ' "finance" = فقرة تحليلية عن الوضع المالي إن وُجدت بيانات مالية،'
+            ' "ideas" = قائمة بنفس ترتيب الأفكار المعروضة، كل عنصر صياغة فصحى موجزة للفكرة (جملة واحدة).'
+        )
+    except AllModelsUnavailable:
+        return {}
+
+    def clean(value, limit=6):
+        items = value if isinstance(value, list) else []
+        return [str(x).strip() for x in items if str(x).strip() and _honest(str(x), source)][:limit]
+
+    out = {
+        "summary": note["say"] if _honest(note["say"], source) else "",
+        "highlights": clean(note.get("highlights")),
+        "risks": clean(note.get("risks")),
+        "recommendations": clean(note.get("recommendations")),
+        "finance": str(note.get("finance") or "") if _honest(str(note.get("finance") or ""), source) else "",
+        "ideas": [str(x).strip() for x in (note.get("ideas") or []) if isinstance(note.get("ideas"), list)],
+    }
+    return out
+
+
 def write_daily(company: Company, facts: dict[str, str], meeting_id: int | None) -> dict:
+    """التقرير اليومي: الأرقام من قاعدة البيانات بالكود، والتحليل بالفصحى من المدير التنفيذي.
+    بيتحفظ منظّم (data) عشان اللوحة تعرضه كمستند رسمي وتنزّله PDF، ومعاه نسخة نصية (body)."""
     store = company.store
     n = sales_numbers(company)
+    s = n["leads_by_status"]
+    specs = company.config.agents
+    names = {k: v.name for k, v in specs.items()} | {a["id"]: a.get("name") or a["id"] for a in store.select("agents")}
+    titles = {k: v.title for k, v in specs.items()} | {a["id"]: a.get("title") or "" for a in store.select("agents")}
     pending = store.select("approvals", status="pending")
     meeting = store.select("meetings", id=meeting_id)[0] if meeting_id else None
-    checks = [c for c in store.select("site_checks") if _is_today(c, "created_at")]
-    problems = [d["text"] for c in checks for d in (c.get("details") or []) if d.get("severity") != "ok"]
+    today_meetings = [m for m in store.select("meetings") if _is_today(m, "started_at") and m.get("status") == "done"]
 
-    sent_today = [m for m in store.select("outreach_messages") if _is_today(m, "sent_at", "created_at")]
-    leads = {l["id"]: l["name"] for l in store.select("leads")}
+    # فحوصات الموقع: آخر نتيجة لكل بند النهارده
+    checks: dict[str, dict] = {}
+    for c in sorted((c for c in store.select("site_checks") if _is_today(c, "created_at")), key=lambda c: c.get("created_at") or ""):
+        for d in c.get("details") or []:
+            checks[d.get("owner", "") + ":" + _topic(d.get("text", ""))] = d
+    site = [{"area": AREA.get(d.get("owner"), d.get("owner")), "status": d.get("severity", "ok"),
+             "status_label": AR_STATUS.get(d.get("severity", "ok"), ""), "text": d.get("text", "")}
+            for d in checks.values()]
+    site.sort(key=lambda x: {"critical": 0, "warn": 1, "ok": 2}.get(x["status"], 3))
+    problems = [c for c in site if c["status"] != "ok"]
 
-    lines = [
-        f"# تقرير يوم {_today()}",
-        "",
-        "## الأرقام (من قاعدة البيانات)",
-        f"- محلات جديدة النهارده: {n['leads_new_today']} (الإجمالي {n['leads_total']})",
-        f"- إيميلات اتبعتت: {n['emails_sent_today']}",
-        f"- رسايل واتساب جاهزة ليك تبعتها: {n['whatsapp_ready']}",
-        f"- ردود العملاء: {n['replies_today']}",
-        f"- مهتمين: {n['leads_by_status'].get('interested', 0)}",
-        "",
-        "## الرسايل والردود",
-    ]
-    if sent_today:
-        for m in sent_today[:30]:
-            who = leads.get(m["lead_id"], "؟")
-            arrow = "← رد من" if m["direction"] == "in" else "→ لـ"
-            lines.append(f"- {arrow} {who} ({m['channel']}, {m['status']}): {m['body'][:140].replace(chr(10), ' ')}")
-    else:
-        lines.append("- مفيش رسايل النهارده.")
-
-    lines += ["", "## الموقع والأمان"]
-    lines += [f"- ⚠️ {p}" for p in problems] or ["- كل الفحوصات سليمة."]
-    for key, label in (("finance", "المالية"), ("projects", "المشاريع"), ("analytics", "الزوار")):
-        if facts.get(key):
-            lines += ["", f"## {label}", facts[key]]
-
-    lines += ["", f"## محتاج موافقتك ({len(pending)})"]
-    lines += [f"- {a['summary']}" for a in pending] or ["- مفيش."]
-
-    if meeting and meeting.get("summary"):
-        lines += ["", "## قرار الاجتماع", meeting["summary"]]
-
+    proposals = [p for p in store.select("proposals") if any(p.get("meeting_id") == m["id"] for m in today_meetings)]
     finished = [t for t in store.select("tasks") if t.get("status") == "done" and t.get("result")
                 and (t.get("completed_at") or "").startswith(_today())]
-    if finished:
-        names = {a["id"]: a.get("name", a["id"]) for a in store.select("agents")}
-        lines += ["", "## المهام اللي خلصت النهارده"]
-        for t in finished:
-            lines += [f"### {names.get(t['agent_id'], t['agent_id'])}: {t['title']}", t["result"][:1500]]
+    assigned = [t for t in store.select("tasks") if t.get("status") in ("todo", "doing")]
 
-    tasks = [t for t in store.select("tasks") if meeting_id and t.get("meeting_id") == meeting_id]
-    if tasks:
-        lines += ["", "## المهام اللي اتوزعت"]
-        lines += [f"- {t['agent_id']}: {t['title']}" for t in tasks]
+    kpis = [
+        {"label": "عملاء محتملون جدد", "value": n["leads_new_today"], "hint": f"الإجمالي {n['leads_total']}"},
+        {"label": "تواصل مع عملاء", "value": s.get("contacted", 0), "hint": f"رسائل جاهزة {n['whatsapp_ready']}"},
+        {"label": "ردود العملاء", "value": n["replies_today"], "hint": f"مهتمون {s.get('interested', 0)}"},
+        {"label": "بانتظار موافقتك", "value": len(pending), "hint": "قرارات معلّقة"},
+        {"label": "حالة الموقع", "value": "سليم" if not problems else f"{len(problems)} ملاحظة",
+         "hint": "تشغيل وأمان واشتراكات", "tone": "ok" if not problems else "warn"},
+        {"label": "مهام مُنجزة اليوم", "value": len(finished), "hint": f"مفتوحة {len(assigned)}"},
+    ]
 
-    ceo = company.agent("ceo")
-    if ceo:
-        try:
-            note = ceo.think(
-                "اكتب لرئيس مجلس الإدارة 3 سطور: أهم حاجة حصلت النهارده، وأكبر مشكلة، وإيه اللي محتاجه منه."
-                " استخدم الأرقام دي بس ومتزودش عليها:\n" + "\n".join(lines)
-            )
-            lines += ["", "## رأي المدير التنفيذي (رأي، مش أرقام)", note["say"]]
-            if note["unknowns"]:
-                lines.append("مش متأكد من: " + "، ".join(note["unknowns"]))
-        except AllModelsUnavailable:
-            lines += ["", "_المدير التنفيذي ماقدرش يكتب تعليق النهارده (الموديلات مش متاحة)._"]
+    source_lines = [
+        f"عملاء محتملون جدد اليوم: {n['leads_new_today']} من إجمالي {n['leads_total']}.",
+        f"تم التواصل مع: {s.get('contacted', 0)}. رسائل واتساب جاهزة: {n['whatsapp_ready']}. رسائل بريد أُرسلت اليوم: {n['emails_sent_today']}.",
+        f"ردود العملاء اليوم: {n['replies_today']}. مهتمون: {s.get('interested', 0)}.",
+        f"قرارات بانتظار موافقة رئيس مجلس الإدارة: {len(pending)}.",
+        "فحوصات الموقع: " + "؛ ".join(f"{c['area']}: {c['text']}" for c in site),
+        f"البيانات المالية: {facts.get('finance', 'غير متاحة')}",
+        f"الحجوزات والمشروعات: {facts.get('projects', 'غير متاحة')}",
+        f"الزوار: {facts.get('analytics', 'غير متاحة')}",
+        "ملخص اجتماعات اليوم: " + " | ".join(m.get("summary") or "" for m in today_meetings),
+        "الأفكار المعروضة بالترتيب: " + " | ".join(f"{i + 1}) {p['idea']} ({p['status']})" for i, p in enumerate(proposals[:12])),
+        "مهام أُنجزت اليوم: " + " | ".join(t["title"] for t in finished),
+    ]
+    source = "\n".join(source_lines)
+    ed = _editorial(company, source)
+    ideas_formal = ed.get("ideas") or []
 
-    headline = (f"STRATIX {_today()}: {n['emails_sent_today']} إيميل، {n['replies_today']} رد، "
-                f"{n['leads_by_status'].get('interested', 0)} مهتم، {len(pending)} مستنية موافقتك"
-                + (f"، ⚠️ {len(problems)} مشكلة في الموقع" if problems else ""))
+    def idea_text(i: int, p: dict) -> str:
+        return ideas_formal[i] if i < len(ideas_formal) and ideas_formal[i] else p["idea"]
+
+    data = {
+        "version": 2,
+        "date": _today(),
+        "summary": ed.get("summary") or (
+            f"سُجّل اليوم {n['leads_new_today']} عميلًا محتملًا جديدًا، وتم التواصل مع {s.get('contacted', 0)}، "
+            f"ووردت {n['replies_today']} ردود، ويوجد {len(pending)} قرارًا بانتظار موافقتكم."),
+        "kpis": kpis,
+        "highlights": ed.get("highlights") or [],
+        "risks": ed.get("risks") or [p["text"] for p in problems],
+        "recommendations": ed.get("recommendations") or [],
+        "finance": ed.get("finance") or "",
+        "finance_raw": facts.get("finance") or "",
+        "sales": {
+            "rows": [
+                ["إجمالي العملاء المحتملين", n["leads_total"]], ["أُضيفوا اليوم", n["leads_new_today"]],
+                ["مؤهَّلون بانتظار التواصل", s.get("qualified", 0)], ["تم التواصل معهم", s.get("contacted", 0)],
+                ["رسائل واتساب جاهزة للإرسال", n["whatsapp_ready"]], ["رسائل بريد أُرسلت اليوم", n["emails_sent_today"]],
+                ["ردود اليوم", n["replies_today"]], ["مهتمون", s.get("interested", 0)],
+            ],
+        },
+        "site": site,
+        "ideas": [
+            {"who": names.get(p["agent_id"], p["agent_id"]), "idea": idea_text(i, p), "status": p["status"],
+             "reason": p.get("ceo_reason") or ""}
+            for i, p in enumerate(proposals[:12])
+        ],
+        "meeting_summary": (meeting or {}).get("summary") or (today_meetings[-1].get("summary") if today_meetings else ""),
+        "tasks_done": [{"who": names.get(t["agent_id"], t["agent_id"]), "role": titles.get(t["agent_id"], ""),
+                        "title": t["title"], "result": t["result"][:2500]} for t in finished],
+        "tasks_open": [{"who": names.get(t["agent_id"], t["agent_id"]), "title": t["title"]} for t in assigned[:20]],
+        "approvals": [a["summary"] for a in pending],
+    }
+
+    lines = [f"# التقرير اليومي لشركة STRATIX — {_today()}", "", "## الملخص التنفيذي", data["summary"], "",
+             "## المؤشرات الرئيسية"]
+    lines += [f"- {k['label']}: {k['value']} ({k['hint']})" for k in kpis]
+    for title, items in (("أبرز ما تم", data["highlights"]), ("المخاطر والملاحظات", data["risks"]),
+                         ("التوصيات", data["recommendations"])):
+        if items:
+            lines += ["", f"## {title}"] + [f"- {x}" for x in items]
+    lines += ["", "## الموقع والأمان"] + [f"- {c['area']} ({c['status_label']}): {c['text']}" for c in site]
+    if data["finance"] or data["finance_raw"]:
+        lines += ["", "## الوضع المالي", data["finance"] or data["finance_raw"]]
+    if data["ideas"]:
+        lines += ["", "## قرارات الاجتماع"] + [
+            f"- {i['who']}: {i['idea']} — {'معتمدة' if i['status'] == 'approved' else 'مرفوضة' if i['status'] == 'rejected' else 'قيد الدراسة'}"
+            for i in data["ideas"]]
+    if data["tasks_done"]:
+        lines += ["", "## المهام المنجزة"]
+        for t in data["tasks_done"]:
+            lines += [f"### {t['who']}: {t['title']}", t["result"]]
+    lines += ["", f"## بانتظار موافقتكم ({len(pending)})"] + ([f"- {a}" for a in data["approvals"]] or ["- لا يوجد."])
+
+    headline = (f"تقرير STRATIX {_today()}: {n['leads_new_today']} عميل جديد، {n['replies_today']} رد، "
+                f"{len(pending)} بانتظار موافقتك" + (f"، {len(problems)} ملاحظة على الموقع" if problems else ""))
     row = {"report_date": _today(), "headline": headline, "body": "\n".join(lines),
-           "numbers": n, "meeting_id": meeting_id}
+           "numbers": n, "meeting_id": meeting_id, "data": data}
     store.upsert("daily_reports", [row], on_conflict="report_date")
     return row
+
+
+def _topic(text: str) -> str:
+    """بند الفحص من غير الأرقام (عشان آخر نتيجة لنفس البند تحل محل اللي قبلها)."""
+    return re.sub(r"\d+", "#", text)[:40]

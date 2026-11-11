@@ -77,23 +77,23 @@ def check_uptime(report: Report, url: str, http: httpx.Client) -> None:
         r = http.get(url, follow_redirects=True)
         ms = int((time.monotonic() - started) * 1000)
         if r.status_code >= 400:
-            report.add("uptime", "critical", f"الموقع بيرجّع HTTP {r.status_code}")
+            report.add("uptime", "critical", f"الموقع يُرجع خطأ (HTTP {r.status_code})")
         else:
-            report.add("uptime", "warn" if ms > 3000 else "ok", f"الموقع شغال، الصفحة الرئيسية في {ms}ms")
+            report.add("uptime", "warn" if ms > 3000 else "ok", f"الموقع يعمل بصورة طبيعية، وزمن تحميل الصفحة الرئيسية {ms} مللي ثانية")
         headers = {k.lower() for k in r.headers}
         missing = [name for key, name in SECURITY_HEADERS.items() if key not in headers]
         if missing:
-            report.add("security", "warn", "headers ناقصة: " + "، ".join(missing))
+            report.add("security", "warn", "ترويسات أمان ناقصة: " + "، ".join(missing))
         else:
-            report.add("security", "ok", "كل الـ security headers الأساسية موجودة")
+            report.add("security", "ok", "جميع ترويسات الأمان الأساسية مُفعّلة")
     except httpx.HTTPError as exc:
-        report.add("uptime", "critical", f"الموقع مش بيرد: {type(exc).__name__}")
+        report.add("uptime", "critical", f"الموقع لا يستجيب ({type(exc).__name__})")
     try:
         days = cert_days_left(host)
         sev = "critical" if days < 7 else "warn" if days < 20 else "ok"
-        report.add("uptime", sev, f"شهادة SSL باقي لها {days} يوم")
+        report.add("uptime", sev, f"شهادة SSL سارية لمدة {days} يومًا")
     except (OSError, ssl.SSLError) as exc:
-        report.add("uptime", "critical", f"مشكلة في SSL: {exc}")
+        report.add("uptime", "critical", f"خلل في شهادة SSL: {exc}")
 
 
 # ملفات لو اتفتحت للناس تبقى كارثة (أسرار، كود، نسخ احتياطية)
@@ -115,18 +115,18 @@ def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
         if r.status_code == 200 and "<html" not in body and "<!doctype" not in body:
             exposed.append(path)
     if exposed:
-        report.add("security", "critical", "ملفات حساسة مفتوحة للناس: " + "، ".join(exposed))
+        report.add("security", "critical", "ملفات حساسة متاحة للعامة: " + "، ".join(exposed))
     else:
-        report.add("security", "ok", f"مفيش ملفات حساسة مكشوفة (جربت {len(SENSITIVE_PATHS)} مسار زي .env و .git)")
+        report.add("security", "ok", f"لا توجد ملفات حساسة مكشوفة (فُحص {len(SENSITIVE_PATHS)} مسارًا مثل .env و.git)")
 
     host = urlparse(url).hostname or ""
     try:
         r = http.get(f"http://{host}/", follow_redirects=False)
         location = r.headers.get("location", "")
         if r.status_code in (301, 302, 307, 308) and location.startswith("https://"):
-            report.add("security", "ok", "أي حد يفتح الموقع بـ http بيتحوّل لـ https أوتوماتيك")
+            report.add("security", "ok", "يُحوَّل كل زائر تلقائيًا إلى الاتصال الآمن HTTPS")
         else:
-            report.add("security", "warn", f"فتح الموقع بـ http مابيحوّلش لـ https (HTTP {r.status_code})")
+            report.add("security", "warn", f"الاتصال غير الآمن HTTP لا يُحوَّل إلى HTTPS (HTTP {r.status_code})")
     except httpx.HTTPError:
         pass
 
@@ -136,9 +136,9 @@ def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
         if "x-powered-by" in r.headers:
             leaks.append(f"x-powered-by: {r.headers['x-powered-by']}")
         if leaks:
-            report.add("security", "warn", "السيرفر بيقول نوعه/نسخته للناس: " + "، ".join(dict.fromkeys(leaks)))
+            report.add("security", "warn", "الخادم يكشف نوعه أو إصداره: " + "، ".join(dict.fromkeys(leaks)))
         else:
-            report.add("security", "ok", "السيرفر مش بيكشف نوعه ولا نسخته")
+            report.add("security", "ok", "الخادم لا يكشف نوعه ولا إصداره")
     except httpx.HTTPError:
         pass
 
@@ -146,12 +146,12 @@ def check_exposure(report: Report, url: str, http: httpx.Client) -> None:
 def check_audit(report: Report, audit_json: Path) -> None:
     """بيقرا ناتج `pnpm audit --json` اللي الـ workflow بيشغّله على الموقع."""
     if not audit_json.exists():
-        report.add("security", "warn", "فحص المكتبات ماتعملش (ملف audit مش موجود)")
+        report.add("security", "warn", "لم يُجرَ فحص المكتبات البرمجية (ملف الفحص غير موجود)")
         return
     try:
         data = json.loads(audit_json.read_text(encoding="utf-8") or "{}")
     except ValueError:
-        report.add("security", "warn", "ناتج فحص المكتبات مش مفهوم")
+        report.add("security", "warn", "تعذّرت قراءة نتيجة فحص المكتبات البرمجية")
         return
     counts = (data.get("metadata") or {}).get("vulnerabilities") or {}
     serious = int(counts.get("high", 0)) + int(counts.get("critical", 0))
@@ -160,9 +160,9 @@ def check_audit(report: Report, audit_json: Path) -> None:
     if serious:
         report.add("security", "critical", f"{serious} ثغرة خطيرة في مكتبات الموقع: {names}")
     elif any(counts.values()):
-        report.add("security", "warn", f"ثغرات بسيطة في المكتبات: {dict(counts)}")
+        report.add("security", "warn", f"ثغرات منخفضة الخطورة في المكتبات: {dict(counts)}")
     else:
-        report.add("security", "ok", "مفيش ثغرات معروفة في مكتبات الموقع")
+        report.add("security", "ok", "لا توجد ثغرات معروفة في مكتبات الموقع")
 
 
 def check_infra(report: Report, domain: str, subscriptions: list[dict], http: httpx.Client, today: date | None = None) -> None:
@@ -170,12 +170,12 @@ def check_infra(report: Report, domain: str, subscriptions: list[dict], http: ht
     try:
         days = domain_days_left(domain, http)
         if days is None:
-            report.add("infra", "warn", "ماعرفتش تاريخ انتهاء الدومين من RDAP")
+            report.add("infra", "warn", "تعذّر معرفة تاريخ انتهاء النطاق")
         else:
             sev = "critical" if days < 14 else "warn" if days < 45 else "ok"
-            report.add("infra", sev, f"الدومين {domain} باقي له {days} يوم")
+            report.add("infra", sev, f"النطاق {domain} ساري لمدة {days} يومًا")
     except (httpx.HTTPError, ValueError) as exc:
-        report.add("infra", "warn", f"ماقدرتش أشيّك على الدومين: {type(exc).__name__}")
+        report.add("infra", "warn", f"تعذّر فحص النطاق ({type(exc).__name__})")
     for sub in subscriptions:
         renews = sub.get("renews_on")
         if not renews:
@@ -184,11 +184,11 @@ def check_infra(report: Report, domain: str, subscriptions: list[dict], http: ht
         left = (renews_date - today).days
         what = f"{sub.get('name')} ({sub.get('note', '')})".strip()
         if left < 0:
-            report.add("infra", "critical", f"اشتراك {what} كان المفروض يتجدد من {-left} يوم — اتأكد إنه اتدفع وحدّث التاريخ في rules.yaml")
+            report.add("infra", "critical", f"اشتراك {what} تجاوز موعد تجديده بـ {-left} يومًا — يُرجى التأكد من السداد وتحديث التاريخ")
         elif left <= int(sub.get("remind_days", 7)):
-            report.add("infra", "warn", f"اشتراك {what} لازم يتدفع خلال {left} يوم")
+            report.add("infra", "warn", f"اشتراك {what} مستحق السداد خلال {left} يومًا")
         else:
-            report.add("infra", "ok", f"اشتراك {what} باقي له {left} يوم")
+            report.add("infra", "ok", f"اشتراك {what} ساري لمدة {left} يومًا")
 
 
 def last_full_check(store) -> datetime | None:

@@ -272,6 +272,71 @@ button.mic.on { background: var(--danger); border-color: transparent; color: whi
 .listening-hint { color: var(--danger); font-size: 0.9rem; }
 
 /* التقرير وهو بيتحول PDF: خلفية بيضا وكلام غامق عشان يتطبع واضح */
-.pdf-export { background: #fff !important; color: #111 !important; padding: 28px !important; width: 794px; }
-.pdf-export * { color: #111 !important; border-color: #ddd !important; background: transparent !important; box-shadow: none !important; }
-.pdf-export h1, .pdf-export h2, .pdf-export h3 { color: #3b1d8f !important; }
+.pdf-export:not(.doc) { background: #fff !important; color: #111 !important; padding: 28px !important; width: 794px; }
+.pdf-export:not(.doc) * { color: #111 !important; border-color: #ddd !important; background: transparent !important; box-shadow: none !important; }
+.pdf-export:not(.doc) h1, .pdf-export:not(.doc) h2, .pdf-export:not(.doc) h3 { color: #3b1d8f !important; }
+
+/* ── التقرير اليومي: مستند رسمي على ورقة بيضا ── */
+.doc { --ink: #17142b; --muted: #6b6880; --line: #e6e3f0; --brand: #5b2be0; --brand2: #c026d3;
+  background: #fff; color: var(--ink); max-width: 880px; margin: 0 auto; border-radius: 14px; padding: 40px 44px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 35%); font-family: var(--font-body); line-height: 1.75; font-size: 15px; }
+.doc h2, .doc h3, .doc h4 { color: var(--ink); font-family: var(--font-display); }
+.doc-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 18px; border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--brand2), var(--brand)) 1; }
+.doc-brand { display: flex; gap: 12px; align-items: center; }
+.doc-brand strong { display: block; font-family: var(--font-display); font-size: 1.5rem; letter-spacing: 0.08em; }
+.doc-brand span { color: var(--muted); font-size: 0.85rem; }
+.doc-logo { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 1.4rem;
+  background: linear-gradient(135deg, var(--brand), var(--brand2)); font-family: var(--font-display); }
+.doc-meta { text-align: end; display: flex; flex-direction: column; color: var(--muted); font-size: 0.9rem; }
+.doc-kind { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: var(--ink); }
+.doc-to { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; background: #f6f4fc; border-radius: 10px; padding: 10px 14px; margin: 18px 0 6px; font-size: 0.9rem; }
+.doc-to span { color: var(--muted); }
+.doc-section { margin-top: 26px; break-inside: avoid; }
+.doc-section h2 { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; margin: 0 0 12px; }
+.doc-num { font-size: 0.8rem; color: #fff; background: var(--brand); border-radius: 6px; padding: 1px 8px; font-family: var(--font-display); }
+.doc-lead { font-size: 1.02rem; margin: 0; padding-inline-start: 14px; border-inline-start: 3px solid var(--brand); }
+.doc-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.doc-kpi { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; background: #fbfaff; }
+.doc-kpi-label { color: var(--muted); font-size: 0.82rem; }
+.doc-kpi strong { font-family: var(--font-display); font-size: 1.6rem; line-height: 1.3; color: var(--brand); }
+.doc-kpi.ok strong { color: #0f8a4b; } .doc-kpi.warn strong { color: #b26a00; }
+.doc-kpi small { color: var(--muted); font-size: 0.78rem; }
+.doc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.doc-two h3 { font-size: 0.95rem; margin: 0 0 6px; }
+.doc-li { position: relative; padding-inline-start: 18px; margin: 4px 0; }
+.doc-li::before { content: ""; position: absolute; inset-inline-start: 2px; top: 0.75em; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+.doc-li.ok::before { background: #0f8a4b; } .doc-li.warn::before { background: #d97706; }
+.doc-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.doc-table th { background: #f3f0fb; text-align: start; font-weight: 600; padding: 8px 10px; border-bottom: 2px solid var(--line); }
+.doc-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc-val { text-align: end; font-family: var(--font-display); font-weight: 700; color: var(--brand); width: 120px; }
+.doc-nowrap { white-space: nowrap; font-weight: 600; }
+.doc-pill { display: inline-block; white-space: nowrap; border-radius: 999px; padding: 1px 10px; font-size: 0.8rem; font-weight: 600; background: #eef; color: #334; }
+.doc-pill.ok { background: #e3f6ec; color: #0f7a43; } .doc-pill.warn { background: #fff3dc; color: #9a5b00; } .doc-pill.critical { background: #fde4e4; color: #b42318; }
+.doc-muted { color: var(--muted); font-size: 0.88rem; margin: 2px 0 0; }
+.doc-task { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; break-inside: avoid; }
+.doc-task-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-bottom: 1px dashed var(--line); padding-bottom: 6px; margin-bottom: 6px; }
+.doc-task-head span { color: var(--muted); font-size: 0.85rem; }
+.doc-prose p { margin: 4px 0; } .doc-prose h4 { margin: 10px 0 2px; font-size: 0.95rem; }
+.doc-ol { margin: 0; padding-inline-start: 22px; } .doc-ol li { margin: 4px 0; }
+.doc-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.78rem; }
+@media (max-width: 720px) {
+  .doc { padding: 22px 16px; border-radius: 10px; font-size: 14px; }
+  .doc-kpis { grid-template-columns: repeat(2, 1fr); }
+  .doc-two { grid-template-columns: 1fr; }
+  .doc-head { flex-direction: column; align-items: flex-start; }
+  .doc-meta { text-align: start; }
+}
+/* وهو بيتحول PDF: عرض ثابت بمقاس A4 */
+.doc.pdf-export { width: 794px; max-width: none; border-radius: 0; box-shadow: none; padding: 40px 44px !important; }
+.doc.pdf-export .doc-kpis { grid-template-columns: repeat(3, 1fr); }
+.doc.pdf-export .doc-two { grid-template-columns: 1fr 1fr; }
+/* العربي لازم من غير letter-spacing وإلا الحروف بتتقطّع (خصوصًا في الـ PDF) */
+.doc, .doc * { letter-spacing: normal; }
+.doc .doc-brand strong { letter-spacing: 0.08em; }
+.doc-ol { list-style: none; padding: 0; counter-reset: n; }
+.doc-ol li { counter-increment: n; display: flex; gap: 10px; align-items: baseline; }
+.doc-ol li::before { content: counter(n); flex: none; min-width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center;
+  background: #efeafd; color: var(--brand); font-size: 0.78rem; font-weight: 700; }
+.doc .doc-logo { color: #fff !important; text-shadow: 0 1px 2px rgb(0 0 0 / 25%); }
