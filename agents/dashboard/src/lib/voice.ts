@@ -121,6 +121,7 @@ export class Speaker {
   stop() {
     this.queue = [];
     this.signal.stopped = true;
+    this.running = false; // الصوت اللي اتوقف ممكن مايبلّغش إنه خلص، فنسمح بتشغيل جديد على طول
     this.audio?.pause();
     this.audio = null;
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
@@ -160,9 +161,10 @@ export class Speaker {
         await deviceSpeak(item.text, v.female, signal);
       }
     }
+    if (this.signal !== signal) return; // اتوقف واتشغّل تشغيل أحدث مكانه
     this.running = false;
-    if (this.signal === signal) this.setPlaying(false);
-    if (this.queue.length && !this.signal.stopped) void this.run();
+    this.setPlaying(false);
+    if (this.queue.length) void this.run();
   }
 }
 
