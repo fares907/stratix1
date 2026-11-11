@@ -182,7 +182,9 @@ export type ListenerState = "off" | "waiting" | "hearing" | "transcribing";
  */
 export class Listener {
   state: ListenerState = "off";
-  silenceMs = 2500;
+  silenceMs = 3500;
+  /** مستوى الصوت الحالي من 0 لـ 1 (للمؤشر في الشاشة) */
+  level = 0;
   hold = false;
   onState: (s: ListenerState) => void = () => {};
   onPartial: (text: string) => void = () => {};
@@ -195,7 +197,8 @@ export class Listener {
   private recorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
-  private floor = 0.01;
+  private floor = 0.004;
+  private loud: number[] = [];
   private spokeAt = 0;
   private lastVoice = 0;
   private startedAt = 0;
@@ -208,6 +211,13 @@ export class Listener {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     this.ctx = new AudioContext();
+    // الموبايل بيبدأ الصوت «موقوف» لحد ما يتعمل resume؛ من غيره المايك مابيسمعش حاجة
+    await this.ctx.resume().catch(() => {});
+    // لو المايك اتقفل من الجهاز (سماعة اتشالت مثلًا) نفتحه تاني بدل ما نقف
+    this.stream.getAudioTracks().forEach(t => (t.onended = () => {
+      this.stream = null;
+      if (this.recorder) { this.pause(); void this.listen(); }
+    }));
     const source = this.ctx.createMediaStreamSource(this.stream);
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 1024;
@@ -239,10 +249,11 @@ export class Listener {
     this.chunks = [];
     rec.ondataavailable = e => e.data.size && this.chunks.push(e.data);
     rec.start(250);
+    await this.ctx?.resume().catch(() => {});
     this.startedAt = performance.now();
     this.spokeAt = 0;
     this.lastVoice = 0;
-    this.floor = 0.01;
+    this.loud = [];
     this.sendNow = false;
     this.set("waiting");
     const data = new Float32Array(this.analyser!.fftSize);
@@ -252,19 +263,22 @@ export class Listener {
       for (const x of data) sum += x * x;
       const rms = Math.sqrt(sum / data.length);
       const now = performance.now();
-      // أول ثانية بنقيس دوشة المكان
-      if (now - this.startedAt < 600) {
-        this.floor = Math.max(this.floor, rms);
-        return;
-      }
-      const voiced = rms > Math.max(this.floor * 2.5, 0.015);
+      this.level = Math.min(1, rms * 12);
+      // دوشة المكان = أهدى صوت اتسمع في آخر ثواني (مش أعلى صوت)، عشان لو بدأت تتكلم
+      // على طول صوتك مايتحسبش دوشة. وبنخليها ماتعلاش أوي عشان المايك يفضل حساس.
+      this.loud.push(rms);
+      if (this.loud.length > 60) this.loud.shift();
+      const sorted = [...this.loud].sort((a, b) => a - b);
+      this.floor = Math.min(0.012, Math.max(0.002, sorted[Math.floor(sorted.length * 0.1)] ?? 0.004));
+      const voiced = rms > Math.max(this.floor * 3, 0.008);
       if (voiced) {
         if (!this.spokeAt) this.spokeAt = now;
         this.lastVoice = now;
         if (this.state !== "hearing") this.set("hearing");
       }
       const silentFor = this.lastVoice ? now - this.lastVoice : 0;
-      const longEnough = this.spokeAt && now - this.spokeAt > 400;
+      // لازم تكون اتكلمت ثانية على الأقل قبل ما نبعت لوحدنا
+      const longEnough = this.spokeAt && now - this.spokeAt > 1000;
       if (this.sendNow || (!this.hold && longEnough && silentFor > this.silenceMs) || now - this.startedAt > 120_000) {
         void this.finishSegment();
       }

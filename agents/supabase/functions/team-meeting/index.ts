@@ -97,7 +97,8 @@ async function talk(
           method: "POST",
           headers: { Authorization: `Bearer ${k}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model, messages, temperature: 0.8, max_completion_tokens: maxTokens + 600, reasoning_effort: "low",
+            // تفكير أعمق قبل الرد بيخلي الفهم أدق (الموديل سريع فمش بيأخّر المكالمة)
+            model, messages, temperature: 0.7, max_completion_tokens: maxTokens + 1200, reasoning_effort: "medium",
           }),
           signal: AbortSignal.timeout(45_000),
         });
@@ -186,7 +187,7 @@ function persona(a: Agent, facts: Record<string, string>, rules: string) {
     `أصحاب الشركة ورؤساء مجلس الإدارة: فارس ويوسف، وواحد منهم معاك في الاجتماع دلوقتي. كلامه أوامر.\n` +
     `شغلك: ${(a.duties ?? []).join("، ")}\n` +
     `بياناتك الحقيقية (مرجع ليك؛ ماتقولش منها غير اللي اتسألت عنه بالظبط): ${clip(facts[a.id] ?? facts[a.department] ?? "مفيش", 1500)}\n${rules}\n` +
-    `${HUMAN}\n${REALITY}\n` +
+    `${HUMAN}\n${REALITY}\nأمثلة على الأسلوب الصح (افهم القصد وماتنقلهاش حرفيًا):\n- «ازيك؟» / «عامل إيه؟» ← رد السلام زي أي حد: «الحمد لله يا فندم، تمام. حضرتك عامل إيه؟ محتاج حاجة؟»\n- «أقدر أعمل إيه؟» أو «تقدر تعمل إيه؟» ← اشرح ببساطة إزاي يستفيد منك انت بالذات في جملتين.\n- سؤال عن رقم ← الرقم الحقيقي في جملة واحدة وبعده رأيك أو الخطوة الجاية لو مهم.\n- كلام مش واضح ← اسأله سؤال قصير توضّح بيه قصده بدل ما تجاوب على حاجة تانية.\nافهم قصده الأول من كلامه هو، وماتربطش كلامه بمعلومات من المرجع إلا لو بيسأل عنها.\n` +
     "لو حاجة مش عندك قول كده ببساطة. ممنوع تألّف أرقام أو أحداث.";
 }
 

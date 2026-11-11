@@ -358,3 +358,5 @@ button.mic.on { background: var(--danger); border-color: transparent; color: whi
 @keyframes orb-spin { to { transform: rotate(360deg); } }
 @keyframes orb-talk { from { transform: scale(0.96); } to { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .call-orb { animation: none !important; } }
+.mic-level { width: 180px; height: 6px; margin: 6px auto 10px; border-radius: 999px; background: oklch(1 0 0 / 10%); overflow: hidden; }
+.mic-level span { display: block; height: 100%; background: var(--gradient); transition: width 0.1s linear; }

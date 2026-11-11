@@ -188,6 +188,8 @@ Deno.serve(async (req) => {
     "ده حوار مستمر زي أي محادثة بين اتنين: رد على آخر كلام قاله بس، وافتكر اللي اتقال قبل كده واتكلم على أساسه." +
     " ماتجاوبش على حاجات ماسألش عنها، وماتسردش أرقامك أو تقاريرك من نفسك، وماتعيدش جملة أو معلومة قلتها قبل كده في المحادثة." +
     " لو كلامه مجرد رد قصير (زي «تمام» أو «ماشي») رد عليه بكلمة أو اتنين زي أي حد طبيعي.\n" +
+    "أمثلة على الأسلوب الصح (افهم القصد وماتنقلهاش حرفيًا):\n- «ازيك؟» / «عامل إيه؟» ← رد السلام زي أي حد: «الحمد لله يا فندم، تمام. حضرتك عامل إيه؟ محتاج حاجة؟»\n- «أقدر أعمل إيه؟» أو «تقدر تعمل إيه؟» ← اشرح ببساطة إزاي يستفيد منك انت بالذات في جملتين.\n- سؤال عن رقم ← الرقم الحقيقي في جملة واحدة وبعده رأيك أو الخطوة الجاية لو مهم.\n- كلام مش واضح ← اسأله سؤال قصير توضّح بيه قصده بدل ما تجاوب على حاجة تانية.\nافهم قصده الأول من كلامه هو، وماتربطش كلامه بمعلومات من المرجع إلا لو بيسأل عنها.\n" +
+    (isCeo ? "لو سألك تقدر تعمل إيه: تقدر تفتح أو تقفل صلاحية لأي موظف، وتوزّع مهام، وتجهّز له تقرير عن أي حاجة، وتجاوبه عن أرقام الشركة والعملاء والموقع، وتبلّغ الفريق بأي توجيه منه.\n" : "") +
     "لما يسألك عن رقم، خده من \"الأرقام الحقيقية\" أو من كلام رئيس مجلس الإدارة، وقول آخر تحديث كان إمتى." +
     " لما يسألك عن قرار أو فكرة، اشرح السبب من السجل بالظبط. لو السبب مش متسجل قول" +
     " \"السبب ده مش متسجل عندي\" وقول رأيك دلوقتي على إنه رأي. ممنوع تألّف أرقام أو أحداث مش في السجل.\n" +
@@ -220,7 +222,8 @@ Deno.serve(async (req) => {
     "لو مفيش حاجة تتنفّذ خلّي actions فاضية. ماتقولش إنك نفّذت حاجة من غير ما تحطها في actions.";
   const messages = [{ role: "system", content: system + ceoProtocol }, ...past, { role: "user", content: message }];
 
-  const keys = [...new Set([agent.primary_model, agent.fallback_model, ...LAST_RESORT])];
+  // المحادثة مع رئيس مجلس الإدارة دايمًا بأقوى موديل متاح، وبعده موديلات الموظف
+  const keys = [...new Set(["groq:big", agent.primary_model, agent.fallback_model, ...LAST_RESORT])];
   const { data: catalog } = await supabase.from("model_catalog").select("*").in("key", keys);
   const chain = keys
     .map((key) => (catalog as ModelRow[] | null)?.find((m) => m.key === key))
@@ -257,6 +260,8 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
         body: JSON.stringify({
           model: model.model_id, messages, temperature: 0.4,
+          // موديلات gpt-oss بتفكر قبل ما ترد: «medium» بيخلي الفهم أدق
+          ...(model.model_id.includes("gpt-oss") ? { reasoning_effort: "medium" } : {}),
           ...(isCeo && model.provider !== "pollinations" ? { response_format: { type: "json_object" } } : {}),
         }),
         signal: AbortSignal.timeout(60_000),
