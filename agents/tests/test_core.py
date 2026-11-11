@@ -275,3 +275,20 @@ def test_each_agent_sees_only_the_sections_it_is_allowed(cfg):
     assert out["projects"] == "BOOK" and out["analytics"] == "STAT"
     assert all(k in out["ceo"] for k in ("FIN", "BOOK", "CONT", "STAT"))  # المدير: الكل
     assert "writer" not in out and "scout" not in out                # الباقي: ولا حاجة
+
+
+
+def test_developers_see_the_code_on_github():
+    from stratix_agents.devteam import GitHub, repo_overview
+    def handler(req):
+        path = req.url.path
+        if path.endswith("/commits"):
+            return httpx.Response(200, json=[{"commit": {"message": "Fix booking form\n\nmore", "author": {"date": "2026-11-10T10:00:00Z"}}}])
+        if path.endswith("/issues"):
+            return httpx.Response(200, json=[{"number": 3, "title": "Slow page"}, {"number": 4, "title": "PR", "pull_request": {}}])
+        if path.endswith("/pulls"):
+            return httpx.Response(200, json=[{"number": 7, "title": "Bump deps"}])
+        return httpx.Response(404)
+    text = repo_overview(GitHub("t", "o/r", httpx.Client(transport=httpx.MockTransport(handler))))
+    assert "Fix booking form" in text and "#3 Slow page" in text and "#7 Bump deps" in text
+    assert "#4" not in text  # الـ PR مش بيتحسب Issue

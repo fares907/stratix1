@@ -43,6 +43,12 @@ class GitHub:
     def create_issue(self, title: str, body: str) -> dict:
         return self._post("/issues", {"title": title, "body": body + FOOTER, "labels": [LABEL]})
 
+    def recent_commits(self, n: int = 6) -> list[dict]:
+        return self._get("/commits", per_page=n, sha="main").json()
+
+    def open_issues(self, n: int = 10) -> list[dict]:
+        return [i for i in self._get("/issues", state="open", per_page=n).json() if "pull_request" not in i]
+
     def open_pulls(self) -> list[dict]:
         return self._get("/pulls", state="open", per_page=20).json()
 
@@ -112,3 +118,17 @@ def review_pulls(company: Company, gh: GitHub, max_diff_chars: int = 30_000) -> 
         reviewer.log(f"راجعت PR #{pr['number']}: {pr['title']}")
         reviewed += 1
     return reviewed
+
+
+def repo_overview(gh: GitHub) -> str:
+    """اللي المطوّر والمراجِعة بيشوفوه عن كود الموقع: آخر التعديلات والمشاكل والـ PRs المفتوحة."""
+    commits = gh.recent_commits()
+    issues = gh.open_issues()
+    pulls = gh.open_pulls()
+    lines = ["كود الموقع على GitHub (Express + React على Railway):", "آخر التعديلات على main:"]
+    lines += [f"- {c['commit']['author']['date'][:10]}: {c['commit']['message'].splitlines()[0][:120]}" for c in commits]
+    lines.append(f"Issues مفتوحة ({len(issues)}):")
+    lines += [f"- #{i['number']} {i['title'][:120]}" for i in issues] or ["- مفيش"]
+    lines.append(f"Pull Requests مفتوحة ({len(pulls)}):")
+    lines += [f"- #{p['number']} {p['title'][:120]}" for p in pulls] or ["- مفيش"]
+    return "\n".join(lines)

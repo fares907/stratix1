@@ -157,7 +157,7 @@ agents:
     department: dev
     primary: groq:big
     fallback: openrouter:coder
-    tools: [read_repo, open_pull_request]
+    tools: [read_repo, open_pull_request, web_check, view_stats]
     duties:
       - يصلح مشاكل الموقع في branch منفصل ويفتح Pull Request
 
@@ -167,6 +167,6 @@ agents:
     department: dev
     primary: groq:big
     fallback: gemini:flash
-    tools: [read_repo, comment_pull_request]
+    tools: [read_repo, comment_pull_request, web_check, view_stats]
     duties:
       - تراجع كل PR وتتأكد إن الاختبارات عدّت

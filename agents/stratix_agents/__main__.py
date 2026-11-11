@@ -187,6 +187,13 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     if checks:
         extra.update({a: checks.for_agent(a) for a in ("uptime", "security", "infra")})
+    # المطوّر والمراجِعة: فحص الموقع كله + الكود على GitHub + الإحصائيات (لو عندهم صلاحيتها)
+    gh = _github(company)
+    repo = _step(company, "نظرة على الكود", devteam.repo_overview, gh) if gh else None
+    site_view = "\n".join(checks.for_agent(a) for a in ("uptime", "security", "infra")) if checks else ""
+    for dev in ("developer", "reviewer"):
+        parts = ["فحص الموقع النهارده:\n" + site_view if site_view else "", repo or "", extra.get(dev, "")]
+        extra[dev] = "\n\n".join(p for p in parts if p)
     facts = report.build_facts(company, extra)
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
     _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
@@ -195,7 +202,6 @@ def cmd_morning(cfg: config_mod.Config) -> None:
         _step(company, "الوارد", sales.inbox, company, mailer)
     _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
 
-    gh = _github(company)
     if gh and checks:
         _step(company, "Issues", devteam.file_issues, company, gh, checks.problems)
     if gh:
