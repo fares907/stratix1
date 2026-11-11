@@ -244,3 +244,20 @@ def test_outside_hours_nothing_runs(monkeypatch, capsys):
     monkeypatch.setitem(cli.COMMANDS, "morning", lambda cfg: called.append(1))
     cli.main(["morning"])
     assert called == [] and "برّا مواعيد العمل" in capsys.readouterr().out
+
+
+
+def test_site_facts_become_readable_sentences_for_the_finance_agent():
+    from stratix_agents.sitedb import fetch_site_facts
+    data = {"ledger": {"thisMonth": {"income": 5000, "expense": 1200, "net": 3800}, "thisYear": {"income": 20000, "expense": 6000, "net": 14000}},
+            "invoices": {"total": 3, "egpThisYear": 900, "usdThisYear": 12},
+            "bookings": {"total": 7, "byStatus": {"new": 2, "contacted": 3, "closed": 2}, "byPaymentStatus": {"paid": 4, "unpaid": 2, "awaiting_review": 1}},
+            "contacts": {"total": 5, "byStatus": {"new": 1}}}
+    seen = []
+    def handler(req):
+        seen.append(req.headers["authorization"])
+        return httpx.Response(200, json=data)
+    facts = fetch_site_facts("tok", httpx.Client(transport=httpx.MockTransport(handler)))
+    assert seen == ["Bearer tok"]
+    assert "دخل 5,000 جنيه" in facts["finance"] and "صافي 3,800 جنيه" in facts["finance"]
+    assert "لسه مادفعش 2" in facts["finance"] and "إجمالي 7" in facts["projects"]

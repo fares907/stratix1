@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { createAgentsFactsHandler } from "../agentsFacts";
 import { serveStatic, setupVite } from "./vite";
 import { createSecurityHeaders } from "./securityHeaders";
 import { assertProductionSecrets } from "./env";
@@ -55,6 +56,8 @@ async function startServer() {
       createContext,
     })
   );
+  // Read-only company numbers for the AI agents team (GitHub OIDC only; see agentsFacts.ts).
+  app.get("/api/agents/facts", createRateLimiter(API_RATE_LIMIT), createAgentsFactsHandler());
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

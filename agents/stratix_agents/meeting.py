@@ -20,6 +20,17 @@ MAX_ROUNDS = 2
 MAX_REPLIES_PER_ROUND = 4
 
 
+def chairman_notes(store, names: dict[str, str], limit: int = 15) -> str:
+    """كل اللي رئيس مجلس الإدارة قاله لأي موظف في الشات: معلومات مؤكدة يعرفها الفريق كله."""
+    said = [c for c in store.select("chats") if c.get("role") == "owner"]
+    said.sort(key=lambda c: c.get("created_at") or "")
+    if not said:
+        return ""
+    lines = "\n".join(f"- (قالها لـ{names.get(c['agent_id'], c['agent_id'])}) {c['content'][:400]}" for c in said[-limit:])
+    return ("كلام رئيس مجلس الإدارة في الشات (معلومات مؤكدة منه شخصيًا، اعتمد عليها في الأرقام والقرارات):\n"
+            f"{lines}\n")
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -55,8 +66,10 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
             "توجيهات رئيس مجلس الإدارة ليك في الشات (ليها الأولوية):\n- " + "\n- ".join(directives) + "\n"
             if directives else ""
         )
+        notes = chairman_notes(store, {a.spec.id: a.spec.name for a in roster.values()})
         agenda = (
             f"الأرقام الحقيقية النهارده:\n{facts.get('_company', '')}\n"
+            f"{notes}"
             f"موافقات مستنية رئيس مجلس الإدارة: {len(pending)}\n"
             f"مهام مفتوحة من الاجتماعات اللي فاتت: {len(open_tasks)}\n"
             f"{directive_text}"
@@ -82,6 +95,7 @@ def run(company: Company, facts: dict[str, str], kind: str = "daily") -> int:
                 f"{facts.get(agent.spec.id) or facts.get(agent.spec.department) or 'مفيش بيانات عن شغلك لسه.'}\n"
                 f"مهامك المفتوحة: {my_tasks or 'مفيش'}\n"
                 + (f"رئيس مجلس الإدارة قالك مؤخرًا في الشات (خده في اعتبارك): {owner_said}\n" if owner_said else "")
+                + notes
                 + "\n"
                 "اعرض شغلك في 3 سطور بالكتير: عملت إيه، فيه مشكلة إيه، ومحتاج إيه."
                 " لو مفيش بيانات قول كده بصراحة.\n"

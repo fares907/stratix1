@@ -53,18 +53,33 @@ def _step(company: Company, name: str, fn, *args):
 
 def _site_db_facts(company: Company) -> dict[str, str]:
     url = company.env.get("SITE_DATABASE_URL")
-    if not url:
-        missing = "قاعدة بيانات الموقع مش متوصلة (SITE_DATABASE_URL)، فمفيش أرقام."
-        return {"finance": missing, "projects": missing, "analytics": missing}
-    conn = sitedb.connect(url)
-    try:
-        return {
-            "finance": sitedb.finance_facts(conn),
-            "projects": sitedb.projects_facts(conn),
-            "analytics": sitedb.analytics_facts(conn),
-        }
-    finally:
-        conn.close()
+    if url:
+        conn = sitedb.connect(url)
+        try:
+            return {
+                "finance": sitedb.finance_facts(conn),
+                "projects": sitedb.projects_facts(conn),
+                "analytics": sitedb.analytics_facts(conn),
+            }
+        finally:
+            conn.close()
+    if company.env.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
+        # من غير أي مفتاح: الموقع نفسه بيدّي الأرقام لتوكن GitHub الخاص بالـ workflow ده بس
+        from .store import GitHubOIDC
+
+        return sitedb.fetch_site_facts(GitHubOIDC(audience="stratix-site")())
+    missing = "أرقام الموقع مش متاحة في التشغيل ده."
+    return {"finance": missing, "projects": missing, "analytics": missing}
+
+
+def _save_facts(company: Company, facts: dict[str, str]) -> None:
+    """آخر أرقام حقيقية، عشان الموظفين يردّوا منها في الشات (طارق والحسابات مثلًا)."""
+    from datetime import datetime, timezone
+
+    company.store.upsert("company_settings", [{
+        "key": "latest_facts",
+        "value": {**facts, "_at": datetime.now(timezone.utc).isoformat()},
+    }], on_conflict="key")
 
 
 def _github(company: Company) -> devteam.GitHub | None:
@@ -183,6 +198,7 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     if checks:
         extra.update({a: checks.for_agent(a) for a in ("uptime", "security", "infra")})
     facts = report.build_facts(company, extra)
+    _step(company, "حفظ الأرقام", _save_facts, company, facts)
     _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
     _step(company, "الرسايل", sales.outreach, company, mailer)
     if mailer:
@@ -205,6 +221,7 @@ def cmd_evening(cfg: config_mod.Config) -> None:
     _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     facts = report.build_facts(company, extra)
+    _step(company, "حفظ الأرقام", _save_facts, company, facts)
     mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
     daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
     tg = notify.from_env(company.env)

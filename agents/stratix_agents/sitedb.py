@@ -111,3 +111,48 @@ def analytics_facts(conn, now_ms: int | None = None) -> str:
         + f".\nطلبات تواصل آخر 7 أيام: {sum(r['n'] for r in contacts)}."
         + "\nملحوظة: الموقع مابيسجّلش عدد الزوار، فمعدل التحويل مش معروف."
     )
+
+
+# ── من غير SITE_DATABASE_URL: أرقام الموقع من /api/agents/facts (بتوكن GitHub OIDC) ──
+SITE_FACTS_URL = "https://stratix.website/api/agents/facts"
+
+
+def _egp(value) -> str:
+    return f"{float(value or 0):,.0f} جنيه"
+
+
+def format_site_facts(data: dict) -> dict[str, str]:
+    """بيحوّل أرقام الموقع لجمل يقراها طارق ومصطفى ونور في الاجتماع (الأرقام زي ما هي)."""
+    ledger = data.get("ledger") or {}
+    month, year = ledger.get("thisMonth") or {}, ledger.get("thisYear") or {}
+    inv = data.get("invoices") or {}
+    book = data.get("bookings") or {}
+    contacts = data.get("contacts") or {}
+    pay = book.get("byPaymentStatus") or {}
+    status = book.get("byStatus") or {}
+    finance = (
+        f"دفتر حسابات الشركة (من الموقع): الشهر ده دخل {_egp(month.get('income'))}، مصاريف {_egp(month.get('expense'))}، "
+        f"صافي {_egp(month.get('net'))}. السنة دي: دخل {_egp(year.get('income'))}، مصاريف {_egp(year.get('expense'))}، "
+        f"صافي {_egp(year.get('net'))}.\n"
+        f"فواتير الاشتراكات السنة دي: {float(inv.get('egpThisYear') or 0):,.0f} جنيه و{float(inv.get('usdThisYear') or 0):,.2f} دولار"
+        f" ({inv.get('total', 0)} فاتورة في الإجمالي).\n"
+        f"الحجوزات حسب الدفع: مدفوع {pay.get('paid', 0)}، مستني مراجعة تحويل {pay.get('awaiting_review', 0)}، لسه مادفعش {pay.get('unpaid', 0)}."
+    )
+    projects = (
+        f"الحجوزات: إجمالي {book.get('total', 0)} — جديد {status.get('new', 0)}، اتكلمنا معاه {status.get('contacted', 0)}، "
+        f"مقفول {status.get('closed', 0)}."
+    )
+    analytics = (
+        f"طلبات تواصل من الموقع: إجمالي {contacts.get('total', 0)} (جديد {(contacts.get('byStatus') or {}).get('new', 0)}). "
+        f"حجوزات: {book.get('total', 0)}. الموقع مابيسجّلش عدد الزوار، فمعدل التحويل مش معروف."
+    )
+    return {"finance": finance, "projects": projects, "analytics": analytics}
+
+
+def fetch_site_facts(token: str, http=None, url: str = SITE_FACTS_URL) -> dict[str, str]:
+    import httpx
+
+    client = http or httpx.Client(timeout=30)
+    r = client.get(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "stratix-agents/0.1"})
+    r.raise_for_status()
+    return format_site_facts(r.json())
