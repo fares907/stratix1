@@ -83,13 +83,24 @@ async function think(db: SupabaseClient, agentId: string, system: string, prompt
   throw new Error("الموديلات مش متاحة دلوقتي");
 }
 
+// أسلوب الكلام: زي زميل مصري حقيقي في اجتماع، مش زي برنامج
+const HUMAN = [
+  "اتكلم بالعامية المصرية الطبيعية زي ما الموظفين بيتكلموا فعلًا في اجتماع مع صاحب الشركة.",
+  "جملة أو اتنين بس، كلام شفهي بيتقال بصوت: من غير نقط ولا عناوين ولا ترقيم ولا رموز.",
+  "رد على اللي اتقال بالظبط، وابدأ بالمهم على طول، من غير مقدمات زي «بالتأكيد» أو «سؤال ممتاز» أو «يسعدني».",
+  "خاطبه بـ«يا فندم» أو «حضرتك» من غير مبالغة، وماتكررش اسمه في كل جملة.",
+  "عادي تقول «بصراحة» أو «بص يا فندم» أو «لا، الصراحة مش متأكد»، وعادي تسأل سؤال قصير لو محتاج توضيح.",
+  "ماتعيدش كلام زميلك، وماتعيدش الأرقام لو اتقالت قبلك.",
+  "ممنوع تقول إنك ذكاء اصطناعي أو موديل أو برنامج.",
+].join(" ");
+
 function persona(a: Agent, facts: Record<string, string>, rules: string) {
   return `انت ${a.name}، ${a.title} في شركة STRATIX (تصميم مواقع للمحلات والمطاعم في مصر).\n` +
     `أصحاب الشركة ورؤساء مجلس الإدارة: فارس ويوسف، وواحد منهم معاك في الاجتماع دلوقتي. كلامه أوامر.\n` +
-    `مهامك: ${(a.duties ?? []).join("، ")}\n` +
+    `شغلك: ${(a.duties ?? []).join("، ")}\n` +
     `بياناتك الحقيقية: ${clip(facts[a.id] ?? facts[a.department] ?? "مفيش", 1500)}\n${rules}\n` +
-    "اتكلم بالعامية المصرية زي موظف في اجتماع: مختصر (3 سطور بالكتير)، ومباشر، ومن بياناتك بس." +
-    " لو مش متأكد قول. ممنوع تألّف أرقام أو أحداث. رد بـ JSON فيه \"say\".";
+    `${HUMAN}\n` +
+    "اتكلم من بياناتك بس. لو حاجة مش عندك قول كده ببساطة. ممنوع تألّف أرقام أو أحداث. رد بـ JSON فيه \"say\".";
 }
 
 Deno.serve(async (req) => {
@@ -149,6 +160,9 @@ Deno.serve(async (req) => {
   // ── رئيس مجلس الإدارة بيتكلم ─────────────────────────────
   if (body.action === "say") {
     const text = clip(String(body.text || ""), 2000);
+    // في المكالمة الصوتية: رد أقصر وناس أقل، عشان الكلام يبقى زي المكالمة الحقيقية
+    const voice = body.voice === true;
+    const maxResponders = voice ? 2 : MAX_RESPONDERS;
     if (!text) return fail("اكتب رسالتك");
     const { data: said } = await db.from("messages").insert({
       meeting_id: meetingId, agent_id: null, author: "chairman", kind: "speech", content: text,
@@ -158,8 +172,9 @@ Deno.serve(async (req) => {
     try {
       lead = await think(db, "ceo", persona(ceo, facts, rules),
       `ده الاجتماع لحد دلوقتي (الموضوع: ${meeting.topic}):\n${transcript}\n\nرئيس مجلس الإدارة قال دلوقتي: «${text}»\n\n` +
-      "رد عليه في \"say\" (انت اللي بتدير الاجتماع)، وفي \"ask\" حط أكواد الموظفين اللي لازم يردّوا على كلامه" +
-      ` (لحد ${MAX_RESPONDERS}، أو فاضية لو مش محتاج)، من دول: ${teamList}`);
+      "رد عليه في \"say\" (انت اللي بتدير الاجتماع؛ لو السؤال ليك جاوبه انت، ولو يخص حد معين قول إنك هتسيبه يرد)،" +
+      ` وفي "ask" حط أكواد الموظفين اللي لازم يردّوا فعلًا (لحد ${maxResponders}، وغالبًا واحد أو ولا حد)، من دول: ${teamList}` +
+      (voice ? "\nده كلام بالصوت في مكالمة: ردك جملة أو اتنين بالكتير." : ""));
     } catch (e) {
       return fail(`نادر مش قادر يرد دلوقتي: ${(e as Error).message}`, 503);
     }
@@ -168,15 +183,15 @@ Deno.serve(async (req) => {
     }).select("id").single();
 
     const ask = (Array.isArray(lead.ask) ? lead.ask : []).map(String)
-      .filter((id) => id !== "ceo" && agents.get(id)?.status === "active").slice(0, MAX_RESPONDERS);
+      .filter((id) => id !== "ceo" && agents.get(id)?.status === "active").slice(0, maxResponders);
     let soFar = `${transcript}\nرئيس مجلس الإدارة: ${text}\nنادر: ${lead.say}`;
     for (const id of ask) {
       const a = agents.get(id)!;
       try {
         const reply = await think(db, id, persona(a, facts, rules),
           `انت في اجتماع لايف مع رئيس مجلس الإدارة والفريق (الموضوع: ${meeting.topic}).\n${soFar}\n\n` +
-          `رئيس مجلس الإدارة قال: «${text}»، ونادر طلب رأيك. رد في 3 سطور بالكتير، في اللي يخص شغلك أنت بس ومن بياناتك أنت` +
-          " (ماتكررش كلام غيرك، ولو حاجة مش من اختصاصك قول إنها مش عندك).");
+          `رئيس مجلس الإدارة قال: «${text}»، ونادر طلب منك ترد. رد في اللي يخص شغلك انت بس، من بياناتك انت` +
+          (voice ? "، في جملة أو اتنين زي ما بتتكلم في مكالمة." : "، في جملتين أو تلاتة بالكتير."));
         await db.from("messages").insert({
           meeting_id: meetingId, agent_id: id, kind: "speech", reply_to: said?.id, content: String(reply.say ?? ""),
         });

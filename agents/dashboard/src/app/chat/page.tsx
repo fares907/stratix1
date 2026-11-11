@@ -2,9 +2,8 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { MicButton } from "@/components/MicButton";
 import { Empty, PageHead, Person } from "@/components/ui";
-import { canSpeak, speak, stopSpeaking, useDictation, voiceFor } from "@/lib/speech";
+import { Dictation, type ListenerState, Speaker } from "@/lib/voice";
 import { supabase } from "@/lib/supabase";
 import type { Agent } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -36,7 +35,26 @@ function ChatRoom() {
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const [voiceReply, setVoiceReply] = useState(false);
-  const dictation = useDictation(t => setDraft(t));
+  const [dictating, setDictating] = useState<ListenerState>("off");
+  const [voiceError, setVoiceError] = useState("");
+  const voice = useRef<{ speaker: Speaker; dictation: Dictation } | null>(null);
+  useEffect(() => {
+    const speaker = new Speaker();
+    const dictation = new Dictation();
+    dictation.onState = setDictating;
+    dictation.onError = setVoiceError;
+    dictation.onText = t => setDraft(prev => (prev ? `${prev} ${t}` : t));
+    voice.current = { speaker, dictation };
+    return () => {
+      speaker.stop();
+      dictation.cancel();
+    };
+  }, []);
+  // كل قراءة بصوت ليها رقم مختلف عشان تتقري مرة واحدة بس
+  const sayAloud = (text: string) => {
+    voice.current?.speaker.stop();
+    voice.current?.speaker.enqueue(-Date.now(), text, agentId);
+  };
 
   const agents = useLive<Agent>("agents", () =>
     supabase().from("agents").select("*").neq("status", "fired").order("department"),
@@ -56,7 +74,7 @@ function ChatRoom() {
 
   async function send(event: FormEvent) {
     event.preventDefault();
-    dictation.stop();
+    voice.current?.dictation.cancel();
     const text = draft.trim();
     if (!text || sending) return;
     setSending(true);
@@ -82,7 +100,7 @@ function ChatRoom() {
       return;
     }
     refresh();
-    if (voiceReply) speak(String(data.reply).replace(/^✅.*$/gm, ""), voiceFor(agentId));
+    if (voiceReply) sayAloud(String(data.reply).replace(/^✅.*$/gm, ""));
   }
 
   return (
@@ -119,11 +137,9 @@ function ChatRoom() {
                 {c.content}
                 {c.role === "agent" && (
                   <div className="meta">
-                    {canSpeak() && (
-                      <button type="button" className="faint" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => { stopSpeaking(); speak(c.content, voiceFor(agentId)); }}>
-                        🔊 اسمعه
-                      </button>
-                    )}{" "}
+                    <button type="button" className="faint" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => sayAloud(c.content)}>
+                      🔊 اسمعه
+                    </button>{" "}
                     {c.model_key && <span dir="ltr">{c.model_key}</span>}
                   </div>
                 )}
@@ -148,29 +164,36 @@ function ChatRoom() {
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder={dictation.listening ? "بسمعك… اتكلم" : `اكتب أو سجّل بصوتك لـ${agent?.name ?? "الموظف"}…`}
+              placeholder={dictating !== "off" ? "بسجّل… اتكلم براحتك، ولما تخلص دوس على المربع" : `اكتب أو سجّل بصوتك لـ${agent?.name ?? "الموظف"}…`}
               rows={1}
             />
-            <MicButton
-              listening={dictation.listening}
-              supported={dictation.supported}
-              disabled={sending}
-              onStart={() => { stopSpeaking(); dictation.start(draft); }}
-              onStop={dictation.stop}
-            />
+            <button
+              type="button"
+              className={dictating !== "off" ? "mic on" : "mic"}
+              title={dictating !== "off" ? "خلصت" : "سجّل بصوتك"}
+              disabled={sending || dictating === "transcribing"}
+              onClick={() => {
+                if (dictating !== "off") voice.current?.dictation.stop();
+                else {
+                  voice.current?.speaker.stop();
+                  void voice.current?.dictation.start();
+                }
+              }}
+            >
+              {dictating === "transcribing" ? "…" : dictating !== "off" ? "■" : "🎙"}
+            </button>
             <button className="primary" type="submit" disabled={sending || !draft.trim()}>
               ابعت
             </button>
           </form>
           <div className="voice-bar" style={{ padding: "0 12px 10px" }}>
-            {canSpeak() && (
-              <label>
-                <input type="checkbox" checked={voiceReply} onChange={e => { setVoiceReply(e.target.checked); if (!e.target.checked) stopSpeaking(); }} />
-                {agent?.name ?? "الموظف"} يرد عليا بصوت
-              </label>
-            )}
-            {dictation.listening && <span className="listening-hint">● بسمعك… لما تخلص دوس «ابعت»</span>}
-            {dictation.error && <span className="error">{dictation.error}</span>}
+            <label>
+              <input type="checkbox" checked={voiceReply} onChange={e => { setVoiceReply(e.target.checked); if (!e.target.checked) voice.current?.speaker.stop(); }} />
+              {agent?.name ?? "الموظف"} يرد عليا بصوت
+            </label>
+            {dictating === "waiting" || dictating === "hearing" ? <span className="listening-hint">● بسجّل… مش هقطع عليك لو سكت، دوس ■ لما تخلص</span> : null}
+            {dictating === "transcribing" && <span className="muted">بكتب كلامك…</span>}
+            {voiceError && <span className="error">{voiceError}</span>}
           </div>
         </section>
       </div>
