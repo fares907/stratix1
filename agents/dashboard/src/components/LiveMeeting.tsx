@@ -110,6 +110,8 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
     const li = listener.current!;
     const di = dictation.current!;
     sp.onChange = setSpeaking;
+    // الفريق مايبدأش يتكلم وانت لسه بتتكلم أو كلامك بيتكتب
+    sp.waitWhile = () => li.state === "hearing" || li.state === "transcribing";
     li.onState = setListenState;
     li.onPartial = setHeard;
     li.onError = setError;
@@ -140,7 +142,8 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
       return;
     }
     if (busy || speaking) {
-      if (li.state === "waiting" || li.state === "hearing") li.pause();
+      // لو انت في نص كلامك مانقفلش المايك أبدًا؛ نقفله بس لو لسه مابدأتش تتكلم
+      if (li.state === "waiting") li.pause();
       return;
     }
     if (li.state === "off") {
