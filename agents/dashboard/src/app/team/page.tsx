@@ -107,6 +107,18 @@ export default function TeamPage() {
                     <span className="faint">احتياطي</span>
                     <span className="chip" dir="ltr">{a.fallback_model}</span>
                   </div>
+                  <div className="row" style={{ marginBottom: 12 }}>
+                    <span className="faint">بيانات الموقع:</span>
+                    {a.tools.includes("read_all") ? (
+                      <span className="chip signal">ملخص كل حاجة</span>
+                    ) : a.tools.filter(t => t.startsWith("view_")).length ? (
+                      a.tools.filter(t => t.startsWith("view_")).map(t => (
+                        <span key={t} className="chip ok">{TOOLS[t]?.replace("📊 لوحة الموقع: ", "") ?? t}</span>
+                      ))
+                    ) : (
+                      <span className="chip">مالوش وصول</span>
+                    )}
+                  </div>
                   <div className="row">
                     <button onClick={() => { setIsNew(false); setEditing(a); }}>تعديل</button>
                     {a.status === "active" && <button onClick={() => setStatus(a, "paused")}>إيقاف مؤقت</button>}

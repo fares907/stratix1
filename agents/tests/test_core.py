@@ -244,3 +244,51 @@ def test_outside_hours_nothing_runs(monkeypatch, capsys):
     monkeypatch.setitem(cli.COMMANDS, "morning", lambda cfg: called.append(1))
     cli.main(["morning"])
     assert called == [] and "برّا مواعيد العمل" in capsys.readouterr().out
+
+
+
+def test_site_facts_become_readable_sentences_for_the_finance_agent():
+    from stratix_agents.sitedb import fetch_site_facts
+    data = {"ledger": {"thisMonth": {"income": 5000, "expense": 1200, "net": 3800}, "thisYear": {"income": 20000, "expense": 6000, "net": 14000}},
+            "invoices": {"total": 3, "egpThisYear": 900, "usdThisYear": 12},
+            "bookings": {"total": 7, "byStatus": {"new": 2, "contacted": 3, "closed": 2}, "byPaymentStatus": {"paid": 4, "unpaid": 2, "awaiting_review": 1}},
+            "contacts": {"total": 5, "byStatus": {"new": 1}}}
+    seen = []
+    def handler(req):
+        seen.append(req.headers["authorization"])
+        return httpx.Response(200, json=data)
+    facts = fetch_site_facts("tok", httpx.Client(transport=httpx.MockTransport(handler)))
+    assert seen == ["Bearer tok"]
+    assert "دخل 5,000 جنيه" in facts["finance"] and "صافي 3,800 جنيه" in facts["finance"]
+    assert "لسه مادفعش 2" in facts["finance"] and "إجمالي 7" in facts["bookings"]
+
+
+def test_each_agent_sees_only_the_sections_it_is_allowed(cfg):
+    from stratix_agents.agent import Agent
+    from stratix_agents.sitedb import facts_for_agents
+    sections = {"finance": "FIN", "bookings": "BOOK", "contacts": "CONT", "stats": "STAT"}
+    roster = {a.id: Agent(a, cfg, None, None) for a in cfg.agents.values()}
+    out = facts_for_agents(sections, roster)
+    assert out["finance"] == "FIN"                                   # طارق: الحسابات بس
+    assert "BOOK" in out["support"] and "CONT" in out["support"]     # منى: الحجوزات والطلبات
+    assert "FIN" not in out["support"]                               # ومش الحسابات
+    assert out["projects"] == "BOOK" and out["analytics"] == "STAT"
+    assert all(k in out["ceo"] for k in ("FIN", "BOOK", "CONT", "STAT"))  # المدير: الكل
+    assert "writer" not in out and "scout" not in out                # الباقي: ولا حاجة
+
+
+
+def test_developers_see_the_code_on_github():
+    from stratix_agents.devteam import GitHub, repo_overview
+    def handler(req):
+        path = req.url.path
+        if path.endswith("/commits"):
+            return httpx.Response(200, json=[{"commit": {"message": "Fix booking form\n\nmore", "author": {"date": "2026-11-10T10:00:00Z"}}}])
+        if path.endswith("/issues"):
+            return httpx.Response(200, json=[{"number": 3, "title": "Slow page"}, {"number": 4, "title": "PR", "pull_request": {}}])
+        if path.endswith("/pulls"):
+            return httpx.Response(200, json=[{"number": 7, "title": "Bump deps"}])
+        return httpx.Response(404)
+    text = repo_overview(GitHub("t", "o/r", httpx.Client(transport=httpx.MockTransport(handler))))
+    assert "Fix booking form" in text and "#3 Slow page" in text and "#7 Bump deps" in text
+    assert "#4" not in text  # الـ PR مش بيتحسب Issue

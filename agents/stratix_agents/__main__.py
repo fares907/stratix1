@@ -52,19 +52,24 @@ def _step(company: Company, name: str, fn, *args):
 
 
 def _site_db_facts(company: Company) -> dict[str, str]:
-    url = company.env.get("SITE_DATABASE_URL")
-    if not url:
-        missing = "قاعدة بيانات الموقع مش متوصلة (SITE_DATABASE_URL)، فمفيش أرقام."
-        return {"finance": missing, "projects": missing, "analytics": missing}
-    conn = sitedb.connect(url)
-    try:
-        return {
-            "finance": sitedb.finance_facts(conn),
-            "projects": sitedb.projects_facts(conn),
-            "analytics": sitedb.analytics_facts(conn),
-        }
-    finally:
-        conn.close()
+    """بيانات الموقع من /api/agents/facts (بتوكن GitHub، من غير أي باسورد).
+    كل موظف بياخد بس الأقسام اللي عنده صلاحيتها: طارق الحسابات، منى الحجوزات والطلبات، ..."""
+    if not company.env.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
+        return {}
+    from .store import GitHubOIDC
+
+    sections = sitedb.fetch_site_facts(GitHubOIDC(audience="stratix-site")())
+    return sitedb.facts_for_agents(sections, company.roster())
+
+
+def _save_facts(company: Company, facts: dict[str, str]) -> None:
+    """آخر أرقام حقيقية، عشان الموظفين يردّوا منها في الشات (طارق والحسابات مثلًا)."""
+    from datetime import datetime, timezone
+
+    company.store.upsert("company_settings", [{
+        "key": "latest_facts",
+        "value": {**facts, "_at": datetime.now(timezone.utc).isoformat()},
+    }], on_conflict="key")
 
 
 def _github(company: Company) -> devteam.GitHub | None:
@@ -182,14 +187,21 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     if checks:
         extra.update({a: checks.for_agent(a) for a in ("uptime", "security", "infra")})
+    # المطوّر والمراجِعة: فحص الموقع كله + الكود على GitHub + الإحصائيات (لو عندهم صلاحيتها)
+    gh = _github(company)
+    repo = _step(company, "نظرة على الكود", devteam.repo_overview, gh) if gh else None
+    site_view = "\n".join(checks.for_agent(a) for a in ("uptime", "security", "infra")) if checks else ""
+    for dev in ("developer", "reviewer"):
+        parts = ["فحص الموقع النهارده:\n" + site_view if site_view else "", repo or "", extra.get(dev, "")]
+        extra[dev] = "\n\n".join(p for p in parts if p)
     facts = report.build_facts(company, extra)
+    _step(company, "حفظ الأرقام", _save_facts, company, facts)
     _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
     _step(company, "الرسايل", sales.outreach, company, mailer)
     if mailer:
         _step(company, "الوارد", sales.inbox, company, mailer)
     _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
 
-    gh = _github(company)
     if gh and checks:
         _step(company, "Issues", devteam.file_issues, company, gh, checks.problems)
     if gh:
@@ -205,6 +217,7 @@ def cmd_evening(cfg: config_mod.Config) -> None:
     _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     facts = report.build_facts(company, extra)
+    _step(company, "حفظ الأرقام", _save_facts, company, facts)
     mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
     daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
     tg = notify.from_env(company.env)

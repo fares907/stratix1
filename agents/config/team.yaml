@@ -81,7 +81,7 @@ agents:
     department: sales
     primary: groq:big
     fallback: cerebras:llama70b
-    tools: [read_inbox, send_message, request_approval]
+    tools: [read_inbox, send_message, request_approval, view_bookings, view_contacts]
     sensitive: true
     duties:
       - ترد على العملاء وتحوّل أي حاجة خارج القوانين للموافقة
@@ -93,7 +93,7 @@ agents:
     department: operations
     primary: groq:big
     fallback: cerebras:llama70b
-    tools: [read_site_db, assign_task]
+    tools: [view_bookings, assign_task]
     sensitive: true
     duties:
       - يتابع مشاريع العملاء ومواعيد التسليم
@@ -104,7 +104,7 @@ agents:
     department: operations
     primary: groq:big
     fallback: cerebras:llama70b
-    tools: [read_site_db]
+    tools: [view_finance]
     sensitive: true
     duties:
       - يحلل الدخل والفواتير والتحصيل (قراءة بس، مالوش وصول لفلوس)
@@ -126,7 +126,7 @@ agents:
     department: site
     primary: groq:big
     fallback: gemini:flash
-    tools: [web_check, read_repo, read_site_db]
+    tools: [web_check, read_repo]
     duties:
       - يراقب الـ headers والـ SSL وثغرات المكتبات ومحاولات دخول الأدمن
 
@@ -136,7 +136,7 @@ agents:
     department: site
     primary: groq:small
     fallback: cerebras:llama8b
-    tools: [read_site_db]
+    tools: [view_stats]
     duties:
       - تحلل مين بيدخل الموقع ومنين وإيه اللي بيحوّل لحجز
 
@@ -157,7 +157,7 @@ agents:
     department: dev
     primary: groq:big
     fallback: openrouter:coder
-    tools: [read_repo, open_pull_request]
+    tools: [read_repo, open_pull_request, web_check, view_stats]
     duties:
       - يصلح مشاكل الموقع في branch منفصل ويفتح Pull Request
 
@@ -167,6 +167,6 @@ agents:
     department: dev
     primary: groq:big
     fallback: gemini:flash
-    tools: [read_repo, comment_pull_request]
+    tools: [read_repo, comment_pull_request, web_check, view_stats]
     duties:
       - تراجع كل PR وتتأكد إن الاختبارات عدّت

@@ -2,12 +2,11 @@
 //
 // - verify_jwt: لازم جلسة Supabase سليمة، وكل الاستعلامات بتتعمل بجلسة المستخدم نفسه،
 //   فـ RLS بيمنع أي حد مش رئيس مجلس الإدارة.
-// - الموظف بيرد من اللي متسجل فعلًا: كلامه وأسبابه في الاجتماعات، الأفكار وقرارات المدير
-//   فيها، مهامه، آخر اجتماع، وآخر تقرير. لو السبب مش متسجل بيقول كده.
+// - الموظف بيرد من اللي متسجل فعلًا: الأرقام الحقيقية، كلام رئيس مجلس الإدارة، كلامه وأسبابه
+//   في الاجتماعات، الأفكار وقرارات المدير، مهامه، آخر اجتماع، وآخر تقرير.
 // - الموديل: الأساسي ثم الاحتياطي، وبعدهم Groq، وآخر حاجة المجاني اللي من غير مفتاح.
 //   المفاتيح من Supabase Vault. البيانات الحساسة مابتروحش لمزوّد بيحتفظ بالبيانات.
 // - زرار إيقاف الكل بيوقف الشات كمان.
-// - اللي رئيس مجلس الإدارة بيقوله بيتسجل، والموظف بياخده في الاجتماع الجاي.
 
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
@@ -78,7 +77,7 @@ Deno.serve(async (req) => {
   if (!state || state.halted) return fail("الشركة واقفة (إيقاف الكل) — شغّلها الأول", 423);
 
   const isCeo = agentId === "ceo";
-  const [said, ideas, tasks, history, meeting, report, rules, roster] = await Promise.all([
+  const [said, ideas, tasks, history, meeting, report, rules, roster, ownerNotes, latest] = await Promise.all([
     supabase.from("messages").select("content, reasoning, created_at")
       .eq("agent_id", agentId).order("created_at", { ascending: false }).limit(25),
     isCeo
@@ -92,11 +91,26 @@ Deno.serve(async (req) => {
     supabase.from("daily_reports").select("report_date, body").order("report_date", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("company_settings").select("value").eq("key", "rules").maybeSingle(),
     supabase.from("agents").select("id, name, title, status"),
+    // كل اللي رئيس مجلس الإدارة قاله لأي موظف: معلومات مؤكدة يعرفها الفريق كله
+    supabase.from("chats").select("agent_id, content, created_at").eq("role", "owner")
+      .order("created_at", { ascending: false }).limit(25),
+    // آخر أرقام حقيقية حفظها الموظفين (من قاعدة البيانات ومن حسابات الموقع)
+    supabase.from("company_settings").select("value").eq("key", "latest_facts").maybeSingle(),
   ]);
 
   const names = new Map((roster.data ?? []).map((a) => [a.id, a.name]));
   const rulesValue = (rules.data?.value ?? {}) as { pricing?: { min?: number; max?: number }; honesty?: string[] };
+  const facts = (latest.data?.value ?? {}) as Record<string, string>;
+  const myFacts = isCeo
+    ? Object.entries(facts).filter(([k]) => k !== "_at").map(([k, v]) => `- ${names.get(k) ?? k}: ${clip(v, 500)}`).join("\n")
+    : [facts[agentId], facts[agent.department], facts._company].filter(Boolean).map((v) => clip(v, 800)).join("\n");
   const memory = [
+    `الأرقام الحقيقية اللي عندك (آخر تحديث ${facts._at ? facts._at.slice(0, 16).replace("T", " ") : "لسه مفيش"} UTC):`,
+    myFacts || "لسه مفيش أرقام متسجلة؛ أول تحديث بيحصل مع اجتماع الصبح.",
+    "",
+    "كلام رئيس مجلس الإدارة لأي حد في الفريق (معلومات مؤكدة منه شخصيًا، الأحدث الأول):",
+    ...(ownerNotes.data ?? []).map((c) => `- (قالها لـ${names.get(c.agent_id) ?? c.agent_id}) ${clip(c.content, 300)}`),
+    "",
     "كلامك وتفكيرك المتسجل (الأحدث الأول):",
     ...(said.data ?? []).map((m) => `- [${m.created_at.slice(0, 16)}] ${clip(m.content, 300)}${m.reasoning ? ` (سببك: ${clip(m.reasoning, 200)})` : ""}`),
     "",
@@ -118,13 +132,17 @@ Deno.serve(async (req) => {
     `الأسعار المسموحة: من ${rulesValue.pricing?.min ?? "؟"} لـ ${rulesValue.pricing?.max ?? "؟"} جنيه.\n` +
     (rulesValue.honesty ?? []).map((l) => `- ${l}`).join("\n") + "\n\n" +
     "رد بالعامية المصرية زي موظف بيكلم مديره: مباشر ومحترم ومختصر.\n" +
-    "لما يسألك عن قرار أو فكرة، اشرح السبب من السجل اللي تحت بالظبط. لو السبب مش متسجل قول" +
+    "لما يسألك عن رقم، خده من \"الأرقام الحقيقية\" أو من كلام رئيس مجلس الإدارة، وقول آخر تحديث كان إمتى." +
+    " لما يسألك عن قرار أو فكرة، اشرح السبب من السجل بالظبط. لو السبب مش متسجل قول" +
     " \"السبب ده مش متسجل عندي\" وقول رأيك دلوقتي على إنه رأي. ممنوع تألّف أرقام أو أحداث مش في السجل.\n" +
+    "أي معلومة رئيس مجلس الإدارة بيقولهالك (أو قالها لأي حد في الفريق) هي معلومة مؤكدة: اعتمد عليها وقوله إنك" +
+    " سجّلتها، وإن الفريق كله هيعرفها في الاجتماع الجاي. ماتقولش \"مش متسجلة عندي\" عن حاجة هو لسه قايلها.\n" +
     "اتكلم بس عن الموظفين والأقسام اللي في السجل (الإدارة، المبيعات، العمليات، الموقع والأمان، التطوير)." +
     " مفيش قسم تسويق ومفيش مشاريع أو حملات غير اللي مكتوبة في السجل. لو السجل فاضي قول بصراحة إن الشغل لسه" +
-    " مابدأش وأول اجتماع هيبقى الصبح، واقترح على إيه نركز من غير ما تألّف إن حاجة حصلت.\n" +
-    "شغلنا اليومي الحقيقي: الكشّاف بيدوّر على محلات ومطاعم في بنها مالهاش موقع، وبنكتبلهم رسايل بالعامية" +
-    " (الأسعار من 2000 لـ 3000 جنيه)، وفريق الموقع بيفحص stratix.website، واجتماعين في اليوم وتقرير بالليل.\n" +
+    " مابدأش وأول اجتماع الساعة 8 الصبح، واقترح على إيه نركز من غير ما تألّف إن حاجة حصلت.\n" +
+    "شغلنا اليومي الحقيقي (من 8 الصبح لـ 5 العصر): الكشّاف بيدوّر على محلات ومطاعم في بنها مالهاش موقع،" +
+    " وبنكتبلهم رسايل بالعامية (الأسعار من 2000 لـ 3000 جنيه)، وفريق الموقع بيفحص stratix.website،" +
+    " واجتماع الصبح الساعة 8 واجتماع آخر اليوم والتقرير الساعة 4.\n" +
     "لو اداك توجيه (زي \"ركزوا على كذا بكرة\")، أكّد إنك فهمته وقوله هتعرضه في الاجتماع الجاي" +
     (isCeo ? " وهتوزّع المهام على أساسه." : ".") +
     " لو فيه فلوس برّا الأسعار أو وعد لعميل، قوله إن ده محتاج موافقته من صندوق الموافقات.\n\n" +

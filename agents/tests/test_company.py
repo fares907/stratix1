@@ -299,3 +299,14 @@ def test_ceo_feedback_reaches_the_employee():
     # الاجتماع الجاي: الكاتبة بتشوف الملاحظة في مهامها المفتوحة
     meeting.run(company, {})
     assert any("قصّريها" in p and "مهامك المفتوحة" in p for p in llm.prompts)
+
+
+
+def test_chairman_facts_reach_the_whole_team():
+    llm = ScriptedLLM([])
+    company = make_company(llm)
+    company.store.insert("chats", {"agent_id": "finance", "role": "owner", "content": "في الحسابات 500 جنيه"})
+    meeting.run(company, {})
+    opening = llm.prompts[0]
+    assert "500 جنيه" in opening and "قالها لـطارق" in opening        # نادر عرف
+    assert sum("500 جنيه" in p for p in llm.prompts) >= 13           # وكل الفريق في الجولة الأولى
