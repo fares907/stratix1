@@ -340,3 +340,21 @@ button.mic.on { background: var(--danger); border-color: transparent; color: whi
 .doc-ol li::before { content: counter(n); flex: none; min-width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center;
   background: #efeafd; color: var(--brand); font-size: 0.78rem; font-weight: 700; }
 .doc .doc-logo { color: #fff !important; text-shadow: 0 1px 2px rgb(0 0 0 / 25%); }
+
+/* ── المكالمة الصوتية ── */
+.call { margin-top: 14px; padding: 22px 14px 10px; border-radius: 16px; text-align: center;
+  background: radial-gradient(circle at 50% 30%, oklch(0.64 0.25 293 / 18%), transparent 70%); }
+.call-orb { width: 96px; height: 96px; margin: 0 auto 12px; border-radius: 50%; background: var(--gradient);
+  box-shadow: 0 0 40px oklch(0.64 0.25 293 / 45%); transition: transform 0.3s ease; }
+.call-listening .call-orb { animation: orb-breathe 3s ease-in-out infinite; opacity: 0.8; }
+.call-hearing .call-orb { animation: orb-pulse 0.9s ease-in-out infinite; }
+.call-transcribing .call-orb, .call-thinking .call-orb { animation: orb-spin 1.6s linear infinite;
+  background: conic-gradient(from 0deg, var(--signal), var(--signal-pink), var(--signal-bright), var(--signal)); }
+.call-speaking .call-orb { animation: orb-talk 0.5s ease-in-out infinite alternate; }
+.call-label { font-family: var(--font-display); font-size: 1.05rem; margin: 4px 0; }
+.call-heard { color: var(--muted); max-width: 640px; margin: 6px auto 10px; font-size: 0.95rem; }
+@keyframes orb-breathe { 50% { transform: scale(0.92); } }
+@keyframes orb-pulse { 50% { transform: scale(1.12); box-shadow: 0 0 60px oklch(0.64 0.25 293 / 65%); } }
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-talk { from { transform: scale(0.96); } to { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .call-orb { animation: none !important; } }

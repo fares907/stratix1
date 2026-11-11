@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MicButton } from "@/components/MicButton";
-import { canSpeak, speak, stopSpeaking, useDictation, voiceFor } from "@/lib/speech";
 import { supabase } from "@/lib/supabase";
 import type { Message } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
+import { Dictation, groqVoiceProblem, Listener, type ListenerState, Speaker } from "@/lib/voice";
 
 export interface LiveMeetingRow {
   id: number;
@@ -36,6 +35,14 @@ const left = (endsAt: string | null) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
+const CALL_LABEL: Record<"listening" | "hearing" | "transcribing" | "thinking" | "speaking", string> = {
+  listening: "سامعك… اتكلم براحتك",
+  hearing: "بسمعك… كمّل، ومش هبعت غير لما تسكت",
+  transcribing: "بكتب كلامك…",
+  thinking: "نادر بيسمعك والفريق بيفكر…",
+  speaking: "الفريق بيتكلم — المايك مقفول لحد ما يخلصوا",
+};
+
 // الاجتماع اللايف: رئيس مجلس الإدارة يبدأ اجتماع دلوقتي بمدة، ويتكلم مع الفريق كله ونادر بيديره.
 export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; onStarted: (id: number) => void }) {
   const [topic, setTopic] = useState("");
@@ -45,12 +52,28 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
   const [error, setError] = useState("");
   const [, tick] = useState(0);
   const closing = useRef(false);
+  const meetingId = meeting?.id ?? 0;
 
-  // ── الصوت: وضع المكالمة (تتكلم وهما يردوا بصوت) ──
-  const [callMode, setCallMode] = useState(false);
+  // ── الصوت ──
+  const [inCall, setInCall] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
   const [speaking, setSpeaking] = useState(false);
-  const meetingId = meeting?.id ?? 0;
+  const [listenState, setListenState] = useState<ListenerState>("off");
+  const [heard, setHeard] = useState("");
+  const [hold, setHold] = useState(false);
+  const [silence, setSilence] = useState(2.5);
+  const [dictating, setDictating] = useState<ListenerState>("off");
+  const speaker = useRef<Speaker | null>(null);
+  const listener = useRef<Listener | null>(null);
+  const dictation = useRef<Dictation | null>(null);
+  const sendRef = useRef<(t: string) => void>(() => {});
+
+  if (typeof window !== "undefined" && !speaker.current) {
+    speaker.current = new Speaker();
+    listener.current = new Listener();
+    dictation.current = new Dictation();
+  }
+
   const msgs = useLive<Message>("messages", () =>
     supabase().from("messages").select("*").eq("meeting_id", meetingId).order("id"),
   );
@@ -58,60 +81,72 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
   useEffect(() => {
     refreshMsgs();
   }, [meetingId, refreshMsgs]);
-  const spokenUpTo = useRef<number | null>(null);
-  const queue = useRef<Message[]>([]);
-  const playing = useRef(false);
 
-  const dictation = useDictation(
-    t => setText(t),
-    t => {
-      if (callMode && meeting && t.trim()) run("say", { action: "say", meeting_id: meeting.id, text: t });
-    },
-  );
-
-  async function playQueue() {
-    if (playing.current) return;
-    playing.current = true;
-    setSpeaking(true);
-    while (queue.current.length) {
-      const m = queue.current.shift()!;
-      await speak(m.content, voiceFor(m.agent_id));
-    }
-    playing.current = false;
-    setSpeaking(false);
-  }
-
-  // أي رد جديد من الفريق في الاجتماع ده يتقري بصوت (من غير ما يعيد الكلام القديم)
+  // كل اللي اتقال قبل ما تفتح الصفحة/المكالمة مابيتقريش؛ الجديد بس، ومرة واحدة
+  const primed = useRef(0);
   useEffect(() => {
+    const sp = speaker.current;
+    if (!sp) return;
     const rows = msgs.rows.filter(m => m.meeting_id === meetingId);
-    const last = rows.length ? rows[rows.length - 1].id : 0;
-    if (spokenUpTo.current === null) {
-      spokenUpTo.current = last;
+    if (primed.current !== meetingId) {
+      if (msgs.loading) return;
+      sp.markSeen(rows.map(m => m.id));
+      primed.current = meetingId;
       return;
     }
-    const fresh = rows.filter(m => m.id > (spokenUpTo.current ?? 0) && m.author !== "chairman" && m.agent_id);
-    spokenUpTo.current = Math.max(spokenUpTo.current, last);
-    if (voiceOn && canSpeak() && fresh.length) {
-      queue.current.push(...fresh);
-      playQueue();
+    for (const m of rows) {
+      if (m.author === "chairman" || !m.agent_id) {
+        sp.markSeen([m.id]);
+        continue;
+      }
+      if (voiceOn) sp.enqueue(m.id, m.content, m.agent_id);
+      else sp.markSeen([m.id]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [msgs.rows, meetingId, voiceOn]);
+  }, [msgs.rows, msgs.loading, meetingId, voiceOn]);
 
   useEffect(() => {
-    spokenUpTo.current = null;
-  }, [meetingId]);
+    const sp = speaker.current!;
+    const li = listener.current!;
+    const di = dictation.current!;
+    sp.onChange = setSpeaking;
+    li.onState = setListenState;
+    li.onPartial = setHeard;
+    li.onError = setError;
+    li.onUtterance = t => sendRef.current(t);
+    di.onState = setDictating;
+    di.onError = setError;
+    di.onText = t => setText(prev => (prev ? `${prev} ${t}` : t));
+    return () => {
+      sp.stop();
+      li.close();
+      di.cancel();
+    };
+  }, []);
 
-  // في وضع المكالمة: لما الفريق يخلص كلام والرد يوصل، المايك يفتح تاني لوحده
   useEffect(() => {
-    if (callMode && meeting && !busy && !speaking && !dictation.listening) {
-      const t = setTimeout(() => dictation.start(), 600);
+    if (listener.current) listener.current.hold = hold;
+  }, [hold]);
+  useEffect(() => {
+    if (listener.current) listener.current.silenceMs = silence * 1000;
+  }, [silence]);
+
+  // المكالمة: المايك يفتح بس لما الفريق ساكت ومفيش رد مستني. وهما بيتكلموا مقفول خالص.
+  useEffect(() => {
+    const li = listener.current;
+    if (!li) return;
+    if (!inCall || !meeting) {
+      li.close();
+      return;
+    }
+    if (busy || speaking) {
+      if (li.state === "waiting" || li.state === "hearing") li.pause();
+      return;
+    }
+    if (li.state === "off") {
+      const t = setTimeout(() => void li.listen(), 700);
       return () => clearTimeout(t);
     }
-    if ((busy || speaking) && dictation.listening) dictation.stop();
-  }, [callMode, meeting, busy, speaking, dictation]);
-
-  useEffect(() => () => { stopSpeaking(); }, []);
+  }, [inCall, meeting, busy, speaking, listenState]);
 
   useEffect(() => {
     if (!meeting) return;
@@ -133,12 +168,18 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
     }
   }
 
+  sendRef.current = (t: string) => {
+    if (!meeting || !t.trim() || busy) return;
+    void run("say", { action: "say", meeting_id: meeting.id, text: t, voice: inCall });
+  };
+
   // لما الوقت يخلص نادر يقفل الاجتماع لوحده
   const expired = Boolean(meeting?.ends_at && new Date(meeting.ends_at).getTime() <= Date.now());
   useEffect(() => {
     if (meeting && expired && !closing.current && !busy) {
       closing.current = true;
-      run("close", { action: "close", meeting_id: meeting.id });
+      setInCall(false);
+      void run("close", { action: "close", meeting_id: meeting.id });
     }
   });
 
@@ -147,7 +188,7 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
       <div className="panel">
         <h2 style={{ marginTop: 0 }}>اجتماع لايف مع الفريق</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          ابدأ اجتماع دلوقتي (طوارئ أو أي موضوع). نادر هيديره، وكل كلمة تقولها الفريق كله هيسمعها ويرد عليك.
+          ابدأ اجتماع دلوقتي (طوارئ أو أي موضوع). نادر هيديره، وتقدر تكلّمهم بصوتك زي المكالمة.
         </p>
         <div className="row" style={{ alignItems: "flex-end" }}>
           <div style={{ flex: "3 1 240px" }}>
@@ -171,6 +212,9 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
     );
   }
 
+  const callPhase = speaking ? "speaking" : busy === "say" ? "thinking" : listenState === "transcribing" ? "transcribing"
+    : listenState === "hearing" ? "hearing" : "listening";
+
   return (
     <div className="panel" style={{ borderColor: "var(--signal)" }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -179,57 +223,90 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
         </h2>
         <span className="row">
           <span className="chip signal" dir="ltr">⏱ {expired ? "0:00" : left(meeting.ends_at)}</span>
-          <button disabled={Boolean(busy)} onClick={() => run("close", { action: "close", meeting_id: meeting.id })}>
+          <button disabled={Boolean(busy)} onClick={() => { setInCall(false); void run("close", { action: "close", meeting_id: meeting.id }); }}>
             {busy === "close" ? "نادر بيقفل…" : "إنهاء الاجتماع"}
           </button>
         </span>
       </div>
-      <div className="chat-input" style={{ marginTop: 12, borderRadius: 12 }}>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="اكتب أو دوس على المايك واتكلم مع الفريق كله بصفتك رئيس مجلس الإدارة…"
-          onKeyDown={e => {
-            if (e.key === "Enter" && !e.shiftKey && text.trim() && !busy) {
-              e.preventDefault();
-              run("say", { action: "say", meeting_id: meeting.id, text });
-            }
-          }}
-        />
-        <MicButton
-          listening={dictation.listening}
-          supported={dictation.supported}
-          disabled={Boolean(busy)}
-          onStart={() => { stopSpeaking(); dictation.start(text); }}
-          onStop={dictation.stop}
-        />
-        <button className="primary" disabled={!text.trim() || Boolean(busy)} onClick={() => { dictation.stop(); run("say", { action: "say", meeting_id: meeting.id, text }); }}>
-          {busy === "say" ? "الفريق بيرد…" : "قول"}
-        </button>
-      </div>
-      <div className="voice-bar">
-        {dictation.supported && (
-          <button
-            className={callMode ? "primary" : ""}
-            onClick={() => {
-              if (callMode) { setCallMode(false); dictation.stop(); } else { setCallMode(true); setVoiceOn(true); }
-            }}
-          >
-            {callMode ? "📞 قفّل المكالمة الصوتية" : "📞 كلّمهم بصوتك (مكالمة)"}
-          </button>
-        )}
-        {canSpeak() && (
-          <label>
-            <input type="checkbox" checked={voiceOn} onChange={e => { setVoiceOn(e.target.checked); if (!e.target.checked) { queue.current = []; stopSpeaking(); } }} />
-            ردودهم بصوت
-          </label>
-        )}
-        {speaking && <button onClick={() => { queue.current = []; stopSpeaking(); }}>🔇 اسكّتهم</button>}
-        {dictation.listening && <span className="listening-hint">● بسمعك… اتكلم{callMode ? " وأول ما تسكت هبعت كلامك" : ""}</span>}
-        {!dictation.supported && <span className="muted">التسجيل الصوتي محتاج متصفح كروم.</span>}
-      </div>
-      {dictation.error && <p className="error">{dictation.error}</p>}
-      {busy === "say" && <p className="muted">نادر بيسمعك وبيطلب رأي اللي يخصهم الكلام… الردود بتظهر تحت أول بأول.</p>}
+
+      {inCall ? (
+        <div className={`call call-${callPhase}`}>
+          <div className="call-orb" aria-hidden />
+          <p className="call-label">{CALL_LABEL[callPhase]}</p>
+          {heard && <p className="call-heard">«{heard}»</p>}
+          <div className="row" style={{ justifyContent: "center" }}>
+            {speaking ? (
+              <button onClick={() => speaker.current?.stop()}>✋ قاطعهم وخليني أتكلم</button>
+            ) : (
+              <>
+                <button className={hold ? "primary" : ""} onClick={() => setHold(h => !h)} disabled={callPhase === "thinking"}>
+                  {hold ? "⏸ مستنيك تخلص — دوس «ابعت» لما تخلص" : "⏸ استنى، لسه بتكلم"}
+                </button>
+                <button className="primary" onClick={() => { setHold(false); listener.current?.sendImmediately(); }}
+                  disabled={callPhase === "thinking" || (!heard && listenState !== "hearing")}>
+                  ✔ خلصت، ابعت
+                </button>
+              </>
+            )}
+            <button onClick={() => setInCall(false)}>📞 قفّل المكالمة</button>
+          </div>
+          <div className="voice-bar" style={{ justifyContent: "center" }}>
+            <label>
+              أبعت بعد ما أسكت
+              <select value={silence} onChange={e => setSilence(Number(e.target.value))} style={{ width: "auto" }}>
+                <option value={1.5}>ثانية ونص</option>
+                <option value={2.5}>ثانيتين ونص</option>
+                <option value={4}>4 ثواني</option>
+                <option value={6}>6 ثواني</option>
+              </select>
+            </label>
+            <span className="muted">وتقدر تقول «استنى» أو «لحظة» وأنا هفضل سامعك.</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="chat-input" style={{ marginTop: 12, borderRadius: 12 }}>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder={dictating !== "off" ? "بسجّل… لما تخلص دوس على المربع" : "اكتب أو سجّل بصوتك، وكلّم الفريق كله بصفتك رئيس مجلس الإدارة…"}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey && text.trim() && !busy) {
+                  e.preventDefault();
+                  sendRef.current(text);
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={dictating !== "off" ? "mic on" : "mic"}
+              title={dictating !== "off" ? "خلصت" : "سجّل بصوتك"}
+              disabled={Boolean(busy) || dictating === "transcribing"}
+              onClick={() => (dictating !== "off" ? dictation.current?.stop() : void dictation.current?.start())}
+            >
+              {dictating === "transcribing" ? "…" : dictating !== "off" ? "■" : "🎙"}
+            </button>
+            <button className="primary" disabled={!text.trim() || Boolean(busy)} onClick={() => sendRef.current(text)}>
+              {busy === "say" ? "الفريق بيرد…" : "قول"}
+            </button>
+          </div>
+          <div className="voice-bar">
+            <button className="primary" onClick={() => { setVoiceOn(true); setInCall(true); }}>📞 كلّمهم بصوتك (مكالمة)</button>
+            <label>
+              <input type="checkbox" checked={voiceOn} onChange={e => { setVoiceOn(e.target.checked); if (!e.target.checked) speaker.current?.stop(); }} />
+              ردودهم بصوت
+            </label>
+            {speaking && <button onClick={() => speaker.current?.stop()}>🔇 اسكّتهم</button>}
+          </div>
+        </>
+      )}
+
+      {groqVoiceProblem === "terms" && (
+        <p className="muted" style={{ fontSize: "0.85rem" }}>
+          الصوت البشري الطبيعي محتاج موافقة مرة واحدة على حساب Groq — لحد كده بيتقري بأحسن صوت على جهازك.
+        </p>
+      )}
+      {busy === "say" && !inCall && <p className="muted">نادر بيسمعك وبيطلب رأي اللي يخصهم الكلام… الردود بتظهر تحت أول بأول.</p>}
       {busy === "close" && <p className="muted">نادر بيكتب الملخص والقرارات ويوزّع المهام…</p>}
       {error && <p className="error">{error}</p>}
     </div>
