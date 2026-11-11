@@ -10,9 +10,10 @@ import httpx
 
 # السيرفرات العامة بتبقى مزحومة أحيانًا (502/504/429)، فبنجرّب أكتر من واحد
 OVERPASS_URLS = (
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",  # ده اللي بيرد أسرع غالبًا
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
 )
 USER_AGENT = "stratix-agents/0.1 (+https://stratix.website)"
 
@@ -22,23 +23,38 @@ _EMAIL_TAGS = ("email", "contact:email")
 _SOCIAL_TAGS = ("contact:facebook", "facebook", "contact:instagram", "instagram")
 
 
-def build_query(city_names: list[str], amenities: list[str], include_shops: bool) -> str:
-    """المدينة ممكن تكون متسجلة بأكتر من اسم (Banha / Benha / بنها)، فبندوّر بيهم كلهم."""
+def build_query(
+    city_names: list[str],
+    amenities: list[str],
+    include_shops: bool,
+    center: tuple[float, float] | None = None,
+    radius_m: int = 10_000,
+) -> str:
+    """لو معانا إحداثيات المدينة بندوّر في دايرة حواليها (أسرع وأضمن، ومش محتاج حدود المدينة تكون متسجلة).
+    غير كده بندوّر بحدود المدينة بكل أسمائها (Banha / Benha / بنها)."""
     amenity_re = "|".join(amenities)
-    names = "|".join(city_names)
+    if center:
+        where, head = f"(around:{radius_m},{center[0]},{center[1]})", ""
+    else:
+        names = "|".join(city_names)
+        where = "(area.city)"
+        head = (
+            f'(area["boundary"="administrative"]["name:en"~"^({names})$"];'
+            f' area["boundary"="administrative"]["name"~"^({names})$"];)->.city;\n'
+        )
     parts = []
     if amenities:
-        parts.append(f'  nwr(area.city)["amenity"~"^({amenity_re})$"]["name"];')
+        parts.append(f'  nwr{where}["amenity"~"^({amenity_re})$"]["name"];')
     if include_shops:
-        parts.append('  nwr(area.city)["shop"]["name"];')
+        parts.append(f'  nwr{where}["shop"]["name"];')
     body = "\n".join(parts)
-    return (
-        "[out:json][timeout:40];\n"
-        f'(area["boundary"="administrative"]["name:en"~"^({names})$"];'
-        f' area["boundary"="administrative"]["name"~"^({names})$"];)->.city;\n'
-        f"(\n{body}\n);\n"
-        "out tags center;"
-    )
+    return f"[out:json][timeout:40];\n{head}(\n{body}\n);\nout tags center;"
+
+
+def _is_chain(tags: dict, phone: str | None) -> bool:
+    """السلاسل الكبيرة (ماكدونالدز، بافلو...) مش عملاءنا: ليها براند أو رقمها خط ساخن قصير."""
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    return bool(tags.get("brand") or tags.get("brand:wikidata")) or (0 < len(digits) <= 6)
 
 
 def _first(tags: dict, keys: tuple[str, ...]) -> str | None:
@@ -57,7 +73,7 @@ def parse_leads(elements: list[dict], city: str) -> list[dict]:
             continue
         phone, email = _first(tags, _PHONE_TAGS), _first(tags, _EMAIL_TAGS)
         social = _first(tags, _SOCIAL_TAGS)
-        if not (phone or email):
+        if not (phone or email) or _is_chain(tags, phone):
             continue
         center = el.get("center") or {}
         leads.append(
@@ -108,10 +124,13 @@ def run(agent, http: httpx.Client | None = None) -> int:
     agent.ensure_can_work()
     agent.require("osm_search")
     targeting = agent.config.rules["targeting"]
+    center = targeting.get("center")
     query = build_query(
         list(targeting.get("city_osm_names") or [targeting.get("city_osm_name_en", "Banha")]),
         list(targeting.get("amenity") or []),
         include_shops=targeting.get("shop") == "any",
+        center=(float(center[0]), float(center[1])) if center else None,
+        radius_m=int(float(targeting.get("radius_km", 10)) * 1000),
     )
     elements = fetch(query, http)
     leads = parse_leads(elements, targeting["city"])

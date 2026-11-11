@@ -5,7 +5,8 @@
   python -m stratix_agents models    يسأل كل مزوّد عن الموديلات المتاحة فعلًا
   python -m stratix_agents morning   يوم الشغل: كشّاف ← فحص الموقع ← اجتماع ← رسايل ← GitHub
   python -m stratix_agents evening   اجتماع آخر اليوم ← التقرير اليومي ← تليجرام
-  python -m stratix_agents inbox     يقرا الردود وينفّذ الموافقات (كل ساعتين)
+  python -m stratix_agents inbox     يدوّر على عملاء ويبعتلهم، ويقرا الردود وينفّذ الموافقات (كل ساعتين)
+  python -m stratix_agents sales     نفس inbox (للتشغيل اليدوي)
 
 كل خطوة مستقلة: لو واحدة وقعت، الباقي بيكمل، والخطأ بيتسجل في غرفة الاجتماعات.
 """
@@ -232,8 +233,14 @@ def cmd_evening(cfg: config_mod.Config) -> None:
 
 
 def cmd_inbox(cfg: config_mod.Config) -> None:
+    """بيشتغل كذا مرة في اليوم: المبيعات (دوّر على عملاء وابعتلهم في حدود اليوم) + الوارد + الموافقات."""
     company = from_env()
     mailer = _mailer(company.env)
+    scout_agent = company.agent("scout")
+    if scout_agent:
+        _step(company, "الكشّاف", scout.run, scout_agent)
+    _step(company, "التأهيل", sales.qualify, company)
+    _step(company, "الرسايل", sales.outreach, company, mailer)
     if mailer:
         _step(company, "الوارد", sales.inbox, company, mailer)
     _step(company, "تنفيذ الموافقات", sales.execute_approved, company, mailer)
@@ -243,6 +250,7 @@ def cmd_inbox(cfg: config_mod.Config) -> None:
 COMMANDS = {
     "check": cmd_check, "seed": cmd_seed, "models": cmd_models,
     "probe": cmd_probe, "morning": cmd_morning, "evening": cmd_evening, "inbox": cmd_inbox,
+    "sales": cmd_inbox,
 }
 
 
@@ -250,7 +258,7 @@ def main(argv: list[str]) -> None:
     if len(argv) != 1 or argv[0] not in COMMANDS:
         sys.exit(__doc__)
     cfg = config_mod.load()
-    if argv[0] in ("morning", "evening", "inbox"):
+    if argv[0] in ("morning", "evening", "inbox", "sales"):
         ok, why = within_working_hours(cfg.rules)
         if not ok:
             print(f"برّا مواعيد العمل — مفيش شغل. {why}")

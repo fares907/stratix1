@@ -240,7 +240,7 @@ def test_infra_reminders_and_domain_expiry():
     subs = [{"name": "Railway", "renews_on": "2026-11-14"}, {"name": "X", "renews_on": None}]
     site.check_infra(rep, "stratix.website", subs, httpx.Client(transport=httpx.MockTransport(handler)), today)
     texts = [(f.severity, f.text) for f in rep.findings]
-    assert texts[0][0] == "critical" and "الدومين" in texts[0][1]
+    assert texts[0][0] == "critical" and "النطاق" in texts[0][1]
     assert texts[1][0] == "warn" and "Railway" in texts[1][1] and len(texts) == 2
 
 
@@ -266,7 +266,8 @@ def test_missing_security_headers_are_reported():
 
 # ── التقرير ────────────────────────────────────────────────
 def test_daily_report_uses_real_numbers():
-    company = make_company(ScriptedLLM([("رئيس مجلس الإدارة 3 سطور", say("يوم كويس"))]))
+    company = make_company(ScriptedLLM([("التقرير اليومي الرسمي", say(
+        "شهد اليوم تواصلًا مع عميل واحد مهتم.", recommendations=["متابعة العميل المهتم"], ideas=[]))]))
     s = company.store
     now = datetime.now(timezone.utc).isoformat()
     lead = _lead(s, email="a@x.com", status="interested", created_at=now)
@@ -274,8 +275,20 @@ def test_daily_report_uses_real_numbers():
                                    "channel": "email", "body": "أهلا", "sent_at": now, "created_at": now})
     s.insert("approvals", {"agent_id": "ceo", "kind": "decision", "summary": "باقة جديدة", "status": "pending"})
     row = report.write_daily(company, {"finance": "دخل 5000"}, None)
-    assert "1 إيميل" in row["headline"] and "1 مستنية موافقتك" in row["headline"]
-    assert "باقة جديدة" in row["body"] and "دخل 5000" in row["body"] and "يوم كويس" in row["body"]
+    assert "1 بانتظار موافقتك" in row["headline"]
+    assert "باقة جديدة" in row["body"] and "دخل 5000" in row["body"] and "تواصلًا مع عميل واحد" in row["body"]
+    data = row["data"]
+    assert data["summary"].startswith("شهد اليوم") and data["recommendations"] == ["متابعة العميل المهتم"]
+    assert ["رسائل بريد أُرسلت اليوم", 1] in data["sales"]["rows"] and data["approvals"] == ["باقة جديدة"]
+
+
+def test_daily_report_rejects_invented_numbers():
+    company = make_company(ScriptedLLM([("التقرير اليومي الرسمي", say(
+        "حققت الشركة أرباحًا قدرها 98000 جنيه.", risks=["خسارة 4321 عميلًا"], ideas=[]))]))
+    s = company.store
+    row = report.write_daily(company, {}, None)
+    assert "98000" not in row["body"] and "4321" not in row["body"]
+    assert row["data"]["summary"]  # الملخص البديل من الأرقام الحقيقية
     assert s.select("daily_reports")[0]["report_date"] == row["report_date"]
 
 
@@ -324,5 +337,6 @@ def test_requested_report_is_actually_written_and_reaches_the_daily_report():
     assert done["status"] == "done" and "3800" in done["result"]
     assert any("دخل 5,000" in p for p in llm.prompts)          # اشتغل من الأرقام الحقيقية
     row = report.write_daily(company, {}, None)
-    assert "المهام اللي خلصت النهارده" in row["body"] and "تقرير الحسابات" in row["body"]
+    assert "المهام المنجزة" in row["body"] and "تقرير الحسابات" in row["body"]
+    assert row["data"]["tasks_done"][0]["who"] == "طارق"
     assert work.do_open_tasks(company, {}) == 0                # مابيتعملش مرتين

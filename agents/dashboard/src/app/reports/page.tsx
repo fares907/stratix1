@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { downloadPdf } from "@/lib/pdf";
+import { ReportDocument, type ReportData } from "@/components/ReportDocument";
 import { PageHead } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { useLive } from "@/lib/useLive";
@@ -10,6 +12,7 @@ interface DailyReport {
   report_date: string;
   headline: string;
   body: string;
+  data: Partial<ReportData> | null;
 }
 
 // تحويل بسيط للـ markdown اللي التقرير بيتكتب بيه (عناوين وقوائم بس)
@@ -34,10 +37,26 @@ export default function ReportsPage() {
   );
   const [selected, setSelected] = useState<number | null>(null);
   const current = reports.rows.find(r => r.id === selected) ?? reports.rows[0];
+  const sheet = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  async function exportPdf() {
+    if (!sheet.current || !current) return;
+    setExporting(true);
+    setExportError("");
+    try {
+      await downloadPdf(sheet.current, `STRATIX-report-${current.report_date}`);
+    } catch {
+      setExportError("ماقدرتش أعمل الـ PDF، جرّب تاني");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
-      <PageHead eyebrow="كل يوم الساعة 4" title="التقارير اليومية" subtitle="الأرقام الحقيقية من قاعدة البيانات، والرسايل، والقرارات، واللي محتاج موافقتك." />
+      <PageHead eyebrow="كل يوم آخر اليوم — وتقدر تنزّله PDF" title="التقارير اليومية" subtitle="تقرير رسمي بالفصحى: الأرقام الحقيقية من قاعدة البيانات، وتحليل المدير التنفيذي، والقرارات، واللي محتاج موافقتك." />
       {reports.error && <p className="error">{reports.error}</p>}
       {!reports.loading && reports.rows.length === 0 && (
         <p className="panel muted">لسه مفيش تقارير. أول تقرير بيطلع بعد اجتماع آخر اليوم.</p>
@@ -50,10 +69,25 @@ export default function ReportsPage() {
         ))}
       </div>
       {current && (
-        <div className="panel">
-          <p className="chip signal" style={{ whiteSpace: "normal" }}>{current.headline}</p>
-          <Markdown text={current.body} />
-        </div>
+        <>
+          <div className="row" style={{ marginBottom: 12 }}>
+            <button className="primary" onClick={exportPdf} disabled={exporting}>
+              {exporting ? "بيتعمل…" : "⬇ تحميل التقرير PDF"}
+            </button>
+            {exportError && <span className="error">{exportError}</span>}
+          </div>
+          {current.data?.version === 2 ? (
+            <div ref={sheet}>
+              <ReportDocument data={current.data as ReportData} />
+            </div>
+          ) : (
+            <div className="panel" ref={sheet}>
+              <p className="faint" style={{ margin: "0 0 8px", letterSpacing: "0.2em" }}>STRATIX</p>
+              <p className="chip signal" style={{ whiteSpace: "normal" }}>{current.headline}</p>
+              <Markdown text={current.body} />
+            </div>
+          )}
+        </>
       )}
     </>
   );

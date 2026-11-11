@@ -5,3 +5,5 @@ minimumReleaseAge: 4320
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  # core-js جاي مع مكتبة الـ PDF ومش محتاج يشغّل سكريبت
+  core-js: false

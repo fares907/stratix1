@@ -2,7 +2,9 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { MicButton } from "@/components/MicButton";
 import { Empty, PageHead, Person } from "@/components/ui";
+import { canSpeak, speak, stopSpeaking, useDictation, voiceFor } from "@/lib/speech";
 import { supabase } from "@/lib/supabase";
 import type { Agent } from "@/lib/types";
 import { useLive } from "@/lib/useLive";
@@ -33,6 +35,8 @@ function ChatRoom() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
+  const [voiceReply, setVoiceReply] = useState(false);
+  const dictation = useDictation(t => setDraft(t));
 
   const agents = useLive<Agent>("agents", () =>
     supabase().from("agents").select("*").neq("status", "fired").order("department"),
@@ -52,6 +56,7 @@ function ChatRoom() {
 
   async function send(event: FormEvent) {
     event.preventDefault();
+    dictation.stop();
     const text = draft.trim();
     if (!text || sending) return;
     setSending(true);
@@ -77,6 +82,7 @@ function ChatRoom() {
       return;
     }
     refresh();
+    if (voiceReply) speak(String(data.reply).replace(/^✅.*$/gm, ""), voiceFor(agentId));
   }
 
   return (
@@ -111,7 +117,16 @@ function ChatRoom() {
             {chats.rows.map(c => (
               <div key={c.id} className={`bubble ${c.role === "owner" ? "mine" : "theirs"}`}>
                 {c.content}
-                {c.role === "agent" && c.model_key && <div className="meta" dir="ltr">{c.model_key}</div>}
+                {c.role === "agent" && (
+                  <div className="meta">
+                    {canSpeak() && (
+                      <button type="button" className="faint" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => { stopSpeaking(); speak(c.content, voiceFor(agentId)); }}>
+                        🔊 اسمعه
+                      </button>
+                    )}{" "}
+                    {c.model_key && <span dir="ltr">{c.model_key}</span>}
+                  </div>
+                )}
               </div>
             ))}
             {pending && (
@@ -133,13 +148,30 @@ function ChatRoom() {
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder={`اكتب لـ${agent?.name ?? "الموظف"}…`}
+              placeholder={dictation.listening ? "بسمعك… اتكلم" : `اكتب أو سجّل بصوتك لـ${agent?.name ?? "الموظف"}…`}
               rows={1}
+            />
+            <MicButton
+              listening={dictation.listening}
+              supported={dictation.supported}
+              disabled={sending}
+              onStart={() => { stopSpeaking(); dictation.start(draft); }}
+              onStop={dictation.stop}
             />
             <button className="primary" type="submit" disabled={sending || !draft.trim()}>
               ابعت
             </button>
           </form>
+          <div className="voice-bar" style={{ padding: "0 12px 10px" }}>
+            {canSpeak() && (
+              <label>
+                <input type="checkbox" checked={voiceReply} onChange={e => { setVoiceReply(e.target.checked); if (!e.target.checked) stopSpeaking(); }} />
+                {agent?.name ?? "الموظف"} يرد عليا بصوت
+              </label>
+            )}
+            {dictation.listening && <span className="listening-hint">● بسمعك… لما تخلص دوس «ابعت»</span>}
+            {dictation.error && <span className="error">{dictation.error}</span>}
+          </div>
         </section>
       </div>
     </>

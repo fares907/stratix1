@@ -12,8 +12,11 @@ targeting:
   city: بنها
   # الأسماء اللي ممكن المدينة تكون متسجلة بيها على OpenStreetMap
   city_osm_names: [Banha, Benha, بنها]
+  # وسط بنها: الكشّاف بيدوّر في دايرة حواليه (أضمن من حدود المدينة على الخريطة)
+  center: [30.4628, 31.1856]
+  radius_km: 10
   # أنواع الأماكن اللي الكشّاف بيدوّر عليها (OpenStreetMap tags)
-  amenity: [restaurant, cafe, fast_food, pharmacy, clinic, dentist, doctors]
+  amenity: [restaurant, cafe, fast_food, pharmacy, clinic, dentist, doctors, bakery, veterinary, school, kindergarten, gym]
   shop: any
 
 # مواعيد العمل: برّاها الموظفين مابيشتغلوش خالص (الكود بيرفض أي تشغيل)
