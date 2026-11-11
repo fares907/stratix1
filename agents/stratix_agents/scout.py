@@ -33,7 +33,7 @@ def build_query(city_names: list[str], amenities: list[str], include_shops: bool
         parts.append('  nwr(area.city)["shop"]["name"];')
     body = "\n".join(parts)
     return (
-        "[out:json][timeout:120];\n"
+        "[out:json][timeout:40];\n"
         f'(area["boundary"="administrative"]["name:en"~"^({names})$"];'
         f' area["boundary"="administrative"]["name"~"^({names})$"];)->.city;\n'
         f"(\n{body}\n);\n"
@@ -79,11 +79,11 @@ def parse_leads(elements: list[dict], city: str) -> list[dict]:
     return leads
 
 
-def fetch(query: str, http: httpx.Client | None = None, sleep=None, rounds: int = 3) -> list[dict]:
-    """بيجرّب كل سيرفر، ولو كلهم مزحومين بيستنى (20 ثم 40 ثانية) ويعيد."""
+def fetch(query: str, http: httpx.Client | None = None, sleep=None, rounds: int = 2) -> list[dict]:
+    """بيجرّب كل سيرفر، ولو كلهم مزحومين بيستنى 20 ثانية ويعيد مرة. أقصى وقت حوالي 5 دقايق."""
     import time
 
-    client = http or httpx.Client(timeout=150)
+    client = http or httpx.Client(timeout=45)
     wait = sleep or time.sleep
     last_error = "مفيش رد"
     for attempt in range(rounds):
