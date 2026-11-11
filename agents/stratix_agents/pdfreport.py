@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import re
+import unicodedata
 from datetime import date
 from html import escape
 from pathlib import Path
@@ -81,7 +82,7 @@ ul.dots.ok li::before { background: #0f8a4b; } ul.dots.warn li::before { backgro
 table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
 thead { display: table-header-group; }
 tr { break-inside: avoid; }
-th { background: #f3f0fb; text-align: right; font-weight: 600; padding: 6px 8px; border-bottom: 2px solid #e6e3f0; }
+th { white-space: nowrap; background: #f3f0fb; text-align: right; font-weight: 600; padding: 6px 8px; border-bottom: 2px solid #e6e3f0; }
 td { padding: 6px 8px; border-bottom: 1px solid #e6e3f0; vertical-align: top; unicode-bidi: plaintext; text-align: right; }
 td.v { text-align: left; font-family: 'Alexandria'; font-weight: 700; color: #5b2be0; width: 90px; }
 td.who { white-space: nowrap; font-weight: 600; }
@@ -105,7 +106,9 @@ _LATIN = re.compile(r"[A-Za-z0-9._/:@+-]*[A-Za-z][A-Za-z0-9._/:@+-]*")
 
 def _e(value) -> str:
     """نص آمن، والكلمات الإنجليزي (زي .env أو Railway) بتتعزل عشان ماتتقلبش جوه الجملة العربي."""
-    text = str(value if value is not None else "")
+    # الرموز والإيموجي مش في خطوط التقرير وبتطلع مربعات، فبنشيلها
+    text = "".join(ch for ch in str(value if value is not None else "")
+                   if unicodedata.category(ch) not in ("So", "Cs", "Co", "Cn"))
     out, last = [], 0
     for m in _LATIN.finditer(text):
         out.append(escape(text[last:m.start()]))
