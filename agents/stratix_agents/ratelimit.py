@@ -64,5 +64,10 @@ class RateTracker:
         u = self._get(spec.key)
         u.cooldown_until = max(u.cooldown_until, self._clock() + seconds)
 
+    def cooldowns(self) -> list[float]:
+        """الثواني الباقية في كل إيقاف من المزوّدين (للانتظار القصير)."""
+        now = self._clock()
+        return [u.cooldown_until - now for u in self._usage.values() if u.cooldown_until > now]
+
     def used_today(self, key: str) -> int:
         return self._get(key).day_count

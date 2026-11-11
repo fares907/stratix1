@@ -292,3 +292,30 @@ def test_developers_see_the_code_on_github():
     text = repo_overview(GitHub("t", "o/r", httpx.Client(transport=httpx.MockTransport(handler))))
     assert "Fix booking form" in text and "#3 Slow page" in text and "#7 Bump deps" in text
     assert "#4" not in text  # الـ PR مش بيتحسب Issue
+
+
+
+def test_router_waits_a_few_seconds_when_the_provider_says_so(cfg):
+    calls, waits = [], []
+    def handler(req):
+        calls.append(1)
+        if len(calls) <= 2:  # الموديل الكبير والصغير الاتنين مشغولين
+            return httpx.Response(429, headers={"retry-after": "6"})
+        return _reply("تمام")
+    t = [0.0]
+    router = ModelRouter(cfg, MemoryStore(), env={"GROQ_API_KEY": "k"}, tracker=RateTracker(lambda: t[0]),
+                         http=httpx.Client(transport=httpx.MockTransport(handler)),
+                         sleep=lambda s: (waits.append(s), t.__setitem__(0, t[0] + s)))
+    out = router.complete("support", [], chain=["groq:big"], sensitive=True)
+    assert out.text == "تمام" and waits == [7.0]
+
+
+def test_router_retries_without_json_mode_on_groq_400(cfg):
+    bodies = []
+    def handler(req):
+        body = json.loads(req.content)
+        bodies.append("response_format" in body)
+        return httpx.Response(400, json={"error": "json_validate_failed"}) if "response_format" in body else _reply("نص عادي")
+    out = make_router(cfg, MemoryStore(), handler, env={"GROQ_API_KEY": "k"}).complete(
+        "ceo", [], chain=["groq:small"], json_mode=True)
+    assert out.text == "نص عادي" and bodies == [True, False]

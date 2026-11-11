@@ -63,6 +63,7 @@ class ModelRouter:
         tracker: RateTracker | None = None,
         clock: Callable[[], float] = time.monotonic,
         gateway: tuple[str, Callable[[], str]] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ):
         self.config = config
         self.store = store
@@ -72,6 +73,7 @@ class ModelRouter:
         self._clock = clock
         # (عنوان agents-gateway، دالة توكن OIDC): للمزوّدين اللي مفاتيحهم في Vault
         self.gateway = gateway
+        self._sleep = sleep
         for key, count in store.usage_today().items():
             self.tracker.seed(key, count)
 
@@ -94,6 +96,22 @@ class ModelRouter:
         temperature: float = 0.4,
         json_mode: bool = False,
     ) -> Completion:
+        # لو المزوّد قال "استنى ثواني" (كل الفريق بيسأل في نفس الوقت)، نستنى ونجرّب تاني (لحد 3 مرات)
+        for attempt in range(4):
+            try:
+                return self._complete_once(agent_id, messages, chain, sensitive, temperature, json_mode)
+            except AllModelsUnavailable:
+                wait = self._short_cooldown()
+                if wait is None or attempt == 3:
+                    raise
+                self._sleep(wait)
+        raise AssertionError("unreachable")
+
+    def _short_cooldown(self, limit: float = 65.0) -> float | None:
+        waits = [w for w in self.tracker.cooldowns() if 0 < w <= limit]
+        return (min(waits) + 1) if waits else None
+
+    def _complete_once(self, agent_id, messages, chain, sensitive, temperature, json_mode) -> Completion:
         if self.store.is_halted():
             raise Halted("الشركة واقفة بأمر رئيس مجلس الإدارة")
 
@@ -135,6 +153,13 @@ class ModelRouter:
                 reasons[key] = "المزوّد رجّع 429 (الحد خلص)"
                 self._log(agent_id, spec, index, "rate_limited", started)
                 continue
+            if response.status_code == 400 and json_mode:
+                # Groq بيرفض بـ 400 لو الموديل طلّع JSON مش سليم؛ نجرّب نفس الموديل من غير json_mode
+                body.pop("response_format", None)
+                try:
+                    response = self.http.post(url, json=body, headers=headers)
+                except httpx.HTTPError:
+                    pass
             if response.status_code >= 400:
                 reasons[key] = f"HTTP {response.status_code}"
                 self._log(agent_id, spec, index, f"http_{response.status_code}", started)

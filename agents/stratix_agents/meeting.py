@@ -17,6 +17,7 @@ from .router import AllModelsUnavailable, Halted
 from .runtime import Company
 
 MAX_ROUNDS = 2
+PAUSE_BETWEEN_SPEAKERS = 4.0  # ثواني بين كل موظف والتاني عشان نفضل جوه حد Groq في الدقيقة
 MAX_REPLIES_PER_ROUND = 4
 
 
@@ -37,6 +38,9 @@ def _now() -> str:
 
 def _safe_think(agent: Agent, prompt: str, **kw) -> dict | None:
     """موظف واحد وقع (مفيش موديل متاح) مايوقفش الاجتماع كله."""
+    pause = getattr(agent.router, "_sleep", None)
+    if pause and PAUSE_BETWEEN_SPEAKERS:
+        pause(PAUSE_BETWEEN_SPEAKERS)
     try:
         return agent.think(prompt, **kw)
     except AllModelsUnavailable as exc:
