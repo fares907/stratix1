@@ -17,7 +17,7 @@ const LINKS = [
   { href: "/mail", label: "البريد", icon: "mail" },
   { href: "/leads", label: "العملاء المحتملين", icon: "leads" },
   { href: "/team", label: "الموظفين", icon: "team" },
-  { href: "/usage", label: "استهلاك الموديلات", icon: "usage" },
+  { href: "/usage", label: "الاستهلاك", icon: "usage" },
 ];
 
 export function Brand({ sub = true }: { sub?: boolean }) {
@@ -26,7 +26,7 @@ export function Brand({ sub = true }: { sub?: boolean }) {
       <span className="brand-mark">S</span>
       <span>
         <span className="brand-name" style={{ display: "block" }}>STRATIX HQ</span>
-        {sub && <span className="brand-sub">مقر قيادة فريق الـ AI</span>}
+        {sub && <span className="brand-sub">أدِر فريقك</span>}
       </span>
     </div>
   );

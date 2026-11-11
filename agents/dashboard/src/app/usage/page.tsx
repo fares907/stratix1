@@ -40,7 +40,7 @@ export default function UsagePage() {
 
   return (
     <>
-      <PageHead eyebrow="النهارده" title="استهلاك الموديلات" subtitle="الموظفين استخدموا الذكاء الاصطناعي كام مرة، مقارنة بالحد المجاني اليومي." />
+      <PageHead eyebrow="النهارده" title="الاستهلاك اليومي" subtitle="حجم شغل الفريق النهارده مقارنة بالحد اليومي." />
       <div className="stats">
         <Stat label="طلبات" value={counted.length} />
         <Stat label="اتحوّلت للاحتياطي" value={fallbacks} />

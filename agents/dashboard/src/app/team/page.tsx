@@ -53,7 +53,7 @@ export default function TeamPage() {
       <PageHead
         eyebrow="الفريق"
         title={`الموظفين (${agents.rows.filter(a => a.status !== "fired").length})`}
-        subtitle="عيّن، أقيل، أوقف مؤقتًا، أو غيّر الموديل والتعليمات."
+        subtitle="عيّن، أقيل، أوقف مؤقتًا، أو غيّر التعليمات."
         actions={<>
           <label className="row" style={{ margin: 0 }}>
             <input
@@ -158,11 +158,11 @@ function AgentForm({
   const primary = models.find(m => m.key === draft.primary_model);
   const fallback = models.find(m => m.key === draft.fallback_model);
   const warnings: string[] = [];
-  if (draft.primary_model === draft.fallback_model) warnings.push("الأساسي والاحتياطي نفس الموديل");
+  if (draft.primary_model === draft.fallback_model) warnings.push("الأساسي والاحتياطي نفس المحرّك");
   if (primary && fallback && primary.provider === fallback.provider)
     warnings.push("الاتنين من نفس المزوّد — لو وقع هيقعوا مع بعض");
   if (draft.sensitive && (primary?.trains_on_free_data || fallback?.trains_on_free_data))
-    warnings.push("الموظف ده شغال على بيانات حساسة، والموديل ده مش هيتستخدم له (الكود بيتخطاه)");
+    warnings.push("الموظف ده شغال على بيانات حساسة، والمحرّك ده مش هيتستخدم له (النظام بيتخطاه)");
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -217,8 +217,8 @@ function AgentForm({
             ))}
           </select>
         </div>
-        <ModelSelect label="الموديل الأساسي" value={draft.primary_model} models={models} onChange={v => set("primary_model", v)} />
-        <ModelSelect label="الموديل الاحتياطي" value={draft.fallback_model} models={models} onChange={v => set("fallback_model", v)} />
+        <ModelSelect label="المحرّك الأساسي" value={draft.primary_model} models={models} onChange={v => set("primary_model", v)} />
+        <ModelSelect label="المحرّك الاحتياطي" value={draft.fallback_model} models={models} onChange={v => set("fallback_model", v)} />
       </div>
 
       <label>المهام اليومية (كل مهمة في سطر)</label>

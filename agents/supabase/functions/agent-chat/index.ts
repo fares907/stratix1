@@ -109,6 +109,20 @@ Deno.serve(async (req) => {
   const { data: state } = await supabase.from("system_state").select("halted").eq("id", 1).maybeSingle();
   if (!state || state.halted) return fail("الشركة واقفة (إيقاف الكل) — شغّلها الأول", 423);
 
+  // «تمام» و«ماشي» و«شكرًا» مش سؤال: الموظف بيرد زي أي حد طبيعي، من غير ما يعيد كلامه
+  const ACK = /^(تمام|ماشي|اوك[يى]?|أوك[يى]?|ok|okay|شكرا|شكرًا|متشكر|حلو|جميل|طيب|خلاص|ماشي يا [^\s]+|تمام يا [^\s]+|تمام كده|ماشي كده|اتفقنا|فهمت|عظيم|ممتاز|برافو)[\s.!،,]*(تمام|ماشي|شكرا|شكرًا|كده)?[\s.!،,]*$/i;
+  if (ACK.test(message.trim())) {
+    const replies = /شكر|متشكر/.test(message)
+      ? ["العفو يا فندم، تحت أمرك.", "ولا يهمك يا فندم.", "تحت أمرك يا فندم في أي وقت."]
+      : ["تمام يا فندم، لو احتجت أي حاجة أنا موجود.", "تحت أمرك يا فندم.", "ماشي يا فندم، أي حاجة تانية؟", "حاضر يا فندم."];
+    const reply = replies[Math.floor(Math.random() * replies.length)];
+    await supabase.from("chats").insert([
+      { agent_id: agentId, role: "owner", content: message },
+      { agent_id: agentId, role: "agent", content: reply, model_key: null },
+    ]);
+    return json({ reply, model_key: null, used_fallback: false, done: [] });
+  }
+
   const isCeo = agentId === "ceo";
   const [said, ideas, tasks, history, meeting, report, rules, roster, ownerNotes, latest] = await Promise.all([
     supabase.from("messages").select("content, reasoning, created_at")
@@ -138,6 +152,7 @@ Deno.serve(async (req) => {
     ? Object.entries(facts).filter(([k]) => k !== "_at").map(([k, v]) => `- ${names.get(k) ?? k}: ${clip(v, 500)}`).join("\n")
     : [facts[agentId], facts[agent.department], facts._company].filter(Boolean).map((v) => clip(v, 800)).join("\n");
   const memory = [
+    "── مرجع ليك (ماتقولش منه غير اللي يخص سؤاله) ──",
     `الأرقام الحقيقية اللي عندك (آخر تحديث ${facts._at ? facts._at.slice(0, 16).replace("T", " ") : "لسه مفيش"} UTC):`,
     myFacts || "لسه مفيش أرقام متسجلة؛ أول تحديث بيحصل مع اجتماع الصبح.",
     "",
@@ -170,6 +185,9 @@ Deno.serve(async (req) => {
     " كلام عادي من غير عناوين ولا نجوم ولا ترقيم، إلا لو طلب منك تقرير أو قايمة." +
     " خاطبه بـ«يا فندم» أو «حضرتك» من غير مبالغة. لو مش فاهم سؤاله اسأله سؤال قصير." +
     " ممنوع تقول إنك ذكاء اصطناعي أو موديل أو برنامج.\n" +
+    "ده حوار مستمر زي أي محادثة بين اتنين: رد على آخر كلام قاله بس، وافتكر اللي اتقال قبل كده واتكلم على أساسه." +
+    " ماتجاوبش على حاجات ماسألش عنها، وماتسردش أرقامك أو تقاريرك من نفسك، وماتعيدش جملة أو معلومة قلتها قبل كده في المحادثة." +
+    " لو كلامه مجرد رد قصير (زي «تمام» أو «ماشي») رد عليه بكلمة أو اتنين زي أي حد طبيعي.\n" +
     "لما يسألك عن رقم، خده من \"الأرقام الحقيقية\" أو من كلام رئيس مجلس الإدارة، وقول آخر تحديث كان إمتى." +
     " لما يسألك عن قرار أو فكرة، اشرح السبب من السجل بالظبط. لو السبب مش متسجل قول" +
     " \"السبب ده مش متسجل عندي\" وقول رأيك دلوقتي على إنه رأي. ممنوع تألّف أرقام أو أحداث مش في السجل.\n" +
@@ -209,7 +227,20 @@ Deno.serve(async (req) => {
     .filter((m): m is ModelRow => Boolean(m));
 
   const reasons: string[] = [];
-  for (const [index, model] of chain.entries()) {
+  // ردود الموظف اللي فاتت: لو الرد الجديد شبهها بيتكتب من جديد (مايعيدش نفس الكلام)
+  // history اتقلبت فوق (الأقدم الأول)، فآخر 6 ردود هما آخر العناصر
+  const lastReplies = (history.data ?? []).filter((c) => c.role === "agent").slice(-6).map((c) => c.content);
+  const words = (t: string) => new Set(t.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 2));
+  const similar = (a: string, b: string) => {
+    const A = words(a), B = words(b);
+    if (!A.size || !B.size) return 0;
+    let inter = 0;
+    for (const w of A) if (B.has(w)) inter++;
+    return inter / Math.min(A.size, B.size);
+  };
+  let retried = false;
+  for (let index = 0; index < chain.length; index++) {
+    const model = chain[index];
     const keyEnv = KEY_ENV[model.provider];
     const apiKey = keyEnv ? await modelKey(keyEnv) : "";
     if (keyEnv === undefined || (keyEnv && !apiKey) || !model.base_url) { reasons.push(`${model.key}: مفيش مفتاح`); continue; }
@@ -247,6 +278,21 @@ Deno.serve(async (req) => {
       prompt_tokens: usage.prompt_tokens ?? 0, completion_tokens: usage.completion_tokens ?? 0,
     });
     if (status !== "ok") { reasons.push(`${model.key}: ${status}`); continue; }
+
+    let visible = reply;
+    if (isCeo) { try { visible = String(JSON.parse(reply).reply ?? reply); } catch { /* نص عادي */ } }
+    const repeated = lastReplies.some((r) => similar(visible, r) > 0.6);
+    if (repeated && retried) {
+      reply = isCeo
+        ? JSON.stringify({ reply: "زي ما قلت لحضرتك يا فندم. تحب أفصّل في حاجة معينة؟", actions: [] })
+        : "زي ما قلت لحضرتك يا فندم. تحب أفصّل في حاجة معينة؟";
+    } else if (repeated) {
+      retried = true;
+      messages.push({ role: "assistant", content: reply }, { role: "user", content:
+        "(ملحوظة من النظام مش من رئيس مجلس الإدارة: ردك ده تكرار لكلام قلته قبل كده. رد تاني على آخر رسالة بس بكلام جديد ومختصر.)" });
+      index--;
+      continue;
+    }
 
     // المدير التنفيذي: بينفّذ اللي رئيس مجلس الإدارة طلبه (صلاحيات، مهام، ملاحظات)
     const done: string[] = [];
