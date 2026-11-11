@@ -179,10 +179,7 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     mailer = _mailer(company.env)
     audit = Path(company.env.get("SITE_AUDIT_JSON", "audit.json"))
 
-    scout_agent = company.agent("scout")
-    if scout_agent:
-        _step(company, "الكشّاف", scout.run, scout_agent)
-    _step(company, "التأهيل", sales.qualify, company)
+    # الاجتماع والمهام الأول: مايستنوش حاجة بطيئة زي سيرفرات الخريطة
     checks = _step(company, "فحص الموقع", site.run, company, audit)
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     if checks:
@@ -198,6 +195,12 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
     _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
     _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
+
+    # بعد الاجتماع: الكشّاف (سيرفرات الخريطة ممكن تبقى مزحومة، فليه وقت محدود)
+    scout_agent = company.agent("scout")
+    if scout_agent:
+        _step(company, "الكشّاف", scout.run, scout_agent)
+    _step(company, "التأهيل", sales.qualify, company)
     _step(company, "الرسايل", sales.outreach, company, mailer)
     if mailer:
         _step(company, "الوارد", sales.inbox, company, mailer)

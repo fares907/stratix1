@@ -217,7 +217,7 @@ def test_scout_gives_up_with_a_clear_error():
     client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(504)))
     with pytest.raises(RuntimeError, match="مزحومة"):
         fetch("q", client, sleep=waits.append)
-    assert waits == [20, 40]
+    assert waits == [20]
 
 
 def test_scout_keeps_only_places_without_website_but_with_contact():
