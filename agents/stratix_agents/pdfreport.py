@@ -228,9 +228,13 @@ def render_pdf(html: str, executable_path: str | None = None) -> bytes:
 
 
 def attach(company, row: dict) -> int:
-    """بيعمل الـ PDF للتقرير ويحفظه معاه (اللوحة بتنزّله زي ما هو)."""
+    """بيعمل الـ PDF للتقرير ويحفظه معاه (اللوحة بتنزّله زي ما هو).
+    لو مفيش متصفح على السيرفر بيعدّي بهدوء: اللوحة بتعمل الـ PDF بنفسها."""
     import os
 
-    pdf = render_pdf(build_html(row["data"]), os.environ.get("CHROMIUM_PATH") or None)
+    browser = os.environ.get("CHROMIUM_PATH") or None
+    if not browser:
+        return 0
+    pdf = render_pdf(build_html(row["data"]), browser)
     company.store.update("daily_reports", {"pdf": base64.b64encode(pdf).decode()}, report_date=row["report_date"])
     return len(pdf)
