@@ -376,3 +376,4 @@ def test_pdf_report_html_is_safe_and_keeps_latin_words_in_order():
     assert "<script>" not in html and "&lt;<bdi dir='ltr'>script</bdi>&gt;" in html
     assert "<bdi dir='ltr'>Railway</bdi>" in html and "class='pill ok'" in html and "class='kpi ok'" in html
     assert "الأربعاء، 11 نوفمبر 2026" in html
+    assert "✅" not in build_html({**data, "summary": "تم ✅"})
