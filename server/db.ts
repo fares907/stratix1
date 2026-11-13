@@ -26,7 +26,7 @@ function isLocalDatabaseHost(databaseUrl: string) {
 }
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
-async function getDb() {
+export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       const uri = process.env.DATABASE_URL;
