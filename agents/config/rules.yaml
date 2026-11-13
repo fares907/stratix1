@@ -23,7 +23,7 @@ targeting:
 working_hours:
   timezone: Africa/Cairo
   start: 8    # 8 الصبح
-  end: 17     # 5 العصر
+  end: 23     # 11 بالليل (المواعيد بتتأخر أحيانًا؛ الاجتماعات نفسها بتتعمل في ميعادها من ساعة الشركة)
 
 pricing:
   currency: جنيه

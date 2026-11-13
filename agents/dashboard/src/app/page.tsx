@@ -33,7 +33,7 @@ interface Meeting {
   ends_at: string | null;
 }
 
-const MEETING_KIND: Record<string, string> = { morning: "اجتماع الصبح", evening: "اجتماع آخر اليوم", daily: "اجتماع", live: "اجتماع لايف مع رئيس مجلس الإدارة" };
+const MEETING_KIND: Record<string, string> = { morning: "اجتماع الصبح", evening: "اجتماع آخر اليوم", daily: "اجتماع", live: "اجتماع لايف مع رئيس مجلس الإدارة", work: "مكتب الفريق (شغل اليوم)" };
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString("ar-EG", { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -129,7 +129,7 @@ export default function MeetingRoom() {
       <div className="panel">
         {messages.error && <p className="error">{messages.error}</p>}
         {!messages.loading && messages.rows.length === 0 && (
-          <Empty icon="✦">لسه مفيش كلام. أول اجتماع بيبدأ الساعة 8 الصبح.</Empty>
+          <Empty icon="✦">لسه مفيش كلام. الفريق بيبدأ يومه الساعة 8 الصبح كل يوم.</Empty>
         )}
         <div className="feed">
           {messages.rows.map(m => {

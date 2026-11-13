@@ -40,7 +40,7 @@ const CALL_LABEL: Record<"listening" | "hearing" | "transcribing" | "thinking" |
   hearing: "بسمعك… كمّل، ومش هبعت غير لما تسكت",
   transcribing: "بكتب كلامك…",
   thinking: "نادر بيسمعك والفريق بيفكر…",
-  speaking: "الفريق بيتكلم — المايك مقفول لحد ما يخلصوا",
+  speaking: "الفريق بيتكلم — اتكلم فوق صوتهم لو عايز تقاطعهم",
 };
 
 // الاجتماع اللايف: رئيس مجلس الإدارة يبدأ اجتماع دلوقتي بمدة، ويتكلم مع الفريق كله ونادر بيديره.
@@ -64,6 +64,7 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
   const [silence, setSilence] = useState(3.5);
   const [dictating, setDictating] = useState<ListenerState>("off");
   const [level, setLevel] = useState(0);
+  const [bargeIn, setBargeIn] = useState(true);
   const speaker = useRef<Speaker | null>(null);
   const listener = useRef<Listener | null>(null);
   const dictation = useRef<Dictation | null>(null);
@@ -144,13 +145,21 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
     if (busy || speaking) {
       // لو انت في نص كلامك مانقفلش المايك أبدًا؛ نقفله بس لو لسه مابدأتش تتكلم
       if (li.state === "waiting") li.pause();
+      // والفريق بيتكلم: لو اتكلمت فوق صوتهم يسكتوا ويسمعوك (زي المكالمة العادية)
+      if (speaking && bargeIn && li.state === "off") {
+        void li.monitor(() => {
+          speaker.current?.stop();
+          void li.listen();
+        });
+        return () => li.stopMonitor();
+      }
       return;
     }
     if (li.state === "off") {
       const t = setTimeout(() => void li.listen(), 700);
       return () => clearTimeout(t);
     }
-  }, [inCall, meeting, busy, speaking, listenState]);
+  }, [inCall, meeting, busy, speaking, listenState, bargeIn]);
 
   // مؤشر الصوت: تشوف إن المايك سامعك
   useEffect(() => {
@@ -273,6 +282,10 @@ export function LiveMeeting({ meeting, onStarted }: { meeting?: LiveMeetingRow; 
                 <option value={5}>5 ثواني</option>
                 <option value={8}>8 ثواني</option>
               </select>
+            </label>
+            <label>
+              <input type="checkbox" checked={bargeIn} onChange={e => setBargeIn(e.target.checked)} />
+              أقاطعهم بصوتي
             </label>
             <span className="muted">وتقدر تقول «استنى» أو «لحظة» وأنا هفضل سامعك.</span>
           </div>

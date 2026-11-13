@@ -242,6 +242,7 @@ export class Listener {
   }
 
   close() {
+    this.stopMonitor();
     this.pause();
     this.stream?.getTracks().forEach(t => t.stop());
     this.stream = null;
@@ -253,6 +254,7 @@ export class Listener {
 
   /** يبدأ يسمع (المايك مفتوح) */
   async listen() {
+    this.stopMonitor();
     if (this.recorder) return;
     try {
       await this.open();
@@ -300,6 +302,45 @@ export class Listener {
         void this.finishSegment();
       }
     }, 100);
+  }
+
+  // ── المقاطعة بالصوت: والفريق بيتكلم المايك بيسمع مستوى الصوت بس (من غير تسجيل)،
+  // ولو اتكلمت بصوت واضح فوق صوتهم كذا جزء من الثانية بنوقفهم ونبدأ نسمعك على طول.
+  private monitorTimer: ReturnType<typeof setInterval> | null = null;
+
+  async monitor(onBargeIn: () => void) {
+    if (this.recorder || this.monitorTimer) return;
+    try {
+      await this.open();
+    } catch {
+      return;
+    }
+    const data = new Float32Array(this.analyser!.fftSize);
+    const started = performance.now();
+    const base: number[] = [];
+    let loudFor = 0;
+    this.monitorTimer = setInterval(() => {
+      if (!this.analyser) return;
+      this.analyser.getFloatTimeDomainData(data);
+      let sum = 0;
+      for (const x of data) sum += x * x;
+      const rms = Math.sqrt(sum / data.length);
+      this.level = Math.min(1, rms * 12);
+      // أول ثانية: بنقيس صوت الفريق اللي راجع للمايك (بعد إلغاء الصدى) عشان مانقاطعش نفسنا
+      if (performance.now() - started < 1000) { base.push(rms); return; }
+      const echo = base.length ? [...base].sort((a, b) => a - b)[Math.floor(base.length * 0.9)] : 0.01;
+      const threshold = Math.max(echo * 3, this.floor * 6, 0.035);
+      loudFor = rms > threshold ? loudFor + 100 : Math.max(0, loudFor - 50);
+      if (loudFor >= 450) {
+        this.stopMonitor();
+        onBargeIn();
+      }
+    }, 100);
+  }
+
+  stopMonitor() {
+    if (this.monitorTimer) clearInterval(this.monitorTimer);
+    this.monitorTimer = null;
   }
 
   /** «خلصت، ابعت» */

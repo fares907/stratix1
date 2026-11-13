@@ -240,11 +240,11 @@ def test_scout_keeps_only_places_without_website_but_with_contact():
 
 
 
-@pytest.mark.parametrize("utc_hour, ok", [(5, False), (6, True), (14, True), (15, False), (20, False)])
-def test_working_hours_8_to_5_cairo(cfg, utc_hour, ok):
+@pytest.mark.parametrize("utc_hour, ok", [(5, False), (6, True), (14, True), (20, True), (21, False), (2, False)])
+def test_working_hours_8_to_11pm_cairo(cfg, utc_hour, ok):
     from datetime import datetime, timezone
     from stratix_agents.runtime import within_working_hours
-    # نوفمبر: القاهرة = UTC+2، فـ 6 UTC = 8 الصبح و15 UTC = 5 العصر
+    # نوفمبر: القاهرة = UTC+2، فـ 6 UTC = 8 الصبح و21 UTC = 11 بالليل
     now = datetime(2026, 11, 11, utc_hour, 30, tzinfo=timezone.utc)
     assert within_working_hours(cfg.rules, now)[0] is ok
 

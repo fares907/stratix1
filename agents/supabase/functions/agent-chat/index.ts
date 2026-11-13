@@ -44,7 +44,24 @@ const TOOLS: Record<string, string> = {
   comment_pull_request: "يعلّق على Pull Request",
 };
 
+// تاريخ النهارده بتوقيت القاهرة، و«today/tomorrow/تاريخ» ← تاريخ
+function cairoToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+function dueDate(due: unknown): string {
+  const today = cairoToday();
+  const s = String(due ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s < today ? today : s;
+  if (/tomorrow|بكر/.test(s)) {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+  return today;
+}
+
 interface CeoAction {
+  due?: string;
   type?: string;
   agent_id?: string;
   tool?: string;
@@ -131,8 +148,8 @@ Deno.serve(async (req) => {
       ? supabase.from("proposals").select("id, agent_id, idea, status, ceo_reason").order("created_at", { ascending: false }).limit(30)
       : supabase.from("proposals").select("id, agent_id, idea, status, ceo_reason").eq("agent_id", agentId).order("created_at", { ascending: false }).limit(15),
     isCeo
-      ? supabase.from("tasks").select("agent_id, title, status").order("created_at", { ascending: false }).limit(30)
-      : supabase.from("tasks").select("agent_id, title, status").eq("agent_id", agentId).order("created_at", { ascending: false }).limit(15),
+      ? supabase.from("tasks").select("agent_id, title, status, due_date, result").order("created_at", { ascending: false }).limit(30)
+      : supabase.from("tasks").select("agent_id, title, status, due_date, result").eq("agent_id", agentId).order("created_at", { ascending: false }).limit(15),
     supabase.from("chats").select("role, content").eq("agent_id", agentId).order("created_at", { ascending: false }).limit(20),
     supabase.from("meetings").select("summary, started_at, kind").eq("status", "done").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("daily_reports").select("report_date, body").order("report_date", { ascending: false }).limit(1).maybeSingle(),
@@ -166,7 +183,9 @@ Deno.serve(async (req) => {
     ...(ideas.data ?? []).map((p) => `- فكرة #${p.id} من ${names.get(p.agent_id) ?? p.agent_id}: ${clip(p.idea, 200)} ← ${p.status}${p.ceo_reason ? ` (السبب المتسجل: ${clip(p.ceo_reason, 200)})` : " (مفيش سبب متسجل)"}`),
     "",
     isCeo ? "المهام اللي اتوزعت:" : "مهامك:",
-    ...(tasks.data ?? []).map((t) => `- ${names.get(t.agent_id) ?? t.agent_id}: ${t.title} (${t.status})`),
+    ...(tasks.data ?? []).map((t) => `- ${names.get(t.agent_id) ?? t.agent_id}: ${t.title} (${
+      t.status === "done" ? "اتسلّمت" : t.status === "doing" ? "شغالين عليها دلوقتي" : "لسه"}${t.due_date ? `، ميعادها ${t.due_date}` : ""})${
+      t.result ? ` ← الناتج: ${clip(t.result, 250)}` : ""}`),
     "",
     `آخر اجتماع (${meeting.data?.kind ?? "-"}): ${clip(meeting.data?.summary, 800) || "لسه مفيش اجتماعات"}`,
     isCeo ? `آخر تقرير يومي (${report.data?.report_date ?? "-"}):\n${clip(report.data?.body, 2000) || "لسه مفيش تقارير"}` : "",
@@ -198,9 +217,10 @@ Deno.serve(async (req) => {
     "اتكلم بس عن الموظفين والأقسام اللي في السجل (الإدارة، المبيعات، العمليات، الموقع والأمان، التطوير)." +
     " مفيش قسم تسويق ومفيش مشاريع أو حملات غير اللي مكتوبة في السجل. لو السجل فاضي قول بصراحة إن الشغل لسه" +
     " مابدأش وأول اجتماع الساعة 8 الصبح، واقترح على إيه نركز من غير ما تألّف إن حاجة حصلت.\n" +
-    "شغلنا اليومي الحقيقي (من 8 الصبح لـ 5 العصر): الكشّاف بيدوّر على محلات ومطاعم في بنها مالهاش موقع،" +
+    "لو سألك عن مهمة: قول حالتها الحقيقية من قايمة المهام (اتسلّمت ونتيجتها، أو لسه وميعادها إمتى). ماتوعدش من غير ما تسجّل.\n" +
+    "شغلنا اليومي الحقيقي (كل أيام الأسبوع، الفريق بيشتغل لوحده): الكشّاف بيدوّر على محلات ومطاعم في بنها مالهاش موقع،" +
     " وبنكتبلهم رسايل بالعامية (الأسعار من 2000 لـ 3000 جنيه)، وفريق الموقع بيفحص stratix.website،" +
-    " واجتماع الصبح الساعة 8 واجتماع آخر اليوم والتقرير الساعة 4.\n" +
+    " واجتماع الصبح الساعة 8 واجتماع آخر اليوم الساعة 4 والتقرير بعده، والمهام بتتسلّم طول اليوم في ميعادها، والفريق بيتكلم مع بعض في مكتب الفريق.\n" +
     "لو اداك توجيه (زي \"ركزوا على كذا بكرة\")، أكّد إنك فهمته وقوله هتعرضه في الاجتماع الجاي" +
     (isCeo ? " وهتوزّع المهام على أساسه." : ".") +
     " لو فيه فلوس برّا الأسعار أو وعد لعميل، قوله إن ده محتاج موافقته من صندوق الموافقات.\n\n" +
@@ -210,12 +230,18 @@ Deno.serve(async (req) => {
     role: c.role === "owner" ? "user" : "assistant",
     content: c.content,
   }));
-  const ceoProtocol = !isCeo ? "" :
+  const selfProtocol =
+    "\n\nرد دايمًا بـ JSON بالشكل ده بس: {\"reply\": ردك بالعامية, \"actions\": [...]}.\n" +
+    "لو رئيس مجلس الإدارة طلب منك تعمل حاجة (دلوقتي أو بكرة أو يوم معين)، لازم تسجّلها فعلًا كمهمة ليك:" +
+    " {\"type\":\"task\",\"title\":المهمة,\"details\":التفاصيل كاملة زي ما طلبها,\"due\":\"today\" أو \"tomorrow\" أو تاريخ YYYY-MM-DD}." +
+    " المهمة بتتسلّم لوحدها في ميعادها والنتيجة بتوصله. ممنوع تقول «هعملها» أو «حاضر» من غير ما تسجّلها في actions." +
+    " لو مفيش حاجة تتسجّل خلّي actions فاضية.";
+  const ceoProtocol = !isCeo ? selfProtocol :
     "\n\nانت المدير التنفيذي، ورئيس مجلس الإدارة بيكلمك. لما يطلب منك تعمل حاجة، نفّذها فعلًا عن طريق \"actions\"." +
     " رد دايمًا بـ JSON بالشكل ده بس: {\"reply\": ردك بالعامية, \"actions\": [...]}. الـ actions المتاحة:\n" +
     "- {\"type\":\"grant\",\"agent_id\":كود الموظف,\"tool\":كود الصلاحية}: تفتح صلاحية لموظف.\n" +
     "- {\"type\":\"revoke\",\"agent_id\":...,\"tool\":...}: تقفل صلاحية.\n" +
-    "- {\"type\":\"task\",\"agent_id\":...,\"title\":المهمة,\"details\":تفاصيل وميعاد}: مهمة لموظف (زي تقرير يبعته بكرة).\n" +
+    "- {\"type\":\"task\",\"agent_id\":...,\"title\":المهمة,\"details\":تفاصيل,\"due\":\"today\" أو \"tomorrow\" أو YYYY-MM-DD}: مهمة لموظف أو لنفسك بميعادها (بتتسلّم لوحدها في ميعادها).\n" +
     "- {\"type\":\"note\",\"text\":...}: ملاحظة يسجّلها للفريق كله.\n" +
     `أكواد الموظفين: ${(roster.data ?? []).map((a) => `${a.id}=${a.name}`).join("، ")}\n` +
     `أكواد الصلاحيات: ${Object.entries(TOOLS).map(([k, v]) => `${k} (${v})`).join("، ")}\n` +
@@ -273,8 +299,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: model.model_id, messages, temperature: 0.4,
           // موديلات gpt-oss بتفكر قبل ما ترد: «medium» بيخلي الفهم أدق
-          ...(model.model_id.includes("gpt-oss") ? { reasoning_effort: "medium" } : {}),
-          ...(isCeo && model.provider !== "pollinations" ? { response_format: { type: "json_object" } } : {}),
+          ...(model.model_id.includes("gpt-oss") ? { reasoning_effort: "high" } : {}),
+          ...(model.provider !== "pollinations" ? { response_format: { type: "json_object" } } : {}),
         }),
         signal: AbortSignal.timeout(60_000),
       });
@@ -298,12 +324,10 @@ Deno.serve(async (req) => {
     if (status !== "ok") { reasons.push(`${model.key}: ${status}`); continue; }
 
     let visible = reply;
-    if (isCeo) { try { visible = String(JSON.parse(reply).reply ?? reply); } catch { /* نص عادي */ } }
+    try { visible = String(JSON.parse(reply).reply ?? reply); } catch { /* نص عادي */ }
     const repeated = lastReplies.some((r) => similar(visible, r) > 0.6);
     if (repeated && retried) {
-      reply = isCeo
-        ? JSON.stringify({ reply: "زي ما قلت لحضرتك يا فندم. تحب أفصّل في حاجة معينة؟", actions: [] })
-        : "زي ما قلت لحضرتك يا فندم. تحب أفصّل في حاجة معينة؟";
+      reply = JSON.stringify({ reply: "زي ما قلت لحضرتك يا فندم. تحب أفصّل في حاجة معينة؟", actions: [] });
     } else if (repeated) {
       retried = true;
       messages.push({ role: "assistant", content: reply }, { role: "user", content:
@@ -314,7 +338,7 @@ Deno.serve(async (req) => {
 
     // المدير التنفيذي: بينفّذ اللي رئيس مجلس الإدارة طلبه (صلاحيات، مهام، ملاحظات)
     const done: string[] = [];
-    if (isCeo) {
+    {
       let parsed: { reply?: string; actions?: CeoAction[] } = {};
       try { parsed = JSON.parse(reply); } catch { /* رد نصي عادي */ }
       if (typeof parsed.reply === "string") {
@@ -322,6 +346,17 @@ Deno.serve(async (req) => {
         const agentsById = new Map((roster.data ?? []).map((a) => [a.id, a]));
         for (const action of Array.isArray(parsed.actions) ? parsed.actions.slice(0, 10) : []) {
           const target = action.agent_id ? agentsById.get(action.agent_id) : undefined;
+          if (!isCeo && action.type === "task" && action.title) {
+            // الموظف بيسجّل المهمة لنفسه بس
+            const due = dueDate(action.due);
+            const { error } = await supabase.from("tasks").insert({
+              agent_id: agentId, title: String(action.title).slice(0, 300), due_date: due, status: "todo",
+              details: `بطلب من رئيس مجلس الإدارة في الشات. ${String(action.details ?? "")}`.slice(0, 2000),
+            });
+            if (!error) done.push(`سجّلت المهمة: ${String(action.title).slice(0, 120)} (ميعادها ${due})`);
+            continue;
+          }
+          if (!isCeo) continue;
           if ((action.type === "grant" || action.type === "revoke") && target && action.tool && TOOLS[action.tool]) {
             const { data: row } = await supabase.from("agents").select("tools").eq("id", target.id).maybeSingle();
             const current: string[] = row?.tools ?? [];
@@ -334,18 +369,19 @@ Deno.serve(async (req) => {
             const { error } = await supabase.from("tasks").insert({
               agent_id: target.id, title: String(action.title).slice(0, 300),
               details: `بطلب من رئيس مجلس الإدارة. ${String(action.details ?? "")}`.slice(0, 2000), status: "todo",
+              due_date: dueDate(action.due),
             });
-            if (!error) done.push(`سجّلت مهمة لـ${target.name}: ${String(action.title).slice(0, 120)}`);
+            if (!error) done.push(`سجّلت مهمة لـ${target.name}: ${String(action.title).slice(0, 120)} (ميعادها ${dueDate(action.due)})`);
           } else if (action.type === "note" && action.text) {
             done.push(`سجّلت: ${String(action.text).slice(0, 200)}`);
           }
         }
-        if (done.length) {
+        if (done.length && isCeo) {
           await supabase.from("messages").insert(done.map((d) => ({
             agent_id: "ceo", kind: "decision", content: `بأمر رئيس مجلس الإدارة: ${d}`,
           })));
-          reply += "\n\n" + done.map((d) => `✅ ${d}`).join("\n");
         }
+        if (done.length) reply += "\n\n" + done.map((d) => `✅ ${d}`).join("\n");
       }
     }
 
