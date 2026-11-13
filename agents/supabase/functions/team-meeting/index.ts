@@ -172,6 +172,7 @@ const HUMAN = [
   "جاوب على اللي اتسأل بس؛ ماتتطوعش بمعلومات أو تقارير ماحدش طلبها.",
   "ده حوار مستمر: افتكر اللي اتقال قبل كده واتكلم على أساسه، زي ما الناس بتتكلم مع بعض.",
   "ممنوع تقول إنك ذكاء اصطناعي أو موديل أو برنامج.",
+  "انتبه للأسماء: «يوسف» اللي في الفريق موظف مراقبة الموقع، غير الأستاذ يوسف رئيس مجلس الإدارة. ماتوعدش بحاجة مش في إيدك: محدش في الفريق بيبعت واتساب أو إيميل لعميل بنفسه (المسودات بتروح صندوق الموافقات)، ومحدش له دخول على السيرفر أو تعديل الموقع مباشرة. اللي تقدر تعمله فعلًا: تكتب تقارير وخطط ومسودات وتسجّل مهام.",
 ].join(" ");
 
 // الواقع الحقيقي للشركة: عشان محدش يتكلم عن حاجات مش موجودة
@@ -355,18 +356,24 @@ Deno.serve(async (req) => {
       decision = await think(db, "ceo", persona(ceo, facts, rules),
       `ده الاجتماع اللايف مع رئيس مجلس الإدارة كله (الموضوع: ${meeting.topic}):\n${transcript}\n\n` +
       "اقفل الاجتماع: في \"say\" ملخص قصير (3 لـ 5 جمل) باللي اتقال واتفقنا عليه فعلًا في الاجتماع ده بس،" +
-      " وفي \"tasks\" قائمة [{\"agent_id\":..., \"title\":..., \"details\":...}] بالحاجات اللي رئيس مجلس الإدارة طلبها" +
+      " وفي \"tasks\" قائمة [{\"agent_id\":..., \"title\":..., \"details\":..., \"due\": \"today\" أو \"tomorrow\" أو YYYY-MM-DD}] بالحاجات اللي رئيس مجلس الإدارة طلبها" +
       " أو وافق عليها صراحةً بس. أي اقتراح ماوافقش عليه مايبقاش مهمة، وأي حاجة مش في الواقع الحقيقي للشركة ماتتكتبش." +
       ` أكواد الموظفين: ${teamList}`);
     } catch (e) {
       return fail(`نادر مش قادر يقفل الاجتماع دلوقتي، جرّب تاني بعد دقيقة: ${(e as Error).message}`, 503);
     }
-    const tasks = (Array.isArray(decision.tasks) ? decision.tasks : []) as { agent_id?: string; title?: string; details?: string }[];
+    const tasks = (Array.isArray(decision.tasks) ? decision.tasks : []) as { agent_id?: string; title?: string; details?: string; due?: string }[];
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const due = (d?: string) => {
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d < today ? today : d;
+      if (d && /tomorrow|بكر/.test(d)) { const x = new Date(`${today}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10); }
+      return today;
+    };
     const valid = tasks.filter((t) => t.agent_id && agents.has(t.agent_id) && t.title).slice(0, 15);
     if (valid.length) {
       await db.from("tasks").insert(valid.map((t) => ({
         agent_id: t.agent_id, meeting_id: meetingId, title: clip(t.title, 300),
-        details: `من الاجتماع اللايف مع رئيس مجلس الإدارة. ${clip(t.details, 1500)}`, status: "todo",
+        details: `من الاجتماع اللايف مع رئيس مجلس الإدارة. ${clip(t.details, 1500)}`, status: "todo", due_date: due(t.due),
       })));
     }
     const summary = String(decision.say ?? "");
