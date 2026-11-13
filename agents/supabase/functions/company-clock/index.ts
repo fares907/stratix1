@@ -19,7 +19,31 @@ const SPEAKERS_PER_TICK = 2;
 const TASKS_PER_TICK = 2;
 
 type Json = Record<string, unknown>;
-interface Agent { id: string; name: string; title: string; department: string; status: string; duties: string[]; instructions: string }
+interface Agent { id: string; name: string; title: string; department: string; status: string; duties: string[]; instructions: string; tools: string[] }
+
+// اللي كل صلاحية بتخلّي الموظف يعمله فعلًا (عشان مايوعدش بحاجة مش في إيده)
+const CAN: Record<string, string> = {
+  osm_search: "تدوّر على محلات ومطاعم مالهاش موقع على الخريطة (البحث بيشتغل أوتوماتيك كذا مرة في اليوم)",
+  write_leads: "تضيف المحلات اللي لقيتها لقايمة العملاء المحتملين",
+  read_leads: "تقرا قايمة العملاء المحتملين",
+  update_leads: "ترتّب العملاء المحتملين وتقيّمهم",
+  draft_message: "تكتب مسودات رسايل للعملاء (بتروح صندوق الموافقات، ورئيس مجلس الإدارة هو اللي بيوافق ويبعت الواتساب بنفسه)",
+  send_message: "تجهّز رسايل للإرسال، لكن مفيش رسالة بتطلع لعميل غير بعد موافقة رئيس مجلس الإدارة",
+  read_inbox: "تقرا ردود العملاء على الإيميل",
+  request_approval: "تطلب موافقة رئيس مجلس الإدارة من صندوق الموافقات",
+  view_finance: "تشوف أرقام الحسابات والفواتير والتحصيل من لوحة الموقع (قراية بس)",
+  view_bookings: "تشوف الحجوزات ومراحل المشاريع (قراية بس)",
+  view_contacts: "تشوف طلبات التواصل (قراية بس)",
+  view_stats: "تشوف إحصائيات الموقع (قراية بس)",
+  web_check: "تفحص الموقع من برّه (شغال ولا لأ، الشهادة، الحماية، السرعة)",
+  read_repo: "تقرا كود الموقع والتعديلات الأخيرة",
+  open_pull_request: "تفتح اقتراح تعديل على الكود (مايتنفذش غير لما رئيس مجلس الإدارة يوافق)",
+  comment_pull_request: "تراجع اقتراحات التعديل وتعلّق عليها",
+  read_infra: "تشوف الاشتراكات والبنية (قراية بس)",
+  read_all: "تقرا كل حاجة في الشركة",
+  assign_task: "توزّع مهام على الفريق",
+  write_report: "تكتب التقارير",
+};
 interface Task { id: number; agent_id: string; title: string; details: string | null; status: string; due_date: string | null; created_at: string; updated_at: string }
 
 const clip = (t: unknown, n: number) => String(t ?? "").replace(/\s+/g, " ").trim().slice(0, n);
@@ -118,6 +142,15 @@ async function llm(
   throw new Error("الموديلات مش متاحة دلوقتي");
 }
 
+const words = (t: string) => new Set(t.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 2));
+function similar(a: string, b: string) {
+  const A = words(a), B = words(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / Math.min(A.size, B.size);
+}
+
 function parse(text: string): Json {
   const m = text.match(/\{[\s\S]*\}/);
   try { return JSON.parse(m ? m[0] : text); } catch { return { say: text }; }
@@ -134,15 +167,21 @@ const REALITY =
 
 function persona(a: Agent, facts: Json) {
   const mine = clip(facts[a.id] ?? facts[a.department] ?? "", 900);
+  const can = (a.tools ?? []).map((t) => CAN[t]).filter(Boolean).map((t) => `- ${t}`).join("\n");
   return `انت ${a.name}، ${a.title} في شركة STRATIX. رؤساء مجلس الإدارة وأصحاب الشركة: فارس ويوسف.\n` +
     `شغلك: ${(a.duties ?? []).join("، ")}\n${clip(a.instructions, 500)}\n` +
-    `أرقامك الحقيقية: ${mine || "مفيش أرقام متسجلة عن شغلك."}\nأرقام الشركة: ${clip(facts._company, 500) || "-"}\n${REALITY}`;
+    `أرقامك الحقيقية: ${mine || "مفيش أرقام متسجلة عن شغلك."}\nأرقام الشركة: ${clip(facts._company, 500) || "-"}\n${REALITY}\n` +
+    `اللي تقدر تعمله فعلًا:\n${can || "- تكتب تقارير وخطط واقتراحات بس"}\n` +
+    "وتقدر دايمًا تكتب تقرير أو خطة أو مسودة أو مراجعة كتابةً. أي حاجة غير كده مش في إيدك: مالكش دخول على السيرفر ولا سجلاته ولا الاستضافة ولا تعديل الموقع مباشرة،" +
+    " ومحدش في الفريق بيبعت واتساب أو إيميل لعميل بنفسه. ماتوعدش بحاجة مش في إيدك؛ قول اللي هتعمله فعلًا، ولو محتاج حاجة من رئيس مجلس الإدارة قولها مرة واحدة بوضوح.\n" +
+    "انتبه للأسماء: «يوسف» اللي في الفريق موظف مراقبة الموقع، غير الأستاذ يوسف رئيس مجلس الإدارة. لما تقصد رئيس مجلس الإدارة قول «الأستاذ يوسف» أو «الأستاذ فارس» أو «الإدارة».\n" +
+    "فكّر قبل ما تتكلم: إيه أهم حاجة تفيد الشركة النهارده من شغلك انت؟ وابدأ بيها.";
 }
 
 // ── السياق المشترك ───────────────────────────────────────
 async function context(db: SupabaseClient) {
   const [{ data: roster }, { data: factsRow }, { data: notes }] = await Promise.all([
-    db.from("agents").select("id, name, title, department, status, duties, instructions").neq("status", "fired"),
+    db.from("agents").select("id, name, title, department, status, duties, instructions, tools").neq("status", "fired"),
     db.from("company_settings").select("value").eq("key", "latest_facts").maybeSingle(),
     db.from("chats").select("agent_id, content, created_at").eq("role", "owner")
       .gte("created_at", new Date(Date.now() - 3 * 86400_000).toISOString()).order("created_at", { ascending: false }).limit(20),
@@ -156,6 +195,9 @@ async function context(db: SupabaseClient) {
 type Ctx = Awaited<ReturnType<typeof context>>;
 
 const teamCodes = (ctx: Ctx) => [...ctx.agents.values()].map((a) => `${a.id}=${a.name}`).join("، ");
+// الفريق بقدرات كل واحد: عشان نادر يدّي كل مهمة للي يقدر يعملها فعلًا
+const teamAbilities = (ctx: Ctx) => [...ctx.agents.values()].filter((a) => a.status === "active")
+  .map((a) => `- ${a.id}=${a.name} (${a.title}): ${(a.tools ?? []).map((t) => CAN[t]).filter(Boolean).join("؛ ") || "تقارير وخطط بس"}`).join("\n");
 
 async function addTasks(db: SupabaseClient, ctx: Ctx, list: unknown, today: string, meetingId: number | null, source: string) {
   const rows = (Array.isArray(list) ? list : []).slice(0, 15)
@@ -226,14 +268,22 @@ async function meetingStep(db: SupabaseClient, ctx: Ctx, kind: "morning" | "even
     for (const a of queue.slice(0, SPEAKERS_PER_TICK)) {
       const myTasks = ((openTasks ?? []) as Json[]).filter((t) => t.agent_id === a.id).map((t) => clip(t.title, 100)).join("، ");
       const myDone = ((doneToday ?? []) as Json[]).filter((t) => t.agent_id === a.id).map((t) => clip(t.title, 100)).join("، ");
-      const out = parse(await llm(db, a.id, [
-        { role: "system", content: persona(a, ctx.facts) + "\nانت في " + label + " مع زمايلك. اتكلم بالعامية المصرية زي موظف حقيقي، 2 لـ 4 جمل، من غير عناوين ولا نجوم. رد بـ JSON بس." },
+      const ask = [
+        { role: "system", content: persona(a, ctx.facts) + "\nانت في " + label + " مع زمايلك. اتكلم بالعامية المصرية زي موظف حقيقي، 2 لـ 3 جمل، من غير عناوين ولا نجوم. رد بـ JSON بس." },
         { role: "user", content: `الكلام لحد دلوقتي:\n${clip(tail, 5000)}\n\n` +
           `مهامك المفتوحة: ${myTasks || "مفيش"}\nاللي سلّمته آخر 24 ساعة: ${myDone || "مفيش"}\n` +
           (kind === "morning" ? "قول هتعمل إيه النهارده بالظبط ومحتاج إيه من مين (لو محتاج). " : "قول عملت إيه النهارده فعلًا، وإيه اللي اتأخر وليه، وبكرة هتعمل إيه. ") +
-          "رد على زميل لو كلامه يخصك. ماتعيدش كلام اتقال. لو عندك فكرة جديدة مفيدة فعلًا حطها في idea، وغير كده سيبها فاضية.\n" +
+          "رد على زميل لو كلامه يخصك. ماتعيدش كلام اتقال: لو زميل قبلك طلب نفس الطلب أو قال نفس المعلومة (زي موافقة على الأسعار) ماتكررهاش،" +
+          " وقول بس الحاجة الخاصة بشغلك انت اللي محدش قالها. لو عندك فكرة جديدة مفيدة فعلًا حطها في idea، وغير كده سيبها فاضية.\n" +
           '{"say": "كلامك", "idea": "فكرة أو فاضي"}' },
-      ], { json: true, effort: "medium", max: 350 }));
+      ];
+      let out = parse(await llm(db, a.id, ask, { json: true, effort: "high", max: 350 }));
+      const before = tail.split("\n").map((l) => l.replace(/^[^:]+:\s*/, ""));
+      if (before.some((b) => similar(String(out.say ?? ""), b) > 0.5)) {
+        out = parse(await llm(db, a.id, [...ask, { role: "assistant", content: JSON.stringify(out) }, { role: "user", content:
+          "كلامك ده شبه كلام اتقال في الاجتماع. قوله تاني في جملتين بحاجة جديدة خاصة بشغلك انت بس، من غير ما تعيد طلبات زمايلك. JSON بس." }],
+          { json: true, effort: "medium", max: 300 }));
+      }
       const text = spoken(out.say);
       if (!text) continue;
       const { data: msg } = await db.from("messages").insert({ meeting_id: meeting.id, agent_id: a.id, kind: "speech", content: text }).select("id").single();
@@ -265,18 +315,31 @@ async function meetingStep(db: SupabaseClient, ctx: Ctx, kind: "morning" | "even
       "1) say: ملخص الاجتماع بالفصحى البسيطة في 3 لـ 6 جمل (اتفقنا على إيه ومين هيعمل إيه).\n" +
       "2) ideas: لكل فكرة {\"id\": رقمها, \"approve\": true/false, \"reason\": السبب}. اقبل بس اللي في حدود القواعد ومفيدة فعلًا.\n" +
       "3) tasks: مهام جديدة واضحة يقدر الموظف يسلّمها كتابةً (تقرير، رسالة، خطة، مراجعة) [{\"agent_id\",\"title\",\"details\",\"due\": \"today\" أو \"tomorrow\" أو تاريخ YYYY-MM-DD}]." +
-      " كل توجيه من رئيس مجلس الإدارة لسه ماتعملش لازم يبقى مهمة. ماتكررش مهمة مفتوحة.\n" +
-      `أكواد الموظفين: ${teamCodes(ctx)}\n{"say": "...", "ideas": [], "tasks": []}` },
+      " كل توجيه من رئيس مجلس الإدارة لسه ماتعملش لازم يبقى مهمة. ماتكررش مهمة مفتوحة." +
+      " ادّي كل مهمة للموظف اللي يقدر يعملها فعلًا بصلاحياته (شوف القايمة تحت)، وماتدّيش حد مهمة محتاجة دخول على سيرفر أو إرسال لعميل.\n" +
+      "4) permissions: لو رئيس مجلس الإدارة طلب فتح أو قفل صلاحية لموظف، نفّذها هنا بنفسك بدل ما تعملها مهمة: [{\"agent_id\",\"tool\",\"grant\": true/false}]." +
+      ` أكواد الصلاحيات: ${Object.keys(CAN).join("، ")}\n` +
+      `الفريق وقدرات كل واحد:\n${teamAbilities(ctx)}\n{"say": "...", "ideas": [], "tasks": [], "permissions": []}` },
   ], { json: true, effort: "high", max: 1500 }));
   for (const d of (Array.isArray(decision.ideas) ? decision.ideas : []) as Json[]) {
     const id = Number(d.id);
     if (!((ideas ?? []) as Json[]).some((p) => Number(p.id) === id)) continue;
     await db.from("proposals").update({ status: d.approve ? "approved" : "rejected", ceo_reason: clip(d.reason, 500) || null }).eq("id", id);
   }
+  const changed: string[] = [];
+  for (const p of (Array.isArray(decision.permissions) ? decision.permissions : []).slice(0, 10) as Json[]) {
+    const target = ctx.agents.get(String(p.agent_id));
+    const tool = String(p.tool);
+    if (!target || !CAN[tool]) continue;
+    const next = p.grant ? [...new Set([...(target.tools ?? []), tool])] : (target.tools ?? []).filter((t) => t !== tool);
+    const { error } = await db.from("agents").update({ tools: next }).eq("id", target.id);
+    if (!error) { target.tools = next; changed.push(`${p.grant ? "فتحت" : "قفلت"} لـ${target.name} صلاحية «${CAN[tool]}»`); }
+  }
   const added = await addTasks(db, ctx, decision.tasks, today, meeting.id, `من ${label}.`);
   const summary = spoken(decision.say) || `اتقفل ${label}.`;
   await db.from("messages").insert({ meeting_id: meeting.id, agent_id: "ceo", kind: "decision",
-    content: summary + (added ? `\n\nاتسجّل ${added} مهمة جديدة بمواعيدها.` : "") });
+    content: summary + (changed.length ? `\n\n${changed.map((c) => `✅ ${c}`).join("\n")}` : "") +
+      (added ? `\n\nاتسجّل ${added} مهمة جديدة بمواعيدها.` : "") });
   await db.from("meetings").update({ status: "done", summary, ended_at: new Date().toISOString() }).eq("id", meeting.id);
   return `closed:+${added} tasks`;
 }
@@ -316,8 +379,19 @@ async function doTasks(db: SupabaseClient, ctx: Ctx, today: string): Promise<num
           `3) handoff: لو المهمة محتاجة زميل يكمّل بعدك: {"agent_id","title","details","due"} وغير كده null. أكواد الفريق: ${teamCodes(ctx)}\n` +
           '{"result": "...", "note": "...", "handoff": null}' },
       ], { json: true, effort: "high", max: 2200 }));
-      const result = clip(out.result ?? out.say, 8000);
+      let result = clip(out.result ?? out.say, 8000);
       if (!result) throw new Error("فاضي");
+      // مراجعة قبل التسليم: نفّذ المطلوب بالظبط؟ فيه أرقام مش من البيانات؟ ناقص حاجة؟
+      try {
+        const review = parse(await llm(db, a.id, [
+          { role: "system", content: persona(a, ctx.facts) + "\nانت بتراجع شغلك قبل ما تسلّمه لرئيس مجلس الإدارة. رد بـ JSON بس." },
+          { role: "user", content: `المهمة: «${t.title}»\n${clip(t.details, 1200)}\n\nالمسودة:\n${result}\n\n` +
+            "راجعها بدقة: هل بتنفذ المطلوب بالظبط؟ فيها أي رقم أو حدث أو عميل مش موجود في بياناتك؟ فيها وعد بحاجة مش في إيدك؟ ناقصها حاجة مهمة؟ مكتوبة بفصحى واضحة؟" +
+            ' صحّح كل ده ورجّع النسخة النهائية كاملة: {"final": "..."}' },
+        ], { json: true, effort: "medium", max: 2200 }));
+        const fixed = clip(review.final, 8000);
+        if (fixed.length > result.length * 0.5) result = fixed;
+      } catch { /* المسودة الأولى كويسة كفاية */ }
       await db.from("tasks").update({ status: "done", result, completed_at: new Date().toISOString() }).eq("id", t.id);
       await db.from("messages").insert({ meeting_id: room, agent_id: a.id, kind: "activity",
         content: `✔ سلّمت: ${clip(t.title, 160)}${out.note ? ` — ${spoken(out.note)}` : ""}` });
