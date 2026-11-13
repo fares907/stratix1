@@ -195,6 +195,9 @@ async function context(db: SupabaseClient) {
 type Ctx = Awaited<ReturnType<typeof context>>;
 
 const teamCodes = (ctx: Ctx) => [...ctx.agents.values()].map((a) => `${a.id}=${a.name}`).join("، ");
+// الفريق بقدرات كل واحد: عشان نادر يدّي كل مهمة للي يقدر يعملها فعلًا
+const teamAbilities = (ctx: Ctx) => [...ctx.agents.values()].filter((a) => a.status === "active")
+  .map((a) => `- ${a.id}=${a.name} (${a.title}): ${(a.tools ?? []).map((t) => CAN[t]).filter(Boolean).join("؛ ") || "تقارير وخطط بس"}`).join("\n");
 
 async function addTasks(db: SupabaseClient, ctx: Ctx, list: unknown, today: string, meetingId: number | null, source: string) {
   const rows = (Array.isArray(list) ? list : []).slice(0, 15)
@@ -312,18 +315,31 @@ async function meetingStep(db: SupabaseClient, ctx: Ctx, kind: "morning" | "even
       "1) say: ملخص الاجتماع بالفصحى البسيطة في 3 لـ 6 جمل (اتفقنا على إيه ومين هيعمل إيه).\n" +
       "2) ideas: لكل فكرة {\"id\": رقمها, \"approve\": true/false, \"reason\": السبب}. اقبل بس اللي في حدود القواعد ومفيدة فعلًا.\n" +
       "3) tasks: مهام جديدة واضحة يقدر الموظف يسلّمها كتابةً (تقرير، رسالة، خطة، مراجعة) [{\"agent_id\",\"title\",\"details\",\"due\": \"today\" أو \"tomorrow\" أو تاريخ YYYY-MM-DD}]." +
-      " كل توجيه من رئيس مجلس الإدارة لسه ماتعملش لازم يبقى مهمة. ماتكررش مهمة مفتوحة.\n" +
-      `أكواد الموظفين: ${teamCodes(ctx)}\n{"say": "...", "ideas": [], "tasks": []}` },
+      " كل توجيه من رئيس مجلس الإدارة لسه ماتعملش لازم يبقى مهمة. ماتكررش مهمة مفتوحة." +
+      " ادّي كل مهمة للموظف اللي يقدر يعملها فعلًا بصلاحياته (شوف القايمة تحت)، وماتدّيش حد مهمة محتاجة دخول على سيرفر أو إرسال لعميل.\n" +
+      "4) permissions: لو رئيس مجلس الإدارة طلب فتح أو قفل صلاحية لموظف، نفّذها هنا بنفسك بدل ما تعملها مهمة: [{\"agent_id\",\"tool\",\"grant\": true/false}]." +
+      ` أكواد الصلاحيات: ${Object.keys(CAN).join("، ")}\n` +
+      `الفريق وقدرات كل واحد:\n${teamAbilities(ctx)}\n{"say": "...", "ideas": [], "tasks": [], "permissions": []}` },
   ], { json: true, effort: "high", max: 1500 }));
   for (const d of (Array.isArray(decision.ideas) ? decision.ideas : []) as Json[]) {
     const id = Number(d.id);
     if (!((ideas ?? []) as Json[]).some((p) => Number(p.id) === id)) continue;
     await db.from("proposals").update({ status: d.approve ? "approved" : "rejected", ceo_reason: clip(d.reason, 500) || null }).eq("id", id);
   }
+  const changed: string[] = [];
+  for (const p of (Array.isArray(decision.permissions) ? decision.permissions : []).slice(0, 10) as Json[]) {
+    const target = ctx.agents.get(String(p.agent_id));
+    const tool = String(p.tool);
+    if (!target || !CAN[tool]) continue;
+    const next = p.grant ? [...new Set([...(target.tools ?? []), tool])] : (target.tools ?? []).filter((t) => t !== tool);
+    const { error } = await db.from("agents").update({ tools: next }).eq("id", target.id);
+    if (!error) { target.tools = next; changed.push(`${p.grant ? "فتحت" : "قفلت"} لـ${target.name} صلاحية «${CAN[tool]}»`); }
+  }
   const added = await addTasks(db, ctx, decision.tasks, today, meeting.id, `من ${label}.`);
   const summary = spoken(decision.say) || `اتقفل ${label}.`;
   await db.from("messages").insert({ meeting_id: meeting.id, agent_id: "ceo", kind: "decision",
-    content: summary + (added ? `\n\nاتسجّل ${added} مهمة جديدة بمواعيدها.` : "") });
+    content: summary + (changed.length ? `\n\n${changed.map((c) => `✅ ${c}`).join("\n")}` : "") +
+      (added ? `\n\nاتسجّل ${added} مهمة جديدة بمواعيدها.` : "") });
   await db.from("meetings").update({ status: "done", summary, ended_at: new Date().toISOString() }).eq("id", meeting.id);
   return `closed:+${added} tasks`;
 }
