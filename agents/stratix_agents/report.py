@@ -119,7 +119,8 @@ def write_daily(company: Company, facts: dict[str, str], meeting_id: int | None)
     titles = {k: v.title for k, v in specs.items()} | {a["id"]: a.get("title") or "" for a in store.select("agents")}
     pending = store.select("approvals", status="pending")
     meeting = store.select("meetings", id=meeting_id)[0] if meeting_id else None
-    today_meetings = [m for m in store.select("meetings") if _is_today(m, "started_at") and m.get("status") == "done"]
+    today_meetings = [m for m in store.select("meetings") if _is_today(m, "started_at") and m.get("status") == "done"
+                      and m.get("kind") != "work"]
 
     # فحوصات الموقع: آخر نتيجة لكل بند النهارده
     checks: dict[str, dict] = {}
@@ -223,7 +224,8 @@ def write_daily(company: Company, facts: dict[str, str], meeting_id: int | None)
     headline = (f"تقرير STRATIX {_today()}: {n['leads_new_today']} عميل جديد، {n['replies_today']} رد، "
                 f"{len(pending)} بانتظار موافقتك" + (f"، {len(problems)} ملاحظة على الموقع" if problems else ""))
     row = {"report_date": _today(), "headline": headline, "body": "\n".join(lines),
-           "numbers": n, "meeting_id": meeting_id, "data": data}
+           "numbers": n, "meeting_id": meeting_id, "data": data,
+           "created_at": datetime.now(timezone.utc).isoformat()}  # إعادة الكتابة بتحدّث الوقت
     store.upsert("daily_reports", [row], on_conflict="report_date")
     return row
 

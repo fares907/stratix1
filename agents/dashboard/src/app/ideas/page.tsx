@@ -25,6 +25,7 @@ interface Task {
   result: string | null;
   completed_at: string | null;
   status: "todo" | "doing" | "done" | "blocked";
+  due_date: string | null;
   created_at: string;
 }
 
@@ -101,6 +102,11 @@ export default function IdeasPage() {
                 </select>
               </div>
               <p style={{ margin: "6px 0" }}>{t.title}</p>
+              {t.due_date && t.status !== "done" && (
+                <p className="muted" style={{ margin: "0 0 6px" }}>
+                  ميعادها: {new Date(`${t.due_date}T12:00:00`).toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
+                </p>
+              )}
               {t.details && <p className="muted">{t.details}</p>}
               {t.result && (
                 <details open={Boolean(t.completed_at && Date.now() - new Date(t.completed_at).getTime() < 86_400_000)}>

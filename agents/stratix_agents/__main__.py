@@ -195,8 +195,11 @@ def cmd_morning(cfg: config_mod.Config) -> None:
         extra[dev] = "\n\n".join(p for p in parts if p)
     facts = report.build_facts(company, extra)
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
-    _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
-    _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
+    # الاجتماعات والمهام بقت شغل «ساعة الشركة» على Supabase (بتشتغل في ميعادها بالظبط).
+    # هنا بنجهّز الأرقام اللي الفريق بيتكلم عليها، ولو الساعة مش شغالة لأي سبب بنعمل الاجتماع احتياطي.
+    if not _clock_alive(company):
+        _step(company, "اجتماع الصبح", meeting.run, company, facts, "morning")
+        _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
 
     # بعد الاجتماع: الكشّاف (سيرفرات الخريطة ممكن تبقى مزحومة، فليه وقت محدود)
     scout_agent = company.agent("scout")
@@ -215,8 +218,24 @@ def cmd_morning(cfg: config_mod.Config) -> None:
     _step(company, "إشعارات", _notify_new_approvals, company)
 
 
+def _report_is_fresh(company: Company) -> bool:
+    """تقرير النهارده اتكتب بعد ما اجتماع آخر اليوم خلص؟ (GitHub بيجرّب كذا مرة، والأولى اللي تنجح بتكفي)"""
+    from .store import _today_utc
+
+    reports = company.store.select("daily_reports", report_date=_today_utc())
+    evening = [m for m in company.store.select("meetings", kind="evening", status="done")
+               if str(m.get("started_at", "")).startswith(_today_utc())]
+    if not reports or not evening:
+        return False
+    ended = max(str(m.get("ended_at") or "") for m in evening)
+    return str(reports[0].get("created_at") or "") >= ended
+
+
 def cmd_evening(cfg: config_mod.Config) -> None:
     company = from_env()
+    if _report_is_fresh(company):
+        print("تقرير النهارده اتكتب بعد اجتماع آخر اليوم خلاص.")
+        return
     mailer = _mailer(company.env)
     if mailer:
         _step(company, "الوارد", sales.inbox, company, mailer)
@@ -224,8 +243,15 @@ def cmd_evening(cfg: config_mod.Config) -> None:
     extra = _step(company, "أرقام الموقع", _site_db_facts, company) or {}
     facts = report.build_facts(company, extra)
     _step(company, "حفظ الأرقام", _save_facts, company, facts)
-    _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
-    mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
+    from .store import _today_utc
+
+    done_evening = [m for m in company.store.select("meetings", kind="evening", status="done")
+                    if str(m.get("started_at", "")).startswith(_today_utc())]
+    mid = done_evening[-1]["id"] if done_evening else None
+    if not _clock_alive(company):
+        _step(company, "تنفيذ المهام", work.do_open_tasks, company, facts)
+        if not held_today(company.store.select("meetings", kind="evening", status="done"), "evening"):
+            mid = _step(company, "اجتماع آخر اليوم", meeting.run, company, facts, "evening")
     daily = _step(company, "التقرير اليومي", report.write_daily, company, facts, mid)
     if daily:
         _step(company, "PDF التقرير", pdfreport.attach, company, daily)
@@ -267,6 +293,19 @@ COMMANDS = {
 }
 
 
+def _clock_alive(company: Company) -> bool:
+    """ساعة الشركة (Supabase) اشتغلت آخر ساعة؟ لو آه هي اللي بتعمل الاجتماعات والمهام."""
+    from datetime import datetime, timedelta, timezone
+
+    since = datetime.now(timezone.utc) - timedelta(hours=1)
+    for row in company.store.select("company_settings", key="clock_seen"):
+        try:
+            return datetime.fromisoformat(str((row.get("value") or {}).get("at"))) > since
+        except ValueError:
+            return False
+    return False
+
+
 def held_today(meetings: list[dict], kind: str, zone: str = "Africa/Cairo") -> bool:
     """فيه اجتماع من النوع ده خلص النهارده (بتوقيت القاهرة)؟"""
     from datetime import datetime
@@ -289,18 +328,8 @@ def main(argv: list[str]) -> None:
     cfg = config_mod.load()
     if argv[0] in ("morning", "evening", "inbox", "sales"):
         ok, why = within_working_hours(cfg.rules)
-        # اجتماع آخر اليوم والتقرير ليهم سماح ساعتين لو GitHub أخّر الميعاد (بيتعمل مرة واحدة بس في اليوم)
-        if not ok and argv[0] == "evening":
-            from datetime import datetime, timedelta, timezone
-            ok, _ = within_working_hours(cfg.rules, datetime.now(timezone.utc) - timedelta(hours=2))
         if not ok:
             print(f"برّا مواعيد العمل — مفيش شغل. {why}")
-            return
-    # GitHub ساعات بيأخّر المواعيد، فبنحط أكتر من ميعاد احتياطي؛ اللي يوصل الأول يعمل الاجتماع والباقي يسيبه
-    if argv[0] in ("morning", "evening"):
-        zone = (cfg.rules.get("working_hours") or {}).get("timezone", "Africa/Cairo")
-        if held_today(from_env().store.select("meetings", kind=argv[0], status="done"), argv[0], zone):
-            print(f"اجتماع {argv[0]} اتعمل النهارده خلاص.")
             return
     try:
         COMMANDS[argv[0]](cfg)
