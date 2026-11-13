@@ -45,6 +45,7 @@ import {
   Sun,
   Trash2,
   Wallet,
+  Wrench,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -1945,6 +1946,59 @@ const navItems: Array<{
   { id: "invoices", labelKey: "navInvoices", icon: Receipt },
 ];
 
+// زرار الصيانة: بيقفل الموقع على الزوار بصفحة «بنطوّر الموقع»، ولوحة التحكم ولوحة الموظفين شغالين عادي.
+function MaintenanceSwitch({ lang }: { lang: Lang }) {
+  const ar = lang === "ar";
+  const utils = trpc.useUtils();
+  const state = trpc.adminSite.maintenance.useQuery(undefined, { refetchInterval: 60_000 });
+  const mutation = trpc.adminSite.setMaintenance.useMutation({
+    onSuccess: data => {
+      utils.adminSite.maintenance.setData(undefined, data);
+      toast.success(
+        data.on
+          ? ar ? "الموقع اتقفل للصيانة. الزوار شايفين صفحة «بنطوّر الموقع»." : "The site is closed for maintenance."
+          : ar ? "الموقع رجع شغال للناس عادي." : "The site is open again.",
+      );
+    },
+    onError: error => toast.error(ar ? "ماقدرتش أغيّر وضع الصيانة" : "Could not change maintenance mode", { description: error.message }),
+  });
+  const on = state.data?.on ?? false;
+  const toggle = () => {
+    const question = on
+      ? ar ? "تفتح الموقع للناس تاني؟" : "Open the site to visitors again?"
+      : ar
+        ? "تقفل الموقع على الزوار وتظهر لهم صفحة «بنطوّر الموقع»؟ لوحة التحكم ولوحة الموظفين هيفضلوا شغالين."
+        : "Close the site to visitors and show a maintenance page? The dashboards stay open.";
+    if (window.confirm(question)) mutation.mutate({ on: !on });
+  };
+  return (
+    <Button
+      variant={on ? "destructive" : "outline"}
+      size="sm"
+      onClick={toggle}
+      disabled={state.isLoading || mutation.isPending}
+      title={ar ? "وضع الصيانة" : "Maintenance mode"}
+    >
+      <Wrench className="size-4" />
+      <span className="hidden sm:inline">
+        {on ? (ar ? "الموقع مقفول — افتحه" : "Closed — reopen") : ar ? "اقفل للصيانة" : "Maintenance"}
+      </span>
+    </Button>
+  );
+}
+
+function MaintenanceBanner({ lang }: { lang: Lang }) {
+  const on = trpc.adminSite.maintenance.useQuery(undefined, { refetchInterval: 60_000 }).data?.on;
+  if (!on) return null;
+  return (
+    <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+      {lang === "ar"
+        ? "الموقع مقفول دلوقتي على الزوار (وضع الصيانة). أي حد يدخل بيشوف صفحة «بنطوّر الموقع». لما تخلص دوس «الموقع مقفول — افتحه» فوق."
+        : "The site is closed to visitors (maintenance mode). Press “Closed — reopen” above when you're done."}
+    </div>
+  );
+}
+
 function DashboardShell({
   accountName,
   prefs,
@@ -2017,6 +2071,7 @@ function DashboardShell({
             </h2>
           </div>
           <div className="flex items-center gap-1.5">
+            <MaintenanceSwitch lang={lang} />
             <Button variant="ghost" size="icon" onClick={toggleLang} aria-label="language" title="AR / EN">
               <Globe />
             </Button>
@@ -2031,6 +2086,7 @@ function DashboardShell({
         </header>
 
         <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
+          <MaintenanceBanner lang={lang} />
           <div className="md:hidden mb-4">
             <h2 className="font-semibold text-lg">{sectionMeta[section].title}</h2>
             <p className="text-sm text-muted-foreground">{sectionMeta[section].sub}</p>

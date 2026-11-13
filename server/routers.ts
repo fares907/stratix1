@@ -30,6 +30,7 @@ import {
 } from "./db";
 import { BOOKING_STAGES } from "../drizzle/schema";
 import { trackOrder, trackingLookupSchema } from "./tracking";
+import { getMaintenance, setMaintenance } from "./maintenance";
 import { systemRouter } from "./_core/systemRouter";
 import { adminSessionProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -69,6 +70,14 @@ export const appRouter = router({
   }),
 
   adminAuth: adminAuthRouter,
+
+  // Maintenance mode: closes the public site with a "back soon" page; the dashboards stay open.
+  adminSite: router({
+    maintenance: adminSessionProcedure.query(() => getMaintenance(true)),
+    setMaintenance: adminSessionProcedure
+      .input(z.object({ on: z.boolean() }))
+      .mutation(({ input }) => setMaintenance(input.on)),
+  }),
 
   adminBookings: router({
     list: adminSessionProcedure

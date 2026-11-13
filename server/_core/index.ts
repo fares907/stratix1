@@ -11,6 +11,7 @@ import { createSecurityHeaders } from "./securityHeaders";
 import { assertProductionSecrets } from "./env";
 import { API_RATE_LIMIT, STATIC_RATE_LIMIT, createRateLimiter } from "./rateLimit";
 import { requireCloudflareOrigin } from "./origin";
+import { maintenanceGate } from "../maintenance";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -46,6 +47,9 @@ async function startServer() {
   app.use(createRateLimiter(STATIC_RATE_LIMIT));
   app.use(createSecurityHeaders());
   app.use(express.json({ limit: "256kb" }));
+  // Maintenance mode (switched from the admin dashboard): visitors see a "back soon" page,
+  // while /admin, /hq and the dashboards' APIs keep working.
+  app.use(maintenanceGate());
   // tRPC API — the stricter limiter runs before the adapter so a shed request
   // never allocates a context or borrows a database connection.
   app.use(
