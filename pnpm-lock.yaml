@@ -188,14 +188,14 @@ importers:
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
       '@trpc/client':
-        specifier: ^11.28.1
-        version: 11.28.1(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
+        specifier: ^11.28.3
+        version: 11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
       '@trpc/react-query':
-        specifier: ^11.28.1
-        version: 11.28.1(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.28.1(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
+        specifier: ^11.28.3
+        version: 11.28.3(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
       '@trpc/server':
-        specifier: ^11.28.1
-        version: 11.28.1(@types/express@5.0.6)(typescript@7.0.2)
+        specifier: ^11.28.3
+        version: 11.28.3(@types/express@5.0.6)(typescript@7.0.2)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -224,8 +224,8 @@ importers:
         specifier: ^1.13.16
         version: 1.13.16
       lucide-react:
-        specifier: ^1.73.0
-        version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^1.74.0
+        version: 1.74.0(@types/react@19.3.0)(react@19.3.1)
       motion:
         specifier: 14.14.0
         version: 14.14.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1169,23 +1169,23 @@ packages:
       '@types/react':
         optional: true
 
-  '@trpc/client@11.28.1':
-    resolution: {integrity: sha512-/Z6Nwoc3GO35ZeXwR2gTLIZEIBqr9oZ4GanKDb4WvrE8I4t8HtpbY+ILe1LGEJywQWBN3aG+oVRL7nqNDEQ/zQ==}
+  '@trpc/client@11.28.3':
+    resolution: {integrity: sha512-NnMXBOCVzPMELdQH/X26MhI4u9g83nxWy3apc7UX1beevUk6rEYqfOboqCb/rVoVPu3CBVaPb8PB7AG51oEKvQ==}
     peerDependencies:
-      '@trpc/server': 11.28.1
+      '@trpc/server': 11.28.3
       typescript: '>=5.7.2'
 
-  '@trpc/react-query@11.28.1':
-    resolution: {integrity: sha512-W8t1x2ejuZc9IWPI+VqrqRjIcs5F6Ym+0h4tyqF7DtEGat9ZjhbQZ7cOJQsoXHIApoqx7xK+PX1Oa+otbARBxg==}
+  '@trpc/react-query@11.28.3':
+    resolution: {integrity: sha512-mRzESszF19o5quvxW1mM+24jb1l0lyq4ZhzzhZKNqS95KZ78DBOeSkRGD5793Q2WyWwoNRtZDpn1FB5DS/cryA==}
     peerDependencies:
       '@tanstack/react-query': ^5.80.3
-      '@trpc/client': 11.28.1
-      '@trpc/server': 11.28.1
+      '@trpc/client': 11.28.3
+      '@trpc/server': 11.28.3
       react: '>=18.2.0'
       typescript: '>=5.7.2'
 
-  '@trpc/server@11.28.1':
-    resolution: {integrity: sha512-Xb+bHKcCUvwLkJCHfq6sNYFQHiRMJW/F2aCj7cbF3ufr7pPNx61mic/McDL3pTTx29IqL/chQTLOXoB28UcS2Q==}
+  '@trpc/server@11.28.3':
+    resolution: {integrity: sha512-os9o1enNvbcSSyn9agxsYPkIE8kWK7IJbkD5/ySCCApsdM58cFZ5IF410G9Q0k3RwKfsM2Q/GbGp1rbgCWLp5Q==}
     peerDependencies:
       '@types/aws-lambda': '*'
       '@types/express': '*'
@@ -1977,8 +1977,8 @@ packages:
     resolution: {integrity: sha512-5J9ysMYUpYIg9RF2vJpy9SinEmSviFSe0GyPpCQ4L5QSkLAgeLXlTAOu2ZwWUU5m+0SBl6gUU1R1ZQB3aKypfA==}
     engines: {bun: '>=1.0.0', deno: '>=1.30.0', node: '>=8.0.0'}
 
-  lucide-react@1.73.0:
-    resolution: {integrity: sha512-fVOzGviL9mTfHenG1PbCfIceavyGlnpYNSYr+aGZHLRymAJ7DTP6KHuqt0uBkCKAoenr1UVkwSbDIYt2xIesEQ==}
+  lucide-react@1.74.0:
+    resolution: {integrity: sha512-A1doIs/1fj1WnPbtIT7WRiM6Kvw5NUg+BtkoOh3Shpr4obwSDVt6WxCEcNH56EWprzuCoKle1OF0RqIkojwL1A==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -3091,20 +3091,20 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@trpc/client@11.28.1(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)':
+  '@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)':
     dependencies:
-      '@trpc/server': 11.28.1(@types/express@5.0.6)(typescript@7.0.2)
+      '@trpc/server': 11.28.3(@types/express@5.0.6)(typescript@7.0.2)
       typescript: 7.0.2
 
-  '@trpc/react-query@11.28.1(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.28.1(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
+  '@trpc/react-query@11.28.3(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
     dependencies:
       '@tanstack/react-query': 5.107.1(@types/react@19.3.0)(react@19.3.1)
-      '@trpc/client': 11.28.1(@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
-      '@trpc/server': 11.28.1(@types/express@5.0.6)(typescript@7.0.2)
+      '@trpc/client': 11.28.3(@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
+      '@trpc/server': 11.28.3(@types/express@5.0.6)(typescript@7.0.2)
       react: 19.3.1
       typescript: 7.0.2
 
-  '@trpc/server@11.28.1(@types/express@5.0.6)(typescript@7.0.2)':
+  '@trpc/server@11.28.3(@types/express@5.0.6)(typescript@7.0.2)':
     dependencies:
       typescript: 7.0.2
     optionalDependencies:
@@ -3730,7 +3730,7 @@ snapshots:
 
   lru.min@1.1.5: {}
 
-  lucide-react@1.73.0(@types/react@19.3.0)(react@19.3.1):
+  lucide-react@1.74.0(@types/react@19.3.0)(react@19.3.1):
     dependencies:
       react: 19.3.1
     optionalDependencies:
