@@ -185,17 +185,17 @@ importers:
         specifier: ^1.5.0
         version: 1.5.0(@types/react@19.3.0)(react@19.3.1)
       '@tanstack/react-query':
-        specifier: ^5.108.3
-        version: 5.108.3(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.108.4
+        version: 5.108.4(@types/react@19.3.0)(react@19.3.1)
       '@trpc/client':
-        specifier: ^11.29.7
-        version: 11.29.7(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
+        specifier: ^11.31.0
+        version: 11.31.0(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
       '@trpc/react-query':
         specifier: ^11.28.5
-        version: 11.28.5(@tanstack/react-query@5.108.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.29.7(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
+        version: 11.28.5(@tanstack/react-query@5.108.4(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.31.0(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
       '@trpc/server':
-        specifier: ^11.29.7
-        version: 11.29.7(@types/express@5.0.6)(typescript@7.0.2)
+        specifier: ^11.31.0
+        version: 11.31.0(@types/express@5.0.6)(typescript@7.0.2)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -224,8 +224,8 @@ importers:
         specifier: ^1.13.17
         version: 1.13.17
       lucide-react:
-        specifier: ^1.78.0
-        version: 1.78.0(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^1.79.0
+        version: 1.79.0(@types/react@19.3.0)(react@19.3.1)
       motion:
         specifier: 14.14.0
         version: 14.14.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -242,8 +242,8 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
       recharts:
-        specifier: ^3.11.0
-        version: 3.11.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)(redux@5.0.1)
+        specifier: ^3.11.1
+        version: 3.11.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)(redux@5.0.1)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1154,11 +1154,11 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/query-core@5.108.3':
-    resolution: {integrity: sha512-Lh8fyLDlHOdZXfUB+G1M5bKxfQ1Y0/mfydFP+pMjFKweAU4OUiC4MyIBTcW7Ck+Iwt6K3/pzvADrJi2Dc1lwuQ==}
+  '@tanstack/query-core@5.108.4':
+    resolution: {integrity: sha512-2Ks5dlLWz4eXJrthOyG0qW3SLt3xx0RrQmAmN0rnmogiaaOYuWiAe6HAm9KE2b2v8nig+vraNz8fsfZ6fF6zFg==}
 
-  '@tanstack/react-query@5.108.3':
-    resolution: {integrity: sha512-dd9eDuqr6hvoTycO+wwuIgdA10S9gRA5EYsJCByhiATp/Xy0D51XgJUCRYJONgKs3URKApbBfNl8mgAe5wI0+Q==}
+  '@tanstack/react-query@5.108.4':
+    resolution: {integrity: sha512-GlTa94kfEKTVsbzXe58rFA3GZ0ZE7N1aFtbZAfOS3XxMv8YNn4C+8rsz40LorHLazdm5PsqCroWaYAR+ZkMXMQ==}
     peerDependencies:
       '@types/react': ^18 || ^19
       react: ^18 || ^19
@@ -1166,10 +1166,10 @@ packages:
       '@types/react':
         optional: true
 
-  '@trpc/client@11.29.7':
-    resolution: {integrity: sha512-cW/8uDPDBEzSBdEoV0fLb6JL5U/YTOZRktLI7/bJJVsb9dz+qhYJST6YJEaI8yM6oz4MfnpCKf7Sk609zvjNxA==}
+  '@trpc/client@11.31.0':
+    resolution: {integrity: sha512-XFV6hZtl3ZyiewQvEy2/i29uDw4e3f+EdLa2XFe9cKJTmzyALjEw0QqBkIp4vchMW2quSD8X25fK7+1K/SrVNw==}
     peerDependencies:
-      '@trpc/server': 11.29.7
+      '@trpc/server': 11.31.0
       typescript: '>=5.7.2'
 
   '@trpc/react-query@11.28.5':
@@ -1181,8 +1181,8 @@ packages:
       react: '>=18.2.0'
       typescript: '>=5.7.2'
 
-  '@trpc/server@11.29.7':
-    resolution: {integrity: sha512-9chUuB0abOfVkCm87lFQ3PTUJzPlErlf5HOBzvwtiGl7B0YdPBul1O597NTzjUcF1XDTsRqdnQfrz7BeptzSXQ==}
+  '@trpc/server@11.31.0':
+    resolution: {integrity: sha512-mxX3wVxHSc5kO22yuHb4CvYdVcnE8rROhdqxRR5by72kHtpoOxy2mUCS8N8rtNWgI6WEXxFOFDgX1XeTVa4CdA==}
     peerDependencies:
       '@types/aws-lambda': '*'
       '@types/express': '*'
@@ -1963,8 +1963,8 @@ packages:
     resolution: {integrity: sha512-5J9ysMYUpYIg9RF2vJpy9SinEmSviFSe0GyPpCQ4L5QSkLAgeLXlTAOu2ZwWUU5m+0SBl6gUU1R1ZQB3aKypfA==}
     engines: {bun: '>=1.0.0', deno: '>=1.30.0', node: '>=8.0.0'}
 
-  lucide-react@1.78.0:
-    resolution: {integrity: sha512-61NFdT5ZfAY8xs3LWKkB78GVeuiCcjYFEXeHWxWP+mQhP+UWLGsA9hJZQPtIyXRDhOvT8kgmWwAIyH5L7RIhAA==}
+  lucide-react@1.79.0:
+    resolution: {integrity: sha512-MDHKxzUobPRyQgt4hHO1z+pUQJKYMvenh8qw+ndWQE0Wg+Hbjli/ZrkZXBGmRBrMvvqDRjkmQj0Z5RbeL/ogNw==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -2159,8 +2159,8 @@ packages:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
 
-  recharts@3.11.0:
-    resolution: {integrity: sha512-Hs7vXskAYl82TKKkeikPxMFOaOqVJBoqxay6a4Oj+sBURVorpSKk8J732vyNsmedxK08lpPhyj2GL4E6ZMHR6Q==}
+  recharts@3.11.1:
+    resolution: {integrity: sha512-3XYqpdvpOYRDbi6NUMUEStTRXLmSmw9GJ/cp3xGbACLt+0PEa5CnWfg5Wi4VN7YLtVA5/hJiIhNPoxntWaTY/g==}
     engines: {node: '>=18'}
     peerDependencies:
       '@types/react': '*'
@@ -3067,29 +3067,29 @@ snapshots:
       tailwindcss: 4.3.5
       vite: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
 
-  '@tanstack/query-core@5.108.3': {}
+  '@tanstack/query-core@5.108.4': {}
 
-  '@tanstack/react-query@5.108.3(@types/react@19.3.0)(react@19.3.1)':
+  '@tanstack/react-query@5.108.4(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.108.3
+      '@tanstack/query-core': 5.108.4
       react: 19.3.1
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@trpc/client@11.29.7(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)':
+  '@trpc/client@11.31.0(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)':
     dependencies:
-      '@trpc/server': 11.29.7(@types/express@5.0.6)(typescript@7.0.2)
+      '@trpc/server': 11.31.0(@types/express@5.0.6)(typescript@7.0.2)
       typescript: 7.0.2
 
-  '@trpc/react-query@11.28.5(@tanstack/react-query@5.108.3(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.29.7(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
+  '@trpc/react-query@11.28.5(@tanstack/react-query@5.108.4(@types/react@19.3.0)(react@19.3.1))(@trpc/client@11.31.0(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2))(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)':
     dependencies:
-      '@tanstack/react-query': 5.108.3(@types/react@19.3.0)(react@19.3.1)
-      '@trpc/client': 11.29.7(@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
-      '@trpc/server': 11.29.7(@types/express@5.0.6)(typescript@7.0.2)
+      '@tanstack/react-query': 5.108.4(@types/react@19.3.0)(react@19.3.1)
+      '@trpc/client': 11.31.0(@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2))(typescript@7.0.2)
+      '@trpc/server': 11.31.0(@types/express@5.0.6)(typescript@7.0.2)
       react: 19.3.1
       typescript: 7.0.2
 
-  '@trpc/server@11.29.7(@types/express@5.0.6)(typescript@7.0.2)':
+  '@trpc/server@11.31.0(@types/express@5.0.6)(typescript@7.0.2)':
     dependencies:
       typescript: 7.0.2
     optionalDependencies:
@@ -3705,7 +3705,7 @@ snapshots:
 
   lru.min@1.1.5: {}
 
-  lucide-react@1.78.0(@types/react@19.3.0)(react@19.3.1):
+  lucide-react@1.79.0(@types/react@19.3.0)(react@19.3.1):
     dependencies:
       react: 19.3.1
     optionalDependencies:
@@ -3875,7 +3875,7 @@ snapshots:
 
   react@19.3.1: {}
 
-  recharts@3.11.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)(redux@5.0.1):
+  recharts@3.11.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@19.3.1)(react@19.3.1)(redux@5.0.1):
     dependencies:
       '@reduxjs/toolkit': 2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1)
       clsx: 2.1.1
